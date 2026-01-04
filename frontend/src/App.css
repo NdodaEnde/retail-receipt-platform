@@ -1,34 +1,136 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+.App {
+    min-height: 100vh;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
+/* Hero Background */
+.hero-bg {
+    background-image: url('https://images.unsplash.com/photo-1759270977163-a5583712fbb8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NjZ8MHwxfHNlYXJjaHwxfHxuZW9uJTIwY2l0eSUyMG5pZ2h0JTIwcmV0YWlsfGVufDB8fHx8MTc2NzUyOTA4Mnww&ixlib=rb-4.1.0&q=85');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+.hero-overlay {
+    background: linear-gradient(to bottom, rgba(5, 5, 5, 0.7), rgba(5, 5, 5, 0.95));
+}
+
+/* Win Celebration Background */
+.win-bg {
+    background-image: url('https://images.unsplash.com/photo-1759866221819-b470f019c726?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwxfHxnb2xkJTIwY29uZmV0dGklMjBjZWxlYnJhdGlvbiUyMGJsYWNrJTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3Njc1MjkwODV8MA&ixlib=rb-4.1.0&q=85');
+    background-size: cover;
+    background-position: center;
+}
+
+/* Stat Card Gradients */
+.stat-card-purple {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.05) 100%);
+    border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.stat-card-green {
+    background: linear-gradient(135deg, rgba(0, 255, 128, 0.15) 0%, rgba(0, 255, 128, 0.05) 100%);
+    border: 1px solid rgba(0, 255, 128, 0.2);
+}
+
+.stat-card-pink {
+    background: linear-gradient(135deg, rgba(255, 0, 255, 0.15) 0%, rgba(255, 0, 255, 0.05) 100%);
+    border: 1px solid rgba(255, 0, 255, 0.2);
+}
+
+.stat-card-cyan {
+    background: linear-gradient(135deg, rgba(0, 255, 255, 0.15) 0%, rgba(0, 255, 255, 0.05) 100%);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+}
+
+/* Receipt Card */
+.receipt-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.receipt-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 10px;
+    background: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 5px,
+        hsl(var(--background)) 5px,
+        hsl(var(--background)) 10px
+    );
+}
+
+/* Map Marker Pulse */
+@keyframes marker-pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.5);
+        opacity: 0.5;
+    }
+    100% {
+        transform: scale(2);
+        opacity: 0;
     }
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+.marker-pulse {
+    animation: marker-pulse 2s ease-out infinite;
 }
 
-.App-link {
-    color: #61dafb;
+/* Chart Tooltip */
+.recharts-tooltip-wrapper {
+    outline: none !important;
 }
 
-@keyframes App-logo-spin {
+.recharts-default-tooltip {
+    background: hsl(var(--card)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+    border-radius: var(--radius) !important;
+}
+
+.recharts-tooltip-label {
+    color: hsl(var(--foreground)) !important;
+}
+
+.recharts-tooltip-item {
+    color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Number Counter Animation */
+@keyframes count-up {
     from {
-        transform: rotate(0deg);
+        opacity: 0;
+        transform: translateY(10px);
     }
     to {
-        transform: rotate(360deg);
+        opacity: 1;
+        transform: translateY(0);
     }
+}
+
+.count-up {
+    animation: count-up 0.5s ease-out forwards;
+}
+
+/* Confetti Animation */
+@keyframes confetti-fall {
+    0% {
+        transform: translateY(-100%) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) rotate(720deg);
+        opacity: 0;
+    }
+}
+
+.confetti {
+    animation: confetti-fall 3s ease-out forwards;
 }
