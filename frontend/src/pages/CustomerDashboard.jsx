@@ -243,7 +243,7 @@ export default function CustomerDashboard() {
             <Card className="stat-card-green rounded-2xl">
               <CardContent className="p-4">
                 <DollarSign className="w-5 h-5 text-secondary mb-2" />
-                <p className="font-mono text-2xl font-bold">${customer.total_spent?.toFixed(2) || '0.00'}</p>
+                <p className="font-mono text-2xl font-bold">R{customer.total_spent?.toFixed(2) || '0.00'}</p>
                 <p className="text-xs text-muted-foreground">Total Spent</p>
               </CardContent>
             </Card>
@@ -257,7 +257,7 @@ export default function CustomerDashboard() {
             <Card className="stat-card-cyan rounded-2xl">
               <CardContent className="p-4">
                 <DollarSign className="w-5 h-5 text-cyan-400 mb-2" />
-                <p className="font-mono text-2xl font-bold">${customer.total_winnings?.toFixed(2) || '0.00'}</p>
+                <p className="font-mono text-2xl font-bold">R{customer.total_winnings?.toFixed(2) || '0.00'}</p>
                 <p className="text-xs text-muted-foreground">Won Back</p>
               </CardContent>
             </Card>
