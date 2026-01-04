@@ -779,6 +779,26 @@ async def run_daily_draw(draw_date: Optional[str] = None):
     # Remove any _id that might have been added
     draw_response = {k: v for k, v in draw_dict.items() if k != '_id'}
     
+    # Notify winner via WhatsApp (async, don't block response)
+    async def notify_winner():
+        try:
+            async with httpx.AsyncClient() as http_client:
+                await http_client.post(
+                    f"{WHATSAPP_SERVICE_URL}/notify-winner",
+                    json={
+                        "phone_number": winner_receipt["customer_phone"],
+                        "prize_amount": prize_amount,
+                        "draw_date": draw_date
+                    },
+                    timeout=30
+                )
+                logger.info(f"Winner notification sent to {winner_receipt['customer_phone']}")
+        except Exception as e:
+            logger.error(f"Failed to notify winner via WhatsApp: {e}")
+    
+    # Run notification in background
+    asyncio.create_task(notify_winner())
+    
     return {
         "success": True,
         "draw": draw_response,
