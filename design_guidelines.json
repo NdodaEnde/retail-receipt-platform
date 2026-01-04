@@ -1,0 +1,159 @@
+{
+  "identity": {
+    "name": "E1",
+    "archetype": "The Anti-AI Designer",
+    "mission": "Create a visceral, neon-drenched retail lottery experience that feels like a cyberpunk game, not a spreadsheet.",
+    "tone": "Electric, High-Stakes, Precision-Engineered"
+  },
+  "typography": {
+    "fonts": {
+      "heading": {
+        "name": "Space Grotesk",
+        "url": "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&display=swap",
+        "usage": "All headings (h1-h6). Use weight 700 for impact, 300 for elegance.",
+        "class": "font-heading"
+      },
+      "body": {
+        "name": "Manrope",
+        "url": "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap",
+        "usage": "General text, paragraphs, inputs.",
+        "class": "font-sans"
+      },
+      "mono": {
+        "name": "JetBrains Mono",
+        "url": "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap",
+        "usage": "Receipt data, transaction IDs, coordinates, analytics numbers.",
+        "class": "font-mono"
+      }
+    },
+    "rules": [
+      "Headings > 32px must use tracking-tight (-0.02em).",
+      "Overlines (e.g., 'RECEIPT ID') must be Uppercase + tracking-widest + text-xs.",
+      "Never use Inter for headings."
+    ]
+  },
+  "colors": {
+    "palette_name": "Neon Void",
+    "mode": "dark",
+    "base": {
+      "background": "0 0% 2%",
+      "foreground": "0 0% 98%",
+      "card": "0 0% 3%",
+      "card_foreground": "0 0% 98%",
+      "popover": "0 0% 3%",
+      "popover_foreground": "0 0% 98%",
+      "border": "0 0% 12%"
+    },
+    "brand": {
+      "primary": "265 89% 66%",
+      "primary_foreground": "0 0% 100%",
+      "secondary": "150 100% 50%",
+      "secondary_foreground": "0 0% 0%",
+      "accent": "300 100% 50%",
+      "accent_foreground": "0 0% 100%",
+      "muted": "240 5% 15%",
+      "muted_foreground": "240 5% 65%",
+      "destructive": "0 100% 50%",
+      "destructive_foreground": "0 0% 100%"
+    },
+    "chart": {
+      "1": "265 89% 66%",
+      "2": "150 100% 50%",
+      "3": "300 100% 50%",
+      "4": "190 100% 50%",
+      "5": "40 100% 50%"
+    },
+    "usage_guide": {
+      "primary": "Main Actions (Scan, Draw), Brand Highlights",
+      "secondary": "Success States, Money/Winnings, 'Verified'",
+      "accent": "The 'Win' Moment, Special Effects, Gradients",
+      "background": "Deep Void Black (Never pure #000000, use #050505)"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": {
+      "style": "Crystal Glass",
+      "classes": "bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl"
+    },
+    "borders": {
+      "style": "Tracing Beam",
+      "instruction": "Use 1px borders with 10-20% opacity white. On hover, brighten border to 40%."
+    },
+    "gradients": {
+      "glow": "bg-gradient-to-r from-violet-600/20 to-fuchsia-600/20 blur-3xl",
+      "text": "bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60"
+    },
+    "textures": {
+      "noise": "Add a fixed noise overlay at 2% opacity to the body background to kill digital flatness."
+    }
+  },
+  "layout_strategies": {
+    "customer_app": {
+      "type": "The Stack",
+      "description": "Mobile-first. Cards stack vertically. Bottom navigation bar floats. Big, thumb-friendly touch targets.",
+      "grid": "grid-cols-1 gap-6 p-6"
+    },
+    "admin_dashboard": {
+      "type": "The Control Room",
+      "description": "Dense Bento Grid. Map background is persistent. Data widgets float over the map.",
+      "grid": "grid-cols-1 md:grid-cols-4 gap-4 p-6"
+    }
+  },
+  "components": {
+    "buttons": {
+      "style": "Pill-shaped for Customer, Sharp/Rounded-md for Admin.",
+      "classes": "rounded-full font-bold tracking-wide shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_30px_rgba(139,92,246,0.5)] transition-all duration-300"
+    },
+    "cards": {
+      "style": "Glass panels.",
+      "classes": "bg-card/50 backdrop-blur-md border border-white/5 hover:border-white/10 transition-colors"
+    },
+    "inputs": {
+      "style": "Minimalist Underline or Deep Field",
+      "classes": "bg-white/5 border-white/10 focus:border-primary/50 focus:ring-0 rounded-lg h-12"
+    }
+  },
+  "image_urls": {
+    "hero_background": {
+      "url": "https://images.unsplash.com/photo-1759270977163-a5583712fbb8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NjZ8MHwxfHNlYXJjaHwxfHxuZW9uJTIwY2l0eSUyMG5pZ2h0JTIwcmV0YWlsfGVufDB8fHx8MTc2NzUyOTA4Mnww&ixlib=rb-4.1.0&q=85",
+      "desc": "Neon city night retail vibe for login/landing background."
+    },
+    "receipt_instruction": {
+      "url": "https://images.unsplash.com/photo-1619320669563-92aeccfc4d95?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2Mzl8MHwxfHNlYXJjaHwxfHxob2xkaW5nJTIwcmVjZWlwdCUyMGhhbmQlMjBjbG9zZSUyMHVwfGVufDB8fHx8MTc2NzUyOTA4M3ww&ixlib=rb-4.1.0&q=85",
+      "desc": "Close up of hand holding receipt for upload instruction."
+    },
+    "win_celebration": {
+      "url": "https://images.unsplash.com/photo-1759866221819-b470f019c726?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwxfHxnb2xkJTIwY29uZmV0dGklMjBjZWxlYnJhdGlvbiUyMGJsYWNrJTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3Njc1MjkwODV8MA&ixlib=rb-4.1.0&q=85",
+      "desc": "Gold confetti on black for the 'You Won' screen."
+    },
+    "retail_interior": {
+      "url": "https://images.unsplash.com/photo-1764923235886-d21a66b6dbf7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NjZ8MHwxfHNlYXJjaHwzfHxuZW9uJTIwY2l0eSUyMG5pZ2h0JTIwcmV0YWlsfGVufDB8fHx8MTc2NzUyOTA4Mnww&ixlib=rb-4.1.0&q=85",
+      "desc": "Luxury retail context for shop details."
+    }
+  },
+  "motion": {
+    "libraries": ["framer-motion"],
+    "guidelines": [
+      "Use 'spring' physics for all interactions (stiffness: 400, damping: 30).",
+      "Stagger children animations for lists (0.05s delay).",
+      "Page transitions: Slide up + Fade In."
+    ]
+  },
+  "instructions_to_main_agent": [
+    "1. INSTALL FONTS: Add the Google Fonts links to index.html immediately.",
+    "2. CONFIGURE TAILWIND: Update tailwind.config.js with the 'Neon Void' color palette defined above. Extend the theme, do not overwrite.",
+    "3. GLOBAL CSS: Update index.css to set the root variables for the dark theme. Ensure body has 'bg-background text-foreground'.",
+    "4. COMPONENT OVERRIDES: When using Shadcn components, strip the default 'border-border' if it conflicts with the 'Glassmorphism' style. Use 'border-white/10' instead.",
+    "5. MAPS: Use a dark mode map style (e.g., CartoDB Dark Matter or Mapbox Dark) for the geospatial views.",
+    "6. NO WHITE BACKGROUNDS: Ensure no component defaults to bg-white. Force bg-card or bg-black/90.",
+    "7. USE SONNER: For all notifications (Upload success, Win alert)."
+  ],
+  "universal_guidelines": [
+    "Do not use generic gradients.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "Every interaction needs micro-animations.",
+    "Use 2-3x more spacing than feels comfortable.",
+    "All interactive elements MUST include data-testid."
+  ]
+}
