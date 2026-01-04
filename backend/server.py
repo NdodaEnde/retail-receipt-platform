@@ -619,10 +619,10 @@ async def process_receipt_image(request: ReceiptImageRequest):
             customer_id=customer["id"],
             customer_phone=request.phone_number,
             shop_id=shop["id"] if shop else None,
-            shop_name=extracted["shop_name"],
-            amount=extracted["amount"],
+            shop_name=shop_name,
+            amount=extracted.get("amount", 0),
             currency="ZAR",
-            items=extracted["items"],
+            items=extracted.get("items", []),
             raw_text=extracted.get("raw_text"),
             image_data=request.image_data,  # Store the image
             upload_latitude=request.latitude,
@@ -630,7 +630,7 @@ async def process_receipt_image(request: ReceiptImageRequest):
             upload_address=upload_address,
             shop_latitude=shop_lat,
             shop_longitude=shop_lon,
-            shop_address=extracted.get("address") or (shop.get("address") if shop else None),
+            shop_address=shop_address or (shop.get("address") if shop else None),
             distance_km=distance_km,
             fraud_flag=fraud_assessment["fraud_flag"],
             fraud_score=fraud_assessment["fraud_score"],
@@ -643,25 +643,49 @@ async def process_receipt_image(request: ReceiptImageRequest):
         if receipt_dict.get('receipt_date'):
             receipt_dict['receipt_date'] = receipt_dict['receipt_date'].isoformat()
         
+        # Store grounding data from LandingAI
+        receipt_dict['grounding'] = extracted.get('grounding', {})
+        receipt_dict['chunks'] = extracted.get('chunks', [])
+        
         await db.receipts.insert_one(receipt_dict.copy())
+        
+        # Add to vector store for semantic search
+        try:
+            vector_store = get_receipt_vector_store()
+            vector_store.add_receipt(receipt.id, {
+                "shop_name": shop_name,
+                "shop_address": shop_address,
+                "amount": extracted.get("amount", 0),
+                "items": extracted.get("items", []),
+                "raw_text": extracted.get("raw_text", ""),
+                "customer_phone": request.phone_number,
+                "customer_id": customer["id"],
+                "fraud_flag": fraud_assessment["fraud_flag"],
+                "distance_km": distance_km,
+                "grounding": extracted.get('grounding', {}),
+                "created_at": receipt_dict['created_at']
+            })
+        except Exception as ve:
+            logger.warning(f"Vector store indexing failed: {ve}")
         
         # Update customer stats
         await db.customers.update_one(
             {"id": customer["id"]},
-            {"$inc": {"total_receipts": 1, "total_spent": extracted["amount"]}}
+            {"$inc": {"total_receipts": 1, "total_spent": extracted.get("amount", 0)}}
         )
         
         # Return response (exclude image data)
-        response_receipt = {k: v for k, v in receipt_dict.items() if k not in ['image_data', '_id']}
+        response_receipt = {k: v for k, v in receipt_dict.items() if k not in ['image_data', '_id', 'chunks']}
         
         return {
             "success": True,
             "receipt": response_receipt,
             "extraction": {
-                "shop_name": extracted["shop_name"],
-                "amount": extracted["amount"],
-                "items_count": len(extracted["items"]),
-                "address_found": bool(extracted.get("address"))
+                "shop_name": shop_name,
+                "amount": extracted.get("amount", 0),
+                "items_count": len(extracted.get("items", [])),
+                "address_found": bool(shop_address),
+                "has_grounding": bool(extracted.get('grounding'))
             }
         }
         
