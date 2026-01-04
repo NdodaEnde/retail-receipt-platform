@@ -201,7 +201,7 @@ export default function AdminAnalytics() {
                       <YAxis 
                         stroke="hsl(var(--muted-foreground))"
                         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                        tickFormatter={(value) => `$${value}`}
+                        tickFormatter={(value) => `R${value}`}
                       />
                       <Tooltip content={<CustomTooltip />} />
                       <Area 
