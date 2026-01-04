@@ -199,7 +199,7 @@ export default function MapView() {
                           )}
                           <div className="flex justify-between text-xs">
                             <span>Receipts: {shop.receipt_count}</span>
-                            <span className="font-mono">${shop.total_sales?.toFixed(2)}</span>
+                            <span className="font-mono">R{shop.total_sales?.toFixed(2)}</span>
                           </div>
                         </div>
                       </Popup>
