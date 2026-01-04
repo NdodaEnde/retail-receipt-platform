@@ -779,7 +779,8 @@ async def list_receipts(
     skip: int = 0, 
     limit: int = 50,
     date: Optional[str] = None,  # YYYY-MM-DD
-    status: Optional[str] = None
+    status: Optional[str] = None,
+    fraud_flag: Optional[str] = None  # valid, review, suspicious, flagged
 ):
     query = {}
     if date:
@@ -788,10 +789,104 @@ async def list_receipts(
         query["created_at"] = {"$gte": start.isoformat(), "$lte": end.isoformat()}
     if status:
         query["status"] = status
+    if fraud_flag:
+        query["fraud_flag"] = fraud_flag
     
     receipts = await db.receipts.find(query, {"_id": 0, "image_data": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
     total = await db.receipts.count_documents(query)
     return {"receipts": receipts, "total": total}
+
+# --- Fraud Detection Endpoints ---
+
+@api_router.get("/fraud/flagged")
+async def get_flagged_receipts(skip: int = 0, limit: int = 50):
+    """Get all receipts flagged for review or suspicious activity"""
+    query = {"fraud_flag": {"$in": ["review", "suspicious", "flagged"]}}
+    receipts = await db.receipts.find(query, {"_id": 0, "image_data": 0}).sort("fraud_score", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.receipts.count_documents(query)
+    return {"receipts": receipts, "total": total}
+
+@api_router.get("/fraud/stats")
+async def get_fraud_stats():
+    """Get fraud detection statistics"""
+    total = await db.receipts.count_documents({})
+    valid = await db.receipts.count_documents({"fraud_flag": "valid"})
+    review = await db.receipts.count_documents({"fraud_flag": "review"})
+    suspicious = await db.receipts.count_documents({"fraud_flag": "suspicious"})
+    flagged = await db.receipts.count_documents({"fraud_flag": "flagged"})
+    
+    # Average distance for each category
+    pipeline = [
+        {"$match": {"distance_km": {"$ne": None}}},
+        {"$group": {
+            "_id": "$fraud_flag",
+            "avg_distance": {"$avg": "$distance_km"},
+            "max_distance": {"$max": "$distance_km"},
+            "count": {"$sum": 1}
+        }}
+    ]
+    distance_stats = await db.receipts.aggregate(pipeline).to_list(10)
+    
+    return {
+        "total_receipts": total,
+        "valid": valid,
+        "review": review,
+        "suspicious": suspicious,
+        "flagged": flagged,
+        "fraud_rate": round((review + suspicious + flagged) / total * 100, 2) if total > 0 else 0,
+        "distance_stats": {d["_id"]: {"avg": round(d["avg_distance"], 2), "max": round(d["max_distance"], 2), "count": d["count"]} for d in distance_stats}
+    }
+
+@api_router.post("/fraud/review/{receipt_id}")
+async def review_receipt(receipt_id: str, action: str, reason: Optional[str] = None):
+    """Admin action on flagged receipt: approve, reject"""
+    receipt = await db.receipts.find_one({"id": receipt_id}, {"_id": 0})
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    
+    if action == "approve":
+        await db.receipts.update_one(
+            {"id": receipt_id},
+            {"$set": {
+                "fraud_flag": "valid",
+                "status": "processed",
+                "fraud_reason": f"Manually approved: {reason}" if reason else "Manually approved by admin"
+            }}
+        )
+        return {"success": True, "message": "Receipt approved and added to draw pool"}
+    
+    elif action == "reject":
+        await db.receipts.update_one(
+            {"id": receipt_id},
+            {"$set": {
+                "status": "rejected",
+                "fraud_reason": f"Rejected: {reason}" if reason else "Rejected by admin - suspected fraud"
+            }}
+        )
+        # Rollback customer stats
+        await db.customers.update_one(
+            {"id": receipt["customer_id"]},
+            {"$inc": {"total_receipts": -1, "total_spent": -receipt["amount"]}}
+        )
+        return {"success": True, "message": "Receipt rejected and removed from draw pool"}
+    
+    else:
+        raise HTTPException(status_code=400, detail="Action must be 'approve' or 'reject'")
+
+@api_router.get("/fraud/thresholds")
+async def get_fraud_thresholds():
+    """Get current fraud detection thresholds"""
+    return {
+        "valid_km": FRAUD_THRESHOLD_VALID,
+        "review_km": FRAUD_THRESHOLD_REVIEW,
+        "suspicious_km": FRAUD_THRESHOLD_SUSPICIOUS,
+        "description": {
+            "valid": f"< {FRAUD_THRESHOLD_VALID}km - Auto-approved",
+            "review": f"{FRAUD_THRESHOLD_VALID}-{FRAUD_THRESHOLD_REVIEW}km - Manual review suggested",
+            "suspicious": f"{FRAUD_THRESHOLD_REVIEW}-{FRAUD_THRESHOLD_SUSPICIOUS}km - Suspicious, needs review",
+            "flagged": f"> {FRAUD_THRESHOLD_SUSPICIOUS}km - Likely fraud, blocked from draw"
+        }
+    }
 
 # --- Shop Endpoints ---
 
