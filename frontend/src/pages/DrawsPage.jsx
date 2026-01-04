@@ -227,7 +227,7 @@ export default function DrawsPage() {
                         {draw.status === 'completed' ? (
                           <>
                             <p className="font-mono text-lg font-bold text-secondary">
-                              ${draw.prize_amount?.toFixed(2)}
+                              R{draw.prize_amount?.toFixed(2)}
                             </p>
                             <p className="text-xs text-muted-foreground truncate max-w-[120px]">
                               {draw.winner_customer_phone}
