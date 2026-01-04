@@ -134,7 +134,7 @@ export default function LandingPage() {
               <p className="text-sm text-muted-foreground mt-1">Happy Customers</p>
             </div>
             <div className="glass-card rounded-2xl p-6">
-              <p className="font-mono text-3xl font-bold text-accent">${stats.total_winnings.toLocaleString()}</p>
+              <p className="font-mono text-3xl font-bold text-accent">R{stats.total_winnings.toLocaleString()}</p>
               <p className="text-sm text-muted-foreground mt-1">Won Back</p>
             </div>
           </motion.div>
