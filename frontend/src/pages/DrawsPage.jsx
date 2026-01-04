@@ -164,7 +164,7 @@ export default function DrawsPage() {
               <Sparkles className="w-12 h-12 text-yellow-400 mx-auto mb-4 animate-pulse" />
               <h2 className="font-heading text-2xl font-bold mb-2">Today's Winner!</h2>
               <p className="text-4xl font-mono font-bold text-secondary mb-2">
-                ${todayDraw.prize_amount?.toFixed(2)}
+                R{todayDraw.prize_amount?.toFixed(2)}
               </p>
               <p className="text-muted-foreground mb-4">
                 {todayDraw.winner_customer_phone}
