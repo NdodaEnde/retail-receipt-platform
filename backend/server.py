@@ -820,6 +820,42 @@ async def list_receipts(
     total = await db.receipts.count_documents(query)
     return {"receipts": receipts, "total": total}
 
+# --- Semantic Search Endpoints ---
+
+class SearchQuery(BaseModel):
+    query: str
+    customer_phone: Optional[str] = None
+    shop_name: Optional[str] = None
+    limit: int = 10
+
+@api_router.post("/receipts/search")
+async def search_receipts_semantic(search: SearchQuery):
+    """
+    Semantic search for receipts using vector store
+    Examples: "milk purchases", "Woolworths receipts", "snacks in December"
+    """
+    try:
+        vector_store = get_receipt_vector_store()
+        results = vector_store.search_receipts(
+            query=search.query,
+            customer_phone=search.customer_phone,
+            shop_name=search.shop_name,
+            limit=search.limit
+        )
+        return {"results": results, "total": len(results), "query": search.query}
+    except Exception as e:
+        logger.error(f"Search error: {e}")
+        return {"results": [], "total": 0, "error": str(e)}
+
+@api_router.get("/vector-store/stats")
+async def get_vector_store_stats():
+    """Get vector store statistics"""
+    try:
+        vector_store = get_receipt_vector_store()
+        return vector_store.get_stats()
+    except Exception as e:
+        return {"available": False, "error": str(e)}
+
 # --- Fraud Detection Endpoints ---
 
 @api_router.get("/fraud/flagged")
