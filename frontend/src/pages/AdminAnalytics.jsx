@@ -326,7 +326,7 @@ export default function AdminAnalytics() {
                         </div>
                         <div className="text-right">
                           <p className="font-mono text-lg font-bold text-primary">
-                            ${customer.total_spent?.toFixed(2)}
+                            R{customer.total_spent?.toFixed(2)}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {customer.total_receipts} receipts
