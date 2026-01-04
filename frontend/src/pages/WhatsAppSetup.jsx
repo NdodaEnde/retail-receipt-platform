@@ -6,30 +6,61 @@ import { Badge } from "../components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { 
   MessageSquare, QrCode, Check, X, AlertTriangle, 
-  Smartphone, Send, Image, MapPin, HelpCircle, ExternalLink 
+  Smartphone, Send, Image, MapPin, HelpCircle, ExternalLink, RefreshCw 
 } from "lucide-react";
 import axios from "axios";
 import { API } from "../App";
 
 export default function WhatsAppSetup() {
-  const [status, setStatus] = useState({ connected: false, qr: null });
+  const [status, setStatus] = useState({ connected: false, status: 'disconnected' });
+  const [qrData, setQrData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     checkStatus();
-    const interval = setInterval(checkStatus, 10000);
-    return () => clearInterval(interval);
+    fetchQR();
+    const statusInterval = setInterval(checkStatus, 5000);
+    const qrInterval = setInterval(fetchQR, 10000);
+    return () => {
+      clearInterval(statusInterval);
+      clearInterval(qrInterval);
+    };
   }, []);
 
   const checkStatus = async () => {
     try {
       const response = await axios.get(`${API}/whatsapp/status`);
       setStatus(response.data);
+      if (response.data.connected) {
+        setQrData(null);  // Clear QR when connected
+      }
     } catch (error) {
       console.error("Failed to check WhatsApp status:", error);
+      setStatus({ connected: false, status: 'service_unavailable' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchQR = async () => {
+    try {
+      const response = await axios.get(`${API}/whatsapp/qr`);
+      if (response.data.qr && !response.data.connected) {
+        setQrData(response.data.qr);
+      } else if (response.data.connected) {
+        setQrData(null);
+      }
+    } catch (error) {
+      console.error("Failed to fetch QR:", error);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await checkStatus();
+    await fetchQR();
+    setRefreshing(false);
   };
 
   const features = [
