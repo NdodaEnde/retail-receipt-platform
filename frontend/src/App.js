@@ -1,13 +1,14 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Receipt, Map, Trophy, BarChart3, Settings, Home, MessageSquare } from "lucide-react";
+import { Receipt, Map, Trophy, BarChart3, Settings, Home, MessageSquare, Shield } from "lucide-react";
 import LandingPage from "./pages/LandingPage";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import MapView from "./pages/MapView";
 import DrawsPage from "./pages/DrawsPage";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import WhatsAppSetup from "./pages/WhatsAppSetup";
+import FraudDetection from "./pages/FraudDetection";
 import "./App.css";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -19,7 +20,7 @@ const navItems = [
   { path: "/map", icon: Map, label: "Map" },
   { path: "/draws", icon: Trophy, label: "Draws" },
   { path: "/analytics", icon: BarChart3, label: "Analytics" },
-  { path: "/whatsapp", icon: MessageSquare, label: "WhatsApp" },
+  { path: "/fraud", icon: Shield, label: "Fraud" },
 ];
 
 function BottomNav() {
