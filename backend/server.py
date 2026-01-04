@@ -1052,13 +1052,40 @@ Commands:
 
 @api_router.get("/whatsapp/qr")
 async def get_whatsapp_qr():
-    """Get WhatsApp QR code for authentication (placeholder)"""
-    return {"qr": None, "connected": False, "message": "WhatsApp service not configured"}
+    """Get WhatsApp QR code from Baileys service"""
+    try:
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.get(f"{WHATSAPP_SERVICE_URL}/qr", timeout=10)
+            return response.json()
+    except Exception as e:
+        logger.error(f"Failed to get WhatsApp QR: {e}")
+        return {"qr": None, "connected": False, "error": str(e)}
 
 @api_router.get("/whatsapp/status")
 async def get_whatsapp_status():
-    """Get WhatsApp connection status"""
-    return {"connected": False, "message": "WhatsApp service integration pending"}
+    """Get WhatsApp connection status from Baileys service"""
+    try:
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.get(f"{WHATSAPP_SERVICE_URL}/status", timeout=10)
+            return response.json()
+    except Exception as e:
+        logger.error(f"Failed to get WhatsApp status: {e}")
+        return {"connected": False, "status": "service_unavailable", "error": str(e)}
+
+@api_router.post("/whatsapp/send")
+async def send_whatsapp_message(data: dict):
+    """Send message via WhatsApp service"""
+    try:
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.post(
+                f"{WHATSAPP_SERVICE_URL}/send",
+                json=data,
+                timeout=30
+            )
+            return response.json()
+    except Exception as e:
+        logger.error(f"Failed to send WhatsApp message: {e}")
+        return {"success": False, "error": str(e)}
 
 # --- Demo Data Endpoint ---
 
