@@ -137,7 +137,7 @@ export default function DrawsPage() {
           <Card className="stat-card-green rounded-2xl">
             <CardContent className="p-4">
               <DollarSign className="w-5 h-5 text-secondary mb-2" />
-              <p className="font-mono text-2xl font-bold">${totalPrizes.toFixed(2)}</p>
+              <p className="font-mono text-2xl font-bold">R{totalPrizes.toFixed(2)}</p>
               <p className="text-xs text-muted-foreground">Prizes Given</p>
             </CardContent>
           </Card>
