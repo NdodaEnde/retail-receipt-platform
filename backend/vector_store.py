@@ -261,8 +261,7 @@ class ReceiptVectorStore:
             return {
                 "available": True,
                 "total_receipts": collection_info.points_count,
-                "vectors_count": collection_info.vectors_count,
-                "status": collection_info.status
+                "status": str(collection_info.status)
             }
         except Exception as e:
             return {"available": False, "error": str(e)}
