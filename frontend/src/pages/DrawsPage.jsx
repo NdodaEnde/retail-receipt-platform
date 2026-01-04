@@ -218,7 +218,7 @@ export default function DrawsPage() {
                         <div>
                           <p className="font-semibold">{draw.draw_date}</p>
                           <p className="text-sm text-muted-foreground">
-                            {draw.total_receipts} entries • ${draw.total_amount?.toFixed(2)} total
+                            {draw.total_receipts} entries • R{draw.total_amount?.toFixed(2)} total
                           </p>
                         </div>
                       </div>
