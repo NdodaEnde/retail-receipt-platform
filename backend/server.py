@@ -1154,7 +1154,8 @@ async def seed_demo_data():
         for _ in range(num_receipts):
             customer = random.choice(customers)
             shop = random.choice(shops)
-            amount = round(random.uniform(10, 200), 2)
+            # South African Rand amounts (R50 - R2000)
+            amount = round(random.uniform(50, 2000), 2)
             
             # Random location near shop
             lat_offset = random.uniform(-0.01, 0.01)
@@ -1166,10 +1167,11 @@ async def seed_demo_data():
                 shop_id=shop["id"],
                 shop_name=shop["name"],
                 amount=amount,
+                currency="ZAR",
                 items=[
-                    {"name": "Item 1", "price": round(amount * 0.3, 2)},
-                    {"name": "Item 2", "price": round(amount * 0.4, 2)},
-                    {"name": "Item 3", "price": round(amount * 0.3, 2)}
+                    {"name": "Groceries", "price": round(amount * 0.4, 2)},
+                    {"name": "Household", "price": round(amount * 0.35, 2)},
+                    {"name": "Personal Care", "price": round(amount * 0.25, 2)}
                 ],
                 upload_latitude=shop["latitude"] + lat_offset,
                 upload_longitude=shop["longitude"] + lon_offset,
