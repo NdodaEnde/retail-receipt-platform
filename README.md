@@ -166,6 +166,7 @@ curl -X POST http://localhost:8001/api/demo/seed
 |--------|----------|-------------|
 | POST | `/api/receipts/upload` | Upload receipt (form data) |
 | POST | `/api/receipts/process-image` | Process receipt image (WhatsApp) |
+| POST | `/api/receipts/search` | **Semantic search** (e.g., "milk purchases") |
 | GET | `/api/receipts/customer/{phone}` | Get customer's receipts |
 | GET | `/api/receipts` | List all receipts |
 
@@ -193,6 +194,12 @@ curl -X POST http://localhost:8001/api/demo/seed
 | GET | `/api/analytics/popular-shops` | Top shops by receipts |
 | GET | `/api/analytics/top-spenders` | Top spending customers |
 | GET | `/api/analytics/receipts-by-hour` | Hourly distribution |
+
+### Vector Store (Semantic Search)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/vector-store/stats` | Vector store status |
+| POST | `/api/receipts/search` | Semantic receipt search |
 
 ### Scheduler
 | Method | Endpoint | Description |
