@@ -323,12 +323,19 @@ export default function CustomerDashboard() {
                               </div>
                               <div className="text-right">
                                 <p className="font-mono text-xl font-bold text-primary">R{receipt.amount?.toFixed(2)}</p>
-                                <Badge 
-                                  variant={receipt.status === 'won' ? 'default' : 'secondary'}
-                                  className={receipt.status === 'won' ? 'bg-secondary text-secondary-foreground' : ''}
-                                >
-                                  {receipt.status === 'won' ? '🏆 Winner!' : receipt.status}
-                                </Badge>
+                                <div className="flex gap-1 justify-end flex-wrap">
+                                  <Badge 
+                                    variant={receipt.status === 'won' ? 'default' : 'secondary'}
+                                    className={receipt.status === 'won' ? 'bg-secondary text-secondary-foreground' : ''}
+                                  >
+                                    {receipt.status === 'won' ? '🏆 Winner!' : receipt.status}
+                                  </Badge>
+                                  {receipt.distance_km && (
+                                    <Badge variant="outline" className="text-xs border-muted-foreground/30">
+                                      {receipt.distance_km.toFixed(0)}km
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
                             </div>
                             {receipt.upload_latitude && (
