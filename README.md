@@ -56,10 +56,26 @@ Customers shop at retail stores (Checkers, Pick n Pay, Woolworths, etc.), take a
                         └─────────────────┘              │
                                                          ▼
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   React         │     │   MongoDB       │     │   Geolocation   │
-│   Frontend      │◀───▶│   Database      │◀────│   Services      │
+│   React         │     │   MongoDB       │     │   Qdrant        │
+│   Frontend      │◀───▶│   Database      │     │   Vector Store  │
 └─────────────────┘     └─────────────────┘     └─────────────────┘
+                                                         │
+                        ┌─────────────────┐              │
+                        │   Geolocation   │◀─────────────┘
+                        │   + Fraud Det.  │
+                        └─────────────────┘
 ```
+
+### Key Components
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Receipt OCR | LandingAI ADE (dpt-2-latest) | Extract shop, items, amounts with grounding |
+| Vector Search | Qdrant + sentence-transformers | Semantic receipt search |
+| Database | MongoDB | Store receipts, customers, shops, draws |
+| Fraud Detection | Haversine distance | Compare shop vs upload GPS |
+| Scheduler | APScheduler | Midnight daily draws |
+| WhatsApp | Baileys (Node.js) | Customer interaction |
 
 ## 📁 Project Structure
 
