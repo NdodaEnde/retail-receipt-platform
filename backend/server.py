@@ -22,6 +22,10 @@ import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+# Import custom modules for receipt processing
+from receipt_processor import get_receipt_processor
+from vector_store import get_receipt_vector_store
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
