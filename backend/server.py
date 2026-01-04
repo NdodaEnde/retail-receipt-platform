@@ -568,10 +568,11 @@ async def process_receipt_image(request: ReceiptImageRequest):
         # Get or create customer
         customer = await get_or_create_customer(request.phone_number)
         
-        # Process image with LandingAI
-        extracted = await process_receipt_with_landingai(request.image_data, request.mime_type)
+        # Process image with LandingAI ADE (proper implementation)
+        processor = get_receipt_processor()
+        extracted = processor.process_receipt_image(request.image_data, request.mime_type)
         
-        if not extracted["success"] and extracted["error"] and "LandingAI" not in extracted["error"]:
+        if not extracted["success"] and extracted.get("error") and "manual entry" not in extracted["error"].lower():
             return {"success": False, "error": extracted["error"]}
         
         # Get upload location address
@@ -581,28 +582,23 @@ async def process_receipt_image(request: ReceiptImageRequest):
         
         # Try to geocode shop if we have a name
         shop_lat, shop_lon = None, None
-        if extracted["shop_name"]:
-            shop_lat, shop_lon = await geocode_shop_from_receipt(
-                extracted["shop_name"], 
-                extracted.get("address")
-            )
+        shop_name = extracted.get("shop_name")
+        shop_address = extracted.get("shop_address")
+        
+        if shop_name:
+            shop_lat, shop_lon = await geocode_shop_from_receipt(shop_name, shop_address)
         
         # Note: Do NOT fallback to upload location for shop
         # We need separate locations for fraud detection
         
         # Get or create shop
         shop = None
-        if extracted["shop_name"]:
-            shop = await get_or_create_shop(
-                extracted["shop_name"],
-                extracted.get("address"),
-                shop_lat,
-                shop_lon
-            )
+        if shop_name:
+            shop = await get_or_create_shop(shop_name, shop_address, shop_lat, shop_lon)
             # Update shop stats
             await db.shops.update_one(
                 {"id": shop["id"]},
-                {"$inc": {"receipt_count": 1, "total_sales": extracted["amount"]}}
+                {"$inc": {"receipt_count": 1, "total_sales": extracted.get("amount", 0)}}
             )
         
         # Calculate distance between shop and upload location for fraud detection
@@ -611,7 +607,7 @@ async def process_receipt_image(request: ReceiptImageRequest):
             distance_km = calculate_distance_km(shop_lat, shop_lon, request.latitude, request.longitude)
         
         # Assess fraud risk
-        fraud_assessment = assess_fraud_risk(distance_km, extracted["amount"])
+        fraud_assessment = assess_fraud_risk(distance_km, extracted.get("amount", 0))
         
         # Determine receipt status based on fraud flag
         receipt_status = "processed"
