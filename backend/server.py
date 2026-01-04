@@ -454,7 +454,131 @@ async def list_customers(skip: int = 0, limit: int = 50):
     total = await db.customers.count_documents({})
     return {"customers": customers, "total": total}
 
+@api_router.post("/customers/location")
+async def update_customer_location(data: dict):
+    """Update customer's last known location"""
+    phone_number = data.get("phone_number")
+    latitude = data.get("latitude")
+    longitude = data.get("longitude")
+    
+    if phone_number and latitude and longitude:
+        await db.customers.update_one(
+            {"phone_number": phone_number},
+            {"$set": {
+                "last_latitude": latitude,
+                "last_longitude": longitude,
+                "location_updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+    return {"success": True}
+
 # --- Receipt Endpoints ---
+
+class ReceiptImageRequest(BaseModel):
+    phone_number: str
+    image_data: str  # Base64 encoded
+    mime_type: str = "image/jpeg"
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+@api_router.post("/receipts/process-image")
+async def process_receipt_image(request: ReceiptImageRequest):
+    """
+    Process a receipt image from WhatsApp using LandingAI ADE
+    This is the main endpoint called by the WhatsApp service
+    """
+    try:
+        # Get or create customer
+        customer = await get_or_create_customer(request.phone_number)
+        
+        # Process image with LandingAI
+        extracted = await process_receipt_with_landingai(request.image_data, request.mime_type)
+        
+        if not extracted["success"] and extracted["error"] and "LandingAI" not in extracted["error"]:
+            return {"success": False, "error": extracted["error"]}
+        
+        # Get upload location address
+        upload_address = None
+        if request.latitude and request.longitude:
+            upload_address = reverse_geocode(request.latitude, request.longitude)
+        
+        # Try to geocode shop if we have a name
+        shop_lat, shop_lon = None, None
+        if extracted["shop_name"]:
+            shop_lat, shop_lon = await geocode_shop_from_receipt(
+                extracted["shop_name"], 
+                extracted.get("address")
+            )
+        
+        # If no shop location from geocoding, use customer's upload location
+        if not shop_lat and request.latitude:
+            shop_lat = request.latitude
+            shop_lon = request.longitude
+        
+        # Get or create shop
+        shop = None
+        if extracted["shop_name"]:
+            shop = await get_or_create_shop(
+                extracted["shop_name"],
+                extracted.get("address"),
+                shop_lat,
+                shop_lon
+            )
+            # Update shop stats
+            await db.shops.update_one(
+                {"id": shop["id"]},
+                {"$inc": {"receipt_count": 1, "total_sales": extracted["amount"]}}
+            )
+        
+        # Create receipt record
+        receipt = Receipt(
+            customer_id=customer["id"],
+            customer_phone=request.phone_number,
+            shop_id=shop["id"] if shop else None,
+            shop_name=extracted["shop_name"],
+            amount=extracted["amount"],
+            items=extracted["items"],
+            raw_text=extracted.get("raw_text"),
+            image_data=request.image_data,  # Store the image
+            upload_latitude=request.latitude,
+            upload_longitude=request.longitude,
+            upload_address=upload_address,
+            shop_latitude=shop_lat,
+            shop_longitude=shop_lon,
+            shop_address=extracted.get("address") or (shop.get("address") if shop else None),
+            status="processed"
+        )
+        
+        receipt_dict = receipt.model_dump()
+        receipt_dict['created_at'] = receipt_dict['created_at'].isoformat()
+        if receipt_dict.get('receipt_date'):
+            receipt_dict['receipt_date'] = receipt_dict['receipt_date'].isoformat()
+        
+        await db.receipts.insert_one(receipt_dict.copy())
+        
+        # Update customer stats
+        await db.customers.update_one(
+            {"id": customer["id"]},
+            {"$inc": {"total_receipts": 1, "total_spent": extracted["amount"]}}
+        )
+        
+        # Return response (exclude image data)
+        response_receipt = {k: v for k, v in receipt_dict.items() if k not in ['image_data', '_id']}
+        
+        return {
+            "success": True,
+            "receipt": response_receipt,
+            "extraction": {
+                "shop_name": extracted["shop_name"],
+                "amount": extracted["amount"],
+                "items_count": len(extracted["items"]),
+                "address_found": bool(extracted.get("address"))
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Receipt processing error: {e}")
+        return {"success": False, "error": str(e)}
 
 @api_router.post("/receipts/upload")
 async def upload_receipt(
