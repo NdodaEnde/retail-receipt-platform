@@ -88,7 +88,7 @@ export default function MapView() {
       const lng = receipts.reduce((sum, r) => sum + r.upload_longitude, 0) / receipts.length;
       return [lat, lng];
     }
-    return [39.8283, -98.5795]; // Center of USA
+    return [-28.4793, 24.6727]; // Center of South Africa
   };
 
   return (
