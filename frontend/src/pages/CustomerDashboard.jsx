@@ -380,7 +380,7 @@ export default function CustomerDashboard() {
                               </div>
                               <div className="text-right">
                                 <p className="font-mono text-2xl font-bold text-secondary">
-                                  ${win.prize_amount?.toFixed(2)}
+                                  R{win.prize_amount?.toFixed(2)}
                                 </p>
                                 <p className="text-xs text-muted-foreground">Won Back</p>
                               </div>
