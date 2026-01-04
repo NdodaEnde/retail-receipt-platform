@@ -100,6 +100,8 @@ class RetailRewardsAPITester:
 
     def test_receipt_upload(self):
         """Test receipt upload"""
+        # Use requests directly for multipart form data
+        url = f"{self.base_url}/api/receipts/upload"
         form_data = {
             'phone_number': '+1234567890',
             'shop_name': 'Test Shop',
@@ -108,7 +110,43 @@ class RetailRewardsAPITester:
             'latitude': '40.7128',
             'longitude': '-74.0060'
         }
-        return self.run_test("Upload Receipt", "POST", "receipts/upload", 200, form_data)
+        
+        self.tests_run += 1
+        print(f"\n🔍 Testing Upload Receipt...")
+        
+        try:
+            response = requests.post(url, data=form_data)
+            success = response.status_code == 200
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                response_data = response.json()
+                self.test_results.append({
+                    "test": "Upload Receipt",
+                    "status": "PASS",
+                    "response_code": response.status_code,
+                    "response_data": response_data
+                })
+                return True, response_data
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                print(f"Response: {response.text}")
+                self.test_results.append({
+                    "test": "Upload Receipt",
+                    "status": "FAIL",
+                    "response_code": response.status_code,
+                    "expected_code": 200,
+                    "response_data": response.text
+                })
+                return False, {}
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            self.test_results.append({
+                "test": "Upload Receipt",
+                "status": "ERROR",
+                "error": str(e)
+            })
+            return False, {}
 
     def test_get_customer_receipts(self, phone_number="+1234567890"):
         """Test getting customer receipts"""
