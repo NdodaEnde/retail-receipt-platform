@@ -310,7 +310,7 @@ async def upload_receipt(
     if receipt_dict.get('receipt_date'):
         receipt_dict['receipt_date'] = receipt_dict['receipt_date'].isoformat()
     
-    await db.receipts.insert_one(receipt_dict)
+    await db.receipts.insert_one(receipt_dict.copy())  # Use copy to prevent _id mutation
     
     # Update customer stats
     await db.customers.update_one(
@@ -318,8 +318,8 @@ async def upload_receipt(
         {"$inc": {"total_receipts": 1, "total_spent": parsed_data["amount"]}}
     )
     
-    # Remove image_data from response (too large)
-    response_receipt = {k: v for k, v in receipt_dict.items() if k != 'image_data'}
+    # Remove image_data and any _id from response
+    response_receipt = {k: v for k, v in receipt_dict.items() if k not in ['image_data', '_id']}
     response_receipt['has_image'] = image_data is not None
     
     return {"success": True, "receipt": response_receipt}
