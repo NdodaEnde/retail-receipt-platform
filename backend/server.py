@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from contextlib import asynccontextmanager
 import os
 import logging
 from pathlib import Path
@@ -17,6 +18,9 @@ import httpx
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
 import re
+import asyncio
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -26,8 +30,35 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app
-app = FastAPI(title="Retail Rewards Platform")
+# Scheduler for daily draws
+scheduler = AsyncIOScheduler()
+
+# WhatsApp service URL
+WHATSAPP_SERVICE_URL = os.environ.get('WHATSAPP_SERVICE_URL', 'http://localhost:3001')
+
+# LandingAI configuration
+LANDINGAI_API_KEY = os.environ.get('LANDINGAI_API_KEY', '')
+
+# Lifespan context manager for startup/shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Starting scheduler for daily draws...")
+    scheduler.add_job(
+        run_scheduled_daily_draw,
+        CronTrigger(hour=0, minute=0),  # Run at midnight UTC
+        id='daily_draw',
+        replace_existing=True
+    )
+    scheduler.start()
+    logger.info("Scheduler started - daily draw at midnight UTC")
+    yield
+    # Shutdown
+    scheduler.shutdown()
+    client.close()
+
+# Create the main app with lifespan
+app = FastAPI(title="Retail Rewards Platform", lifespan=lifespan)
 
 # Create router with /api prefix
 api_router = APIRouter(prefix="/api")
