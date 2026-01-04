@@ -1329,11 +1329,18 @@ async def seed_demo_data():
         await db.customers.insert_one(cust_dict)
         customers.append(cust_dict)
     
-    # Generate demo receipts for the last 7 days
+    # Generate demo receipts for the last 7 days with fraud scenarios
     receipt_count = 0
+    fraud_scenarios = [
+        {"type": "valid", "distance_range": (0, 30), "weight": 70},  # 70% legitimate local purchases
+        {"type": "review", "distance_range": (50, 90), "weight": 15},  # 15% slightly far
+        {"type": "suspicious", "distance_range": (100, 180), "weight": 10},  # 10% suspicious
+        {"type": "flagged", "distance_range": (500, 1400), "weight": 5},  # 5% likely fraud
+    ]
+    
     for days_ago in range(7):
         date = datetime.now(timezone.utc) - timedelta(days=days_ago)
-        num_receipts = random.randint(5, 15)
+        num_receipts = random.randint(8, 18)
         
         for _ in range(num_receipts):
             customer = random.choice(customers)
@@ -1341,9 +1348,34 @@ async def seed_demo_data():
             # South African Rand amounts (R50 - R2000)
             amount = round(random.uniform(50, 2000), 2)
             
-            # Random location near shop
-            lat_offset = random.uniform(-0.01, 0.01)
-            lon_offset = random.uniform(-0.01, 0.01)
+            # Select fraud scenario based on weights
+            rand = random.randint(1, 100)
+            if rand <= 70:
+                scenario = fraud_scenarios[0]  # valid
+            elif rand <= 85:
+                scenario = fraud_scenarios[1]  # review
+            elif rand <= 95:
+                scenario = fraud_scenarios[2]  # suspicious
+            else:
+                scenario = fraud_scenarios[3]  # flagged
+            
+            # Generate upload location based on scenario
+            distance_km = random.uniform(*scenario["distance_range"])
+            
+            # Calculate offset in degrees (rough approximation: 1 degree ≈ 111km)
+            angle = random.uniform(0, 2 * 3.14159)
+            lat_offset = (distance_km / 111) * math.cos(angle)
+            lon_offset = (distance_km / 111) * math.sin(angle)
+            
+            upload_lat = shop["latitude"] + lat_offset
+            upload_lon = shop["longitude"] + lon_offset
+            
+            # Assess fraud
+            actual_distance = calculate_distance_km(shop["latitude"], shop["longitude"], upload_lat, upload_lon)
+            fraud_assessment = assess_fraud_risk(actual_distance, amount)
+            
+            # Determine status
+            receipt_status = "processed" if fraud_assessment["fraud_flag"] != "flagged" else "review"
             
             receipt = Receipt(
                 customer_id=customer["id"],
@@ -1357,12 +1389,16 @@ async def seed_demo_data():
                     {"name": "Household", "price": round(amount * 0.35, 2)},
                     {"name": "Personal Care", "price": round(amount * 0.25, 2)}
                 ],
-                upload_latitude=shop["latitude"] + lat_offset,
-                upload_longitude=shop["longitude"] + lon_offset,
+                upload_latitude=upload_lat,
+                upload_longitude=upload_lon,
                 shop_latitude=shop["latitude"],
                 shop_longitude=shop["longitude"],
                 shop_address=shop["address"],
-                status="processed"
+                distance_km=actual_distance,
+                fraud_flag=fraud_assessment["fraud_flag"],
+                fraud_score=fraud_assessment["fraud_score"],
+                fraud_reason=fraud_assessment["fraud_reason"],
+                status=receipt_status
             )
             
             receipt_dict = receipt.model_dump()
@@ -1384,14 +1420,23 @@ async def seed_demo_data():
                 {"$inc": {"receipt_count": 1, "total_sales": amount}}
             )
     
+    # Get fraud stats for response
+    fraud_stats = {
+        "valid": await db.receipts.count_documents({"fraud_flag": "valid"}),
+        "review": await db.receipts.count_documents({"fraud_flag": "review"}),
+        "suspicious": await db.receipts.count_documents({"fraud_flag": "suspicious"}),
+        "flagged": await db.receipts.count_documents({"fraud_flag": "flagged"})
+    }
+    
     return {
         "success": True,
-        "message": "Demo data seeded successfully",
+        "message": "Demo data seeded successfully with fraud scenarios",
         "counts": {
             "customers": len(customers),
             "shops": len(shops),
             "receipts": receipt_count
-        }
+        },
+        "fraud_breakdown": fraud_stats
     }
 
 # Scheduler status endpoint
