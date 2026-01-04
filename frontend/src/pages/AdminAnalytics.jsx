@@ -113,7 +113,7 @@ export default function AdminAnalytics() {
           <Card className="stat-card-cyan rounded-2xl">
             <CardContent className="p-4">
               <DollarSign className="w-5 h-5 text-cyan-400 mb-2" />
-              <p className="font-mono text-2xl font-bold">${overview.total_spent?.toLocaleString()}</p>
+              <p className="font-mono text-2xl font-bold">R{overview.total_spent?.toLocaleString()}</p>
               <p className="text-xs text-muted-foreground">Total Spent</p>
             </CardContent>
           </Card>
@@ -127,7 +127,7 @@ export default function AdminAnalytics() {
           <Card className="glass-card rounded-2xl border-orange-500/20">
             <CardContent className="p-4">
               <TrendingUp className="w-5 h-5 text-orange-500 mb-2" />
-              <p className="font-mono text-2xl font-bold">${overview.total_winnings?.toLocaleString()}</p>
+              <p className="font-mono text-2xl font-bold">R{overview.total_winnings?.toLocaleString()}</p>
               <p className="text-xs text-muted-foreground">Won Back</p>
             </CardContent>
           </Card>
