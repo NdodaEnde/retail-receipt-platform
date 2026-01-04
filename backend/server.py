@@ -417,7 +417,7 @@ async def run_daily_draw(draw_date: Optional[str] = None):
     
     draw_dict = draw.model_dump()
     draw_dict['created_at'] = draw_dict['created_at'].isoformat()
-    await db.draws.insert_one(draw_dict)
+    await db.draws.insert_one(draw_dict.copy())  # Use copy to prevent _id mutation
     
     # Update receipt status
     await db.receipts.update_one(
@@ -431,9 +431,12 @@ async def run_daily_draw(draw_date: Optional[str] = None):
         {"$inc": {"total_wins": 1, "total_winnings": prize_amount}}
     )
     
+    # Remove any _id that might have been added
+    draw_response = {k: v for k, v in draw_dict.items() if k != '_id'}
+    
     return {
         "success": True,
-        "draw": draw_dict,
+        "draw": draw_response,
         "winner": {
             "phone": winner_receipt["customer_phone"],
             "receipt_id": winner_receipt["id"],
