@@ -115,7 +115,7 @@ async def get_or_create_customer(phone_number: str, name: Optional[str] = None) 
         customer_obj = Customer(phone_number=phone_number, name=name)
         customer = customer_obj.model_dump()
         customer['created_at'] = customer['created_at'].isoformat()
-        await db.customers.insert_one(customer)
+        await db.customers.insert_one(customer.copy())  # Use copy to prevent _id mutation
     return customer
 
 async def get_or_create_shop(shop_name: str, address: Optional[str] = None, lat: Optional[float] = None, lon: Optional[float] = None) -> dict:
@@ -126,7 +126,7 @@ async def get_or_create_shop(shop_name: str, address: Optional[str] = None, lat:
         shop_obj = Shop(name=shop_name, address=address, latitude=lat, longitude=lon)
         shop = shop_obj.model_dump()
         shop['created_at'] = shop['created_at'].isoformat()
-        await db.shops.insert_one(shop)
+        await db.shops.insert_one(shop.copy())  # Use copy to prevent _id mutation
     return shop
 
 def reverse_geocode(lat: float, lon: float) -> Optional[str]:
