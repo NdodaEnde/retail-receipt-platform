@@ -75,6 +75,7 @@ function AnimatedRoutes() {
           <Route path="/map" element={<MapView />} />
           <Route path="/draws" element={<DrawsPage />} />
           <Route path="/analytics" element={<AdminAnalytics />} />
+          <Route path="/fraud" element={<FraudDetection />} />
           <Route path="/whatsapp" element={<WhatsAppSetup />} />
         </Routes>
       </motion.div>
