@@ -144,34 +144,77 @@ export default function WhatsAppSetup() {
                 {status.connected ? "Online" : "Offline"}
               </Badge>
             </div>
+            
+            {/* Refresh Button */}
+            <div className="mt-4 flex justify-end">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="border-white/20"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh Status
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* QR Code Section */}
+      {!status.connected && (
+        <div className="max-w-4xl mx-auto mb-8">
+          <Card className="glass-card rounded-2xl">
+            <CardHeader>
+              <CardTitle className="font-heading flex items-center gap-2">
+                <QrCode className="w-5 h-5 text-primary" />
+                Scan QR Code to Connect
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center">
+              {qrData ? (
+                <div className="p-4 bg-white rounded-2xl mb-4">
+                  <img src={qrData} alt="WhatsApp QR Code" className="w-64 h-64" />
+                </div>
+              ) : (
+                <div className="w-64 h-64 bg-muted/20 rounded-2xl flex items-center justify-center mb-4">
+                  <div className="text-center">
+                    <QrCode className="w-16 h-16 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      {status.status === 'service_unavailable' 
+                        ? 'WhatsApp service not running'
+                        : 'Waiting for QR code...'}
+                    </p>
+                  </div>
+                </div>
+              )}
+              <p className="text-sm text-muted-foreground text-center max-w-sm">
+                Open WhatsApp on your phone → Settings → Linked Devices → Link a Device → Scan this QR code
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Setup Instructions */}
       <div className="max-w-4xl mx-auto mb-8">
         <Alert className="glass border-white/10">
           <AlertTriangle className="h-4 w-4 text-yellow-500" />
-          <AlertTitle className="font-heading">WhatsApp Business API Setup</AlertTitle>
+          <AlertTitle className="font-heading">WhatsApp Service Setup</AlertTitle>
           <AlertDescription className="mt-2 text-muted-foreground">
             <p className="mb-4">
-              This platform uses the <strong>Baileys library</strong> for WhatsApp Web integration. 
-              To enable full functionality:
+              The WhatsApp service uses <strong>Baileys library</strong> running as a Node.js microservice.
+              To start the service:
             </p>
-            <ol className="list-decimal list-inside space-y-2">
-              <li>Set up the Node.js WhatsApp microservice</li>
-              <li>Configure Redis for session persistence</li>
-              <li>Scan the QR code with your WhatsApp account</li>
-              <li>The webhook will automatically process incoming messages</li>
-            </ol>
-            <div className="mt-4 flex gap-2">
-              <Button variant="outline" size="sm" className="border-white/20" asChild>
-                <a href="https://github.com/WhiskeySockets/Baileys" target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Baileys Docs
-                </a>
-              </Button>
-            </div>
+            <pre className="bg-black/30 p-3 rounded-lg text-sm font-mono mb-4 overflow-x-auto">
+              cd /app/whatsapp-service{'\n'}
+              npm install{'\n'}
+              npm start
+            </pre>
+            <p className="text-xs">
+              The service will generate a QR code. Scan it with WhatsApp to connect.
+            </p>
           </AlertDescription>
         </Alert>
       </div>
