@@ -1210,6 +1210,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+# Scheduler status endpoint
+@api_router.get("/scheduler/status")
+async def get_scheduler_status():
+    """Get scheduler status and next run times"""
+    jobs = []
+    for job in scheduler.get_jobs():
+        jobs.append({
+            "id": job.id,
+            "next_run": job.next_run_time.isoformat() if job.next_run_time else None,
+            "trigger": str(job.trigger)
+        })
+    return {
+        "running": scheduler.running,
+        "jobs": jobs
+    }
+
+@api_router.post("/scheduler/trigger-draw")
+async def trigger_draw_now():
+    """Manually trigger the daily draw (for testing)"""
+    await run_scheduled_daily_draw()
+    return {"success": True, "message": "Draw triggered"}
