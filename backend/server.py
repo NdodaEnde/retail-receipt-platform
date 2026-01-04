@@ -296,7 +296,7 @@ class Receipt(BaseModel):
     shop_id: Optional[str] = None
     shop_name: Optional[str] = None
     amount: float = 0.0
-    currency: str = "USD"
+    currency: str = "ZAR"
     items: List[Dict[str, Any]] = []
     raw_text: Optional[str] = None
     image_data: Optional[str] = None  # Base64 encoded
@@ -308,11 +308,22 @@ class Receipt(BaseModel):
     shop_latitude: Optional[float] = None
     shop_longitude: Optional[float] = None
     shop_address: Optional[str] = None
+    # Fraud detection
+    distance_km: Optional[float] = None  # Distance between shop and upload location
+    fraud_flag: str = "valid"  # valid, review, suspicious, flagged
+    fraud_score: int = 0  # 0-100, higher = more suspicious
+    fraud_reason: Optional[str] = None
     # Status
-    status: str = "pending"  # pending, processed, won
+    status: str = "pending"  # pending, processed, won, rejected
     processing_error: Optional[str] = None
     receipt_date: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Fraud detection thresholds (in km)
+FRAUD_THRESHOLD_VALID = 50  # <50km = valid
+FRAUD_THRESHOLD_REVIEW = 100  # 50-100km = review
+FRAUD_THRESHOLD_SUSPICIOUS = 200  # 100-200km = suspicious
+# >200km = flagged
 
 class Draw(BaseModel):
     model_config = ConfigDict(extra="ignore")
