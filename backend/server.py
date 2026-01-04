@@ -1098,16 +1098,25 @@ async def seed_demo_data():
     await db.shops.delete_many({})
     await db.draws.delete_many({})
     
-    # Demo shops with locations
+    # Demo shops with South African locations
     demo_shops = [
-        {"name": "Walmart Supercenter", "address": "123 Main St, New York", "latitude": 40.7128, "longitude": -74.0060},
-        {"name": "Target Store", "address": "456 Oak Ave, Los Angeles", "latitude": 34.0522, "longitude": -118.2437},
-        {"name": "Costco Wholesale", "address": "789 Pine Rd, Chicago", "latitude": 41.8781, "longitude": -87.6298},
-        {"name": "Whole Foods Market", "address": "321 Elm St, Houston", "latitude": 29.7604, "longitude": -95.3698},
-        {"name": "Trader Joe's", "address": "654 Maple Dr, Phoenix", "latitude": 33.4484, "longitude": -112.0740},
-        {"name": "Kroger", "address": "987 Cedar Ln, Philadelphia", "latitude": 39.9526, "longitude": -75.1652},
-        {"name": "Safeway", "address": "147 Birch Blvd, San Antonio", "latitude": 29.4241, "longitude": -98.4936},
-        {"name": "Publix", "address": "258 Willow Way, San Diego", "latitude": 32.7157, "longitude": -117.1611},
+        # Johannesburg
+        {"name": "Checkers Sandton City", "address": "Sandton City Mall, Rivonia Rd, Sandton, Johannesburg", "latitude": -26.1076, "longitude": 28.0567},
+        {"name": "Pick n Pay Rosebank", "address": "The Zone @ Rosebank, Oxford Rd, Rosebank, Johannesburg", "latitude": -26.1452, "longitude": 28.0436},
+        {"name": "Woolworths Melrose Arch", "address": "Melrose Arch, Melrose, Johannesburg", "latitude": -26.1340, "longitude": 28.0690},
+        {"name": "Shoprite Soweto", "address": "Maponya Mall, Chris Hani Rd, Soweto", "latitude": -26.2678, "longitude": 27.8893},
+        # Cape Town
+        {"name": "Pick n Pay V&A Waterfront", "address": "V&A Waterfront, Cape Town", "latitude": -33.9036, "longitude": 18.4208},
+        {"name": "Checkers Canal Walk", "address": "Canal Walk Shopping Centre, Century City, Cape Town", "latitude": -33.8941, "longitude": 18.5123},
+        {"name": "Woolworths Cavendish", "address": "Cavendish Square, Claremont, Cape Town", "latitude": -33.9833, "longitude": 18.4614},
+        # Durban
+        {"name": "Pick n Pay Gateway", "address": "Gateway Theatre of Shopping, Umhlanga, Durban", "latitude": -29.7294, "longitude": 31.0693},
+        {"name": "Checkers Pavilion", "address": "The Pavilion, Westville, Durban", "latitude": -29.8494, "longitude": 30.9278},
+        # Pretoria
+        {"name": "Woolworths Menlyn", "address": "Menlyn Park Shopping Centre, Pretoria", "latitude": -25.7823, "longitude": 28.2756},
+        {"name": "Spar Brooklyn Mall", "address": "Brooklyn Mall, Pretoria", "latitude": -25.7714, "longitude": 28.2378},
+        # Port Elizabeth
+        {"name": "Checkers Walmer Park", "address": "Walmer Park Shopping Centre, Port Elizabeth", "latitude": -33.9756, "longitude": 25.6051},
     ]
     
     shops = []
@@ -1118,13 +1127,14 @@ async def seed_demo_data():
         await db.shops.insert_one(shop_dict)
         shops.append(shop_dict)
     
-    # Demo customers
+    # Demo customers with South African phone numbers
     demo_customers = [
-        {"phone_number": "+1234567890", "name": "John Doe"},
-        {"phone_number": "+0987654321", "name": "Jane Smith"},
-        {"phone_number": "+1122334455", "name": "Bob Johnson"},
-        {"phone_number": "+5544332211", "name": "Alice Brown"},
-        {"phone_number": "+6677889900", "name": "Charlie Wilson"},
+        {"phone_number": "+27821234567", "name": "Thabo Mokoena"},
+        {"phone_number": "+27839876543", "name": "Naledi Dlamini"},
+        {"phone_number": "+27724567890", "name": "Sipho Nkosi"},
+        {"phone_number": "+27845551234", "name": "Lerato Molefe"},
+        {"phone_number": "+27716789012", "name": "Mandla Zulu"},
+        {"phone_number": "+27823456789", "name": "Nomvula Khumalo"},
     ]
     
     customers = []
