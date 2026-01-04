@@ -1198,18 +1198,6 @@ async def seed_demo_data():
         }
     }
 
-# Include router
-app.include_router(api_router)
-
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Scheduler status endpoint
 @api_router.get("/scheduler/status")
 async def get_scheduler_status():
@@ -1231,3 +1219,15 @@ async def trigger_draw_now():
     """Manually trigger the daily draw (for testing)"""
     await run_scheduled_daily_draw()
     return {"success": True, "message": "Draw triggered"}
+
+# Include router
+app.include_router(api_router)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
