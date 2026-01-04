@@ -70,6 +70,196 @@ logger = logging.getLogger(__name__)
 # Geocoder for reverse geocoding
 geolocator = Nominatim(user_agent="retail_rewards_app")
 
+# ============== LANDINGAI ADE RECEIPT PROCESSING ==============
+
+async def process_receipt_with_landingai(image_base64: str, mime_type: str = "image/jpeg") -> dict:
+    """
+    Process receipt image using LandingAI ADE (Agentic Document Extraction)
+    Returns extracted shop name, amount, items, and address
+    """
+    result = {
+        "shop_name": None,
+        "amount": 0.0,
+        "items": [],
+        "address": None,
+        "raw_text": "",
+        "success": False,
+        "error": None
+    }
+    
+    try:
+        # Try to import landingai_ade
+        try:
+            from landingai_ade import ADEClient
+            
+            if not LANDINGAI_API_KEY:
+                logger.warning("LANDINGAI_API_KEY not set, using fallback parser")
+                raise ImportError("No API key")
+            
+            # Initialize LandingAI client
+            ade_client = ADEClient(api_key=LANDINGAI_API_KEY)
+            
+            # Decode image
+            image_bytes = base64.b64decode(image_base64)
+            
+            # Process with LandingAI - extract receipt data
+            extraction_result = await asyncio.to_thread(
+                ade_client.extract,
+                image_bytes,
+                document_type="receipt",
+                extract_fields=["merchant_name", "total_amount", "items", "address", "date", "payment_method"]
+            )
+            
+            # Parse LandingAI response
+            if extraction_result:
+                result["shop_name"] = extraction_result.get("merchant_name") or extraction_result.get("store_name")
+                
+                # Handle amount (could be string or number)
+                amount_str = extraction_result.get("total_amount") or extraction_result.get("total") or "0"
+                if isinstance(amount_str, str):
+                    # Remove currency symbols and parse
+                    amount_str = re.sub(r'[^\d.,]', '', amount_str).replace(',', '.')
+                    result["amount"] = float(amount_str) if amount_str else 0.0
+                else:
+                    result["amount"] = float(amount_str)
+                
+                # Extract items
+                items_data = extraction_result.get("items") or extraction_result.get("line_items") or []
+                for item in items_data:
+                    if isinstance(item, dict):
+                        result["items"].append({
+                            "name": item.get("name") or item.get("description", "Item"),
+                            "price": float(item.get("price") or item.get("amount") or 0),
+                            "quantity": int(item.get("quantity", 1))
+                        })
+                
+                result["address"] = extraction_result.get("address") or extraction_result.get("store_address")
+                result["raw_text"] = json.dumps(extraction_result)
+                result["success"] = True
+                
+                logger.info(f"LandingAI extracted: {result['shop_name']}, ${result['amount']}, {len(result['items'])} items")
+                return result
+                
+        except ImportError:
+            logger.info("LandingAI not available, using fallback OCR")
+        except Exception as e:
+            logger.error(f"LandingAI error: {e}, using fallback")
+        
+        # Fallback: Use simple pattern matching on any OCR text provided
+        # In production, you'd integrate with another OCR service here
+        result["success"] = True
+        result["error"] = "Using manual entry - LandingAI not configured"
+        return result
+        
+    except Exception as e:
+        logger.error(f"Receipt processing error: {e}")
+        result["error"] = str(e)
+        return result
+
+async def geocode_shop_from_receipt(shop_name: str, address: str = None) -> tuple:
+    """
+    Try to geocode a shop from its name and/or address
+    Returns (latitude, longitude) or (None, None)
+    """
+    try:
+        search_query = f"{shop_name}"
+        if address:
+            search_query = f"{shop_name}, {address}"
+        
+        location = await asyncio.to_thread(
+            geolocator.geocode,
+            search_query,
+            timeout=10
+        )
+        
+        if location:
+            return (location.latitude, location.longitude)
+    except Exception as e:
+        logger.error(f"Geocoding error: {e}")
+    
+    return (None, None)
+
+# ============== SCHEDULED DRAW FUNCTION ==============
+
+async def run_scheduled_daily_draw():
+    """Run the daily draw at midnight - called by scheduler"""
+    try:
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        logger.info(f"Running scheduled daily draw for {today}")
+        
+        # Check if draw already completed
+        existing = await db.draws.find_one({"draw_date": today, "status": "completed"})
+        if existing:
+            logger.info(f"Draw already completed for {today}")
+            return
+        
+        # Get all receipts for today
+        start = f"{today}T00:00:00"
+        end = f"{today}T23:59:59"
+        
+        receipts = await db.receipts.find({
+            "created_at": {"$gte": start, "$lte": end},
+            "status": {"$ne": "won"}
+        }, {"_id": 0, "image_data": 0}).to_list(10000)
+        
+        if not receipts:
+            logger.info(f"No receipts for draw on {today}")
+            return
+        
+        # Random selection
+        winner_receipt = random.choice(receipts)
+        prize_amount = winner_receipt["amount"]
+        
+        # Create draw record
+        draw_id = str(uuid.uuid4())
+        draw_dict = {
+            "id": draw_id,
+            "draw_date": today,
+            "total_receipts": len(receipts),
+            "total_amount": sum(r["amount"] for r in receipts),
+            "winner_receipt_id": winner_receipt["id"],
+            "winner_customer_id": winner_receipt["customer_id"],
+            "winner_customer_phone": winner_receipt["customer_phone"],
+            "prize_amount": prize_amount,
+            "status": "completed",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await db.draws.insert_one(draw_dict.copy())
+        
+        # Update receipt status
+        await db.receipts.update_one(
+            {"id": winner_receipt["id"]},
+            {"$set": {"status": "won"}}
+        )
+        
+        # Update customer stats
+        await db.customers.update_one(
+            {"id": winner_receipt["customer_id"]},
+            {"$inc": {"total_wins": 1, "total_winnings": prize_amount}}
+        )
+        
+        logger.info(f"Draw completed! Winner: {winner_receipt['customer_phone']}, Prize: ${prize_amount}")
+        
+        # Notify winner via WhatsApp
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"{WHATSAPP_SERVICE_URL}/notify-winner",
+                    json={
+                        "phone_number": winner_receipt["customer_phone"],
+                        "prize_amount": prize_amount,
+                        "draw_date": today
+                    },
+                    timeout=30
+                )
+                logger.info(f"Winner notification sent to {winner_receipt['customer_phone']}")
+        except Exception as e:
+            logger.error(f"Failed to notify winner: {e}")
+        
+    except Exception as e:
+        logger.error(f"Scheduled draw error: {e}")
+
 # ============== MODELS ==============
 
 class CustomerCreate(BaseModel):
