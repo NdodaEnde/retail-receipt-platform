@@ -583,10 +583,8 @@ async def process_receipt_image(request: ReceiptImageRequest):
                 extracted.get("address")
             )
         
-        # If no shop location from geocoding, use customer's upload location
-        if not shop_lat and request.latitude:
-            shop_lat = request.latitude
-            shop_lon = request.longitude
+        # Note: Do NOT fallback to upload location for shop
+        # We need separate locations for fraud detection
         
         # Get or create shop
         shop = None
@@ -603,13 +601,27 @@ async def process_receipt_image(request: ReceiptImageRequest):
                 {"$inc": {"receipt_count": 1, "total_sales": extracted["amount"]}}
             )
         
-        # Create receipt record
+        # Calculate distance between shop and upload location for fraud detection
+        distance_km = None
+        if shop_lat and shop_lon and request.latitude and request.longitude:
+            distance_km = calculate_distance_km(shop_lat, shop_lon, request.latitude, request.longitude)
+        
+        # Assess fraud risk
+        fraud_assessment = assess_fraud_risk(distance_km, extracted["amount"])
+        
+        # Determine receipt status based on fraud flag
+        receipt_status = "processed"
+        if fraud_assessment["fraud_flag"] == "flagged":
+            receipt_status = "review"  # Flagged receipts need manual review before entering draw
+        
+        # Create receipt record with fraud data
         receipt = Receipt(
             customer_id=customer["id"],
             customer_phone=request.phone_number,
             shop_id=shop["id"] if shop else None,
             shop_name=extracted["shop_name"],
             amount=extracted["amount"],
+            currency="ZAR",
             items=extracted["items"],
             raw_text=extracted.get("raw_text"),
             image_data=request.image_data,  # Store the image
@@ -619,7 +631,11 @@ async def process_receipt_image(request: ReceiptImageRequest):
             shop_latitude=shop_lat,
             shop_longitude=shop_lon,
             shop_address=extracted.get("address") or (shop.get("address") if shop else None),
-            status="processed"
+            distance_km=distance_km,
+            fraud_flag=fraud_assessment["fraud_flag"],
+            fraud_score=fraud_assessment["fraud_score"],
+            fraud_reason=fraud_assessment["fraud_reason"],
+            status=receipt_status
         )
         
         receipt_dict = receipt.model_dump()
