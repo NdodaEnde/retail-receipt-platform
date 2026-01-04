@@ -227,7 +227,7 @@ export default function MapView() {
                           </div>
                           <div className="flex justify-between text-xs mb-1">
                             <span>Amount:</span>
-                            <span className="font-mono font-bold">${receipt.amount?.toFixed(2)}</span>
+                            <span className="font-mono font-bold">R{receipt.amount?.toFixed(2)}</span>
                           </div>
                           <p className="text-xs text-muted-foreground">
                             {new Date(receipt.created_at).toLocaleString()}
