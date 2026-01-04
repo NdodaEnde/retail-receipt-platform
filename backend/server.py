@@ -70,6 +70,68 @@ logger = logging.getLogger(__name__)
 # Geocoder for reverse geocoding
 geolocator = Nominatim(user_agent="retail_rewards_app")
 
+# ============== DISTANCE & FRAUD DETECTION ==============
+
+import math
+
+def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """
+    Calculate distance between two GPS coordinates using Haversine formula
+    Returns distance in kilometers
+    """
+    if not all([lat1, lon1, lat2, lon2]):
+        return None
+    
+    R = 6371  # Earth's radius in kilometers
+    
+    lat1_rad = math.radians(lat1)
+    lat2_rad = math.radians(lat2)
+    delta_lat = math.radians(lat2 - lat1)
+    delta_lon = math.radians(lon2 - lon1)
+    
+    a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    
+    return round(R * c, 2)
+
+def assess_fraud_risk(distance_km: float, amount: float = 0) -> dict:
+    """
+    Assess fraud risk based on distance between shop and upload location
+    Returns fraud_flag, fraud_score, and fraud_reason
+    """
+    if distance_km is None:
+        return {
+            "fraud_flag": "review",
+            "fraud_score": 30,
+            "fraud_reason": "Location data incomplete - manual review required"
+        }
+    
+    # Base scoring on distance
+    if distance_km <= FRAUD_THRESHOLD_VALID:  # <50km
+        return {
+            "fraud_flag": "valid",
+            "fraud_score": max(0, int(distance_km)),  # 0-50 score
+            "fraud_reason": None
+        }
+    elif distance_km <= FRAUD_THRESHOLD_REVIEW:  # 50-100km
+        return {
+            "fraud_flag": "review",
+            "fraud_score": 50 + int((distance_km - 50) * 0.5),  # 50-75 score
+            "fraud_reason": f"Upload location {distance_km}km from shop - may need verification"
+        }
+    elif distance_km <= FRAUD_THRESHOLD_SUSPICIOUS:  # 100-200km
+        return {
+            "fraud_flag": "suspicious",
+            "fraud_score": 75 + int((distance_km - 100) * 0.25),  # 75-100 score
+            "fraud_reason": f"Upload location {distance_km}km from shop - suspicious distance"
+        }
+    else:  # >200km
+        return {
+            "fraud_flag": "flagged",
+            "fraud_score": 100,
+            "fraud_reason": f"Upload location {distance_km}km from shop - likely fraudulent"
+        }
+
 # ============== LANDINGAI ADE RECEIPT PROCESSING ==============
 
 async def process_receipt_with_landingai(image_base64: str, mime_type: str = "image/jpeg") -> dict:
