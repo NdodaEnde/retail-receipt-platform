@@ -1,13 +1,12 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Receipt, Map, Trophy, BarChart3, Settings, Home, MessageSquare, Shield } from "lucide-react";
+import { Receipt, Map, Trophy, BarChart3, Home, Shield } from "lucide-react";
 import LandingPage from "./pages/LandingPage";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import MapView from "./pages/MapView";
 import DrawsPage from "./pages/DrawsPage";
 import AdminAnalytics from "./pages/AdminAnalytics";
-import WhatsAppSetup from "./pages/WhatsAppSetup";
 import FraudDetection from "./pages/FraudDetection";
 import "./App.css";
 
@@ -76,7 +75,6 @@ function AnimatedRoutes() {
           <Route path="/draws" element={<DrawsPage />} />
           <Route path="/analytics" element={<AdminAnalytics />} />
           <Route path="/fraud" element={<FraudDetection />} />
-          <Route path="/whatsapp" element={<WhatsAppSetup />} />
         </Routes>
       </motion.div>
     </AnimatePresence>
