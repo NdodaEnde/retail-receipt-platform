@@ -1,0 +1,169 @@
+<analysis>**original_problem_statement:** 
+The user wants to build a retail rewards platform. The core workflow is as follows:
+1.  Customers buy items from any retail shop and receive a receipt.
+2.  They take a picture of the receipt and upload it via WhatsApp.
+3.  The application must link with WhatsApp to receive these images.
+4.  The system should extract all data from the receipt.
+5.  It needs to geo-locate the shop from the receipt's information and also geo-locate the customer at the point of upload.
+6.  As an incentive, a daily draw is held where one customer can win back the total amount spent on their submitted receipt.
+7.  All collected data will be used for analytics to understand customer behavior.
+8.  The user also provided a reference Python file () demonstrating the use of LandingAI ADE for OCR and Qdrant for vector storage, which they want to be integrated.
+
+**User's preferred language**: English
+
+**what currently exists?**
+A full-stack application has been developed with a FastAPI backend, a React frontend, and a MongoDB database.
+
+-   **Backend**: Features include API endpoints for managing receipts, customers, shops, analytics, and a daily prize draw system managed by . It integrates  for receipt OCR and  for semantic search on receipt data, based on the user's provided code. A key feature is a fraud detection system that calculates the distance between the shop's location and the customer's upload location, flagging suspicious entries.
+-   **Frontend**: A neon cyberpunk themed UI provides a landing page, customer dashboard, admin analytics, a map view (centered on South Africa), a draws page, and a fraud review page. All financial data is correctly displayed in South African Rand (ZAR).
+-   **WhatsApp Integration**: The project is currently in the middle of migrating from an unofficial Baileys-based WhatsApp solution to the official **Meta WhatsApp Cloud API**, using credentials provided by the user.
+
+**Last working item**:
+    - Last item agent was working: The agent was migrating the application's messaging system from the unofficial Baileys library to the official Meta WhatsApp Cloud API. The immediate task was to update the  function in  to use the new  client for sending winner notifications.
+    - Status: IN PROGRESS
+    - Agent Testing Done: N
+    - Which testing method agent to use? backend testing agent
+    - User Testing Done: N
+
+**All Pending/In progress Issue list**:
+  - Issue 1: Complete WhatsApp Cloud API Migration (Priority: P0)
+
+  Issues Detail:
+  - **Issue 1: Complete WhatsApp Cloud API Migration**
+     - **Attempted fixes:** The agent successfully created  and replaced the webhook handling logic in . However, the migration is incomplete.
+     - **Next debug checklist:**
+       1.  Open .
+       2.  Locate the  function.
+       3.  Replace the placeholder/old notification code with a call to the new  to send messages to the winner.
+       4.  Review all other message-sending functionalities (e.g., receipt confirmation, bot command responses) and ensure they exclusively use the new  client.
+     - **Why fix this issue and what will be achieved with the fix?** This is critical for the core functionality of the app. Completing this will enable a production-ready, reliable WhatsApp communication channel as requested by the user.
+     - **Status:** IN PROGRESS
+     - **Is recurring issue?** N
+     - **Should Test frontend/backend/both after fix?** Backend
+     - **Blocked on other issue:** None
+
+**In progress Task List**:
+- **Task 1: Complete WhatsApp Cloud API Integration**
+    - **Where to resume:** Resume by editing the  function within  to integrate the new WhatsApp client for sending winner notifications.
+    - **What will be achieved with this?** The application will have a fully functional, production-grade WhatsApp integration using the official Meta Cloud API.
+    - **Status:** IN PROGRESS
+    - **Should Test frontend/backend/both after fix?** Backend
+    - **Blocked on something:** None
+
+**Upcoming and Future Tasks**
+- **Upcoming Tasks:**
+    - (P0) **End-to-End Test of WhatsApp Flow:** Once the migration is complete, conduct a full test: have the user send a receipt via WhatsApp, verify backend processing (OCR, fraud check, DB save), and confirm the data appears correctly on the frontend admin pages.
+    - (P1) **Code Cleanup:** Remove the obsolete Baileys WhatsApp service located at  and the corresponding frontend page at  to avoid confusion.
+- **Future Tasks:**
+    - Implement a prize fulfillment mechanism (e.g., EFT, voucher codes).
+    - Add pages for Terms & Conditions and a Privacy Policy to ensure POPIA compliance for the South African market.
+    - Plan for production infrastructure (Cloud hosting, MongoDB Atlas, S3 for images).
+
+**Completed work in this session**
+- **Full-Stack Application:** Built the foundational FastAPI backend and React frontend.
+- **South Africa Localization:** Adapted the application for the South African market by updating demo data with local shops, setting the currency to ZAR (R), and centering the map on SA.
+- **Receipt OCR and Search:** Integrated the user's reference code to use  for optical character recognition () and  for semantic search on receipts ().
+- **Geolocation Fraud Detection:** Implemented a system to calculate the distance between the shop and the user's upload location, assigning a fraud risk status to each receipt. A corresponding  page was created for admin review.
+- **Daily Draw Automation:** Created an automated daily lottery system using  in .
+- **Documentation:** Generated a comprehensive  and .
+- **Initiated WhatsApp API Migration:** Started the transition from the unofficial Baileys library to the official WhatsApp Cloud API.
+
+**Earlier issues found/mentioned but not fixed**
+   - **Issue 1: Obsolete Code**
+     - **Debug checklist:**
+       1. Delete the  directory.
+       2. Delete the  file.
+       3. Remove the route for  from  and any corresponding links in the navigation.
+     - **Why to solve this issue and what will be achieved with this?** To prevent confusion and errors by removing code that is no longer in use after the migration to the official WhatsApp Cloud API.
+     - **Should Test frontend/backend/both after fix:** Frontend
+     - **Is recurring issue?** N
+
+**Known issue recurrence from previous fork**
+  - None.
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+- **Backend**: FastAPI, Asynchronous MongoDB (Motor), APScheduler for cron jobs, Pydantic for data validation.
+- **Frontend**: React, TailwindCSS, Recharts for charts, Leaflet for maps.
+- **AI/ML**: LandingAI ADE for OCR, Qdrant for vector-based semantic search.
+- **Integrations**: Meta WhatsApp Cloud API.
+- **Geolocation**: Haversine distance formula for fraud detection.
+
+**key DB schema**
+-   **customers**: 
+-   **shops**: 
+-   **receipts**: 
+-   **draws**: 
+
+**changes in tech stack**
+-   The WhatsApp integration was changed from the unofficial **Baileys** library to the official **Meta WhatsApp Cloud API**.
+-   The receipt processing logic was upgraded to use the  and  libraries, as requested by the user.
+
+**All files of reference**
+-   : The main application file containing API endpoints and core logic. (Updated)
+-   : Handles all communication with the WhatsApp Cloud API. (Created)
+-   : Contains the logic for processing receipts with LandingAI. (Created)
+-   : Manages the Qdrant vector database. (Created)
+-   : Stores environment variables and secrets. (Updated)
+-   : The UI for reviewing potentially fraudulent receipts. (Created)
+-   : Contains setup and usage instructions. (Updated)
+
+**Areas that need refactoring**:
+- The  directory and its corresponding frontend page  are obsolete due to the migration to the WhatsApp Cloud API and should be deleted to maintain code hygiene.
+
+**key api endpoints**
+-   : Receives incoming messages and events from WhatsApp.
+-   : Retrieves receipts for the fraud detection dashboard.
+-   : Allows an admin to approve or reject a flagged receipt.
+-   : Provides semantic search functionality for receipts.
+-   : Populates the database with demo data.
+
+**Critical Info for New Agent**
+-   The user has provided credentials for the **official WhatsApp Cloud API** and **LandingAI**. These are stored as placeholders in  and the user will need to re-populate them.
+-   The primary task is to complete the **in-progress migration** to the WhatsApp Cloud API. The current WhatsApp functionality is broken.
+-   The application is tailored for the **South African** market (currency, data).
+-   **Fraud detection** based on geolocation is a core, user-requested feature.
+
+**documents and test reports created in this job**
+-   
+-   
+-   
+
+**Last 10 User Messages and any pending HUMAN messages**
+1.  **User:** Asked to proceed with implementing fraud detection logic. (Completed)
+2.  **Agent:** Implemented fraud detection and created the admin page. (Completed)
+3.  **User:** Requested the creation of a  file. (Completed)
+4.  **Agent:** Wrote a comprehensive . (Completed)
+5.  **User:** Provided a detailed analysis of the agent's code versus their original reference file, emphasizing the need to use Qdrant and LandingAI ADE correctly. (Completed)
+6.  **Agent:** Acknowledged the feedback and started integrating the user's code structure. (Completed)
+7.  **User:** Asked what was needed to test the full workflow. (Pending implementation)
+8.  **Agent:** Explained the remaining setup steps (WhatsApp service, API keys). (Completed)
+9.  **User:** Confirmed they have an operational **WhatsApp Cloud API** with credentials and a LandingAI key, and requested to proceed with the official API integration (Option A). (Actioned)
+10. **Agent:** Acknowledged the user's choice and began migrating to the WhatsApp Cloud API. (In Progress)
+
+**Project Health Check:**
+-   **Broken**: The WhatsApp integration is currently non-functional due to the incomplete migration from Baileys to the official WhatsApp Cloud API.
+-   **Mocked**: The LandingAI OCR function includes a fallback that returns dummy data if no API key is provided, which is useful for testing other parts of the system independently.
+
+**3rd Party Integrations**
+-   **Meta WhatsApp Cloud API**: Handles all WhatsApp messaging. Requires a User API Key (Access Token).
+-   **LandingAI ADE**: Used for Optical Character Recognition on receipts. Requires a User API Key.
+-   **Qdrant**: A vector database used for semantic search, running locally within the environment.
+
+**Testing status**
+-   **Testing agent used after significant changes:** YES
+-   **Troubleshoot agent used after agent stuck in loop:** NO
+-   **Test files created:** []
+-   **Known regressions:** All WhatsApp functionality is currently broken.
+
+**Credentials to test flow:**
+The user must provide the following keys in :
+-   
+-   
+-    (a string you define and also set in the Meta App dashboard)
+
+**What agent forgot to execute**
+-   The agent did not complete the migration to the WhatsApp Cloud API. The  function and other message-sending logic in  still need to be updated to use the new  client.
+-   The agent did not remove the now-obsolete Baileys code in  and the associated frontend components, which could cause confusion.</analysis>
