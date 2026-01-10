@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -1210,7 +1210,8 @@ async def verify_webhook(
     
     if hub_mode == "subscribe" and hub_verify_token == WHATSAPP_VERIFY_TOKEN:
         logger.info("✅ Webhook verified successfully")
-        return int(hub_challenge) if hub_challenge else "OK"
+        # Meta expects plain text response with the challenge value
+        return PlainTextResponse(content=hub_challenge or "OK")
     else:
         logger.warning("❌ Webhook verification failed")
         raise HTTPException(status_code=403, detail="Verification failed")
