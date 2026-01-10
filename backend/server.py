@@ -303,21 +303,17 @@ async def run_scheduled_daily_draw():
             {"$inc": {"total_wins": 1, "total_winnings": prize_amount}}
         )
         
-        logger.info(f"Draw completed! Winner: {winner_receipt['customer_phone']}, Prize: ${prize_amount}")
+        logger.info(f"Draw completed! Winner: {winner_receipt['customer_phone']}, Prize: R{prize_amount}")
         
-        # Notify winner via WhatsApp
+        # Notify winner via WhatsApp Cloud API
         try:
-            async with httpx.AsyncClient() as client:
-                await client.post(
-                    f"{WHATSAPP_SERVICE_URL}/notify-winner",
-                    json={
-                        "phone_number": winner_receipt["customer_phone"],
-                        "prize_amount": prize_amount,
-                        "draw_date": today
-                    },
-                    timeout=30
-                )
-                logger.info(f"Winner notification sent to {winner_receipt['customer_phone']}")
+            wa = get_whatsapp_client()
+            await wa.send_winner_notification(
+                winner_receipt["customer_phone"],
+                prize_amount,
+                today
+            )
+            logger.info(f"Winner notification sent to {winner_receipt['customer_phone']}")
         except Exception as e:
             logger.error(f"Failed to notify winner: {e}")
         
