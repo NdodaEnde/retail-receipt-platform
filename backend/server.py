@@ -1199,14 +1199,14 @@ async def verify_whatsapp_webhook(request_args: dict = None):
     # hub.mode, hub.verify_token, hub.challenge
     return {"status": "ok"}
 
-@app.get("/api/whatsapp/webhook")
+@app.api_route("/api/whatsapp/webhook", methods=["GET", "HEAD"])
 async def verify_webhook(
     hub_mode: str = Query(None, alias="hub.mode"),
     hub_verify_token: str = Query(None, alias="hub.verify_token"),
     hub_challenge: str = Query(None, alias="hub.challenge")
 ):
     """Verify webhook for WhatsApp Cloud API"""
-    logger.info(f"Webhook verification: mode={hub_mode}, token={hub_verify_token}")
+    logger.info(f"Webhook verification: mode={hub_mode}, token={hub_verify_token}, challenge={hub_challenge}")
     
     if hub_mode == "subscribe" and hub_verify_token == WHATSAPP_VERIFY_TOKEN:
         logger.info("✅ Webhook verified successfully")
