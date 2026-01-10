@@ -1191,75 +1191,237 @@ async def get_spending_by_shop(limit: int = 10):
     shops = await db.shops.find({}, {"_id": 0, "name": 1, "total_sales": 1, "receipt_count": 1}).sort("total_sales", -1).limit(limit).to_list(limit)
     return {"shops": shops}
 
-# --- WhatsApp Webhook Endpoints ---
+# --- WhatsApp Cloud API Webhook Endpoints ---
+
+# Store customer's last location temporarily (for when they send image after location)
+customer_locations: Dict[str, Dict] = {}
+
+@api_router.get("/whatsapp/webhook")
+async def verify_whatsapp_webhook(request_args: dict = None):
+    """
+    Webhook verification endpoint for WhatsApp Cloud API
+    Meta sends a GET request to verify the webhook URL
+    """
+    from fastapi import Request, Query
+    # This will be called with query parameters
+    # hub.mode, hub.verify_token, hub.challenge
+    return {"status": "ok"}
+
+@app.get("/api/whatsapp/webhook")
+async def verify_webhook(
+    hub_mode: str = Query(None, alias="hub.mode"),
+    hub_verify_token: str = Query(None, alias="hub.verify_token"),
+    hub_challenge: str = Query(None, alias="hub.challenge")
+):
+    """Verify webhook for WhatsApp Cloud API"""
+    logger.info(f"Webhook verification: mode={hub_mode}, token={hub_verify_token}")
+    
+    if hub_mode == "subscribe" and hub_verify_token == WHATSAPP_VERIFY_TOKEN:
+        logger.info("✅ Webhook verified successfully")
+        return int(hub_challenge) if hub_challenge else "OK"
+    else:
+        logger.warning("❌ Webhook verification failed")
+        raise HTTPException(status_code=403, detail="Verification failed")
 
 @api_router.post("/whatsapp/webhook")
-async def whatsapp_webhook(data: dict):
-    """Handle incoming WhatsApp messages"""
-    logger.info(f"WhatsApp webhook received: {json.dumps(data)}")
+async def whatsapp_webhook(data: dict, background_tasks: BackgroundTasks):
+    """
+    Handle incoming WhatsApp messages from Cloud API
+    This is the main webhook endpoint that receives all messages
+    """
+    logger.info(f"📩 WhatsApp webhook received")
     
-    # Extract message details
-    phone_number = data.get("phone_number", "")
-    message_type = data.get("type", "text")
-    message_content = data.get("content", "")
-    latitude = data.get("latitude")
-    longitude = data.get("longitude")
-    image_data = data.get("image_data")  # Base64 encoded image
+    # Parse the incoming webhook
+    parsed = parse_webhook_message(data)
+    
+    if not parsed:
+        # Could be a status update, not a message
+        return {"status": "ok"}
+    
+    phone_number = parsed["phone_number"]
+    message_type = parsed["message_type"]
+    message_id = parsed["message_id"]
+    content = parsed["content"]
+    media_id = parsed["media_id"]
+    location = parsed["location"]
+    contact_name = parsed.get("contact_name")
+    
+    logger.info(f"📱 Message from {phone_number}: type={message_type}")
+    
+    # Get WhatsApp client
+    wa = get_whatsapp_client()
+    
+    # Mark message as read
+    await wa.mark_as_read(message_id)
     
     # Get or create customer
-    customer = await get_or_create_customer(phone_number)
+    customer = await get_or_create_customer(phone_number, contact_name)
     
-    response_message = ""
-    
-    if message_type == "image" and image_data:
+    # Handle different message types
+    if message_type == "image" and media_id:
         # Process receipt image
-        # In production, this would call LandingAI ADE for OCR
-        response_message = "📸 Receipt received! Processing... We'll notify you once it's registered for today's draw."
+        background_tasks.add_task(
+            process_receipt_from_whatsapp,
+            phone_number, media_id, parsed.get("mime_type", "image/jpeg"), customer
+        )
+        await wa.send_text_message(phone_number, "📸 Receipt received! Processing with AI... Please wait.")
         
-        # Create placeholder receipt (in production, OCR would extract details)
+    elif message_type == "location" and location:
+        # Store location for next image upload
+        customer_locations[phone_number] = {
+            "latitude": location["latitude"],
+            "longitude": location["longitude"],
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        await wa.send_text_message(
+            phone_number, 
+            f"📍 Location saved! ({location['latitude']:.4f}, {location['longitude']:.4f})\n\nNow send your receipt photo!"
+        )
+        
+    elif message_type == "text":
+        # Handle text commands
+        await handle_text_command(phone_number, content.lower().strip(), wa)
+    
+    else:
+        await wa.send_text_message(phone_number, "Please send a receipt photo or type HELP for commands.")
+    
+    return {"status": "ok"}
+
+async def process_receipt_from_whatsapp(phone_number: str, media_id: str, mime_type: str, customer: dict):
+    """Background task to process receipt image from WhatsApp"""
+    wa = get_whatsapp_client()
+    
+    try:
+        # Download the image
+        image_bytes = await wa.download_media(media_id)
+        
+        if not image_bytes:
+            await wa.send_text_message(phone_number, "❌ Failed to download image. Please try again.")
+            return
+        
+        # Convert to base64
+        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Get stored location if available
+        stored_location = customer_locations.pop(phone_number, None)
+        latitude = stored_location["latitude"] if stored_location else None
+        longitude = stored_location["longitude"] if stored_location else None
+        
+        # Process with LandingAI
+        processor = get_receipt_processor()
+        extracted = processor.process_receipt_image(image_base64, mime_type)
+        
+        shop_name = extracted.get("shop_name")
+        shop_address = extracted.get("shop_address")
+        amount = extracted.get("amount", 0)
+        items = extracted.get("items", [])
+        
+        # Geocode shop
+        shop_lat, shop_lon = None, None
+        if shop_name:
+            shop_lat, shop_lon = await geocode_shop_from_receipt(shop_name, shop_address)
+        
+        # Calculate fraud risk
+        distance_km = None
+        if shop_lat and shop_lon and latitude and longitude:
+            distance_km = calculate_distance_km(shop_lat, shop_lon, latitude, longitude)
+        
+        fraud_assessment = assess_fraud_risk(distance_km, amount)
+        
+        # Create shop if needed
+        shop = None
+        if shop_name:
+            shop = await get_or_create_shop(shop_name, shop_address, shop_lat, shop_lon)
+            await db.shops.update_one(
+                {"id": shop["id"]},
+                {"$inc": {"receipt_count": 1, "total_sales": amount}}
+            )
+        
+        # Determine status
+        receipt_status = "processed" if fraud_assessment["fraud_flag"] != "flagged" else "review"
+        
+        # Create receipt
         receipt = Receipt(
             customer_id=customer["id"],
             customer_phone=phone_number,
-            image_data=image_data,
+            shop_id=shop["id"] if shop else None,
+            shop_name=shop_name,
+            amount=amount,
+            currency="ZAR",
+            items=items,
+            raw_text=extracted.get("raw_text"),
+            image_data=image_base64,
             upload_latitude=latitude,
             upload_longitude=longitude,
-            status="pending"
+            shop_latitude=shop_lat,
+            shop_longitude=shop_lon,
+            shop_address=shop_address,
+            distance_km=distance_km,
+            fraud_flag=fraud_assessment["fraud_flag"],
+            fraud_score=fraud_assessment["fraud_score"],
+            fraud_reason=fraud_assessment["fraud_reason"],
+            status=receipt_status
         )
+        
         receipt_dict = receipt.model_dump()
         receipt_dict['created_at'] = receipt_dict['created_at'].isoformat()
-        await db.receipts.insert_one(receipt_dict)
+        receipt_dict['grounding'] = extracted.get('grounding', {})
         
-    elif message_type == "location":
-        response_message = f"📍 Location received: {latitude}, {longitude}. Now send your receipt photo!"
+        await db.receipts.insert_one(receipt_dict.copy())
         
-    elif message_content.lower() in ["help", "hi", "hello", "start"]:
-        response_message = """🎰 Welcome to Retail Rewards!
+        # Update customer stats
+        await db.customers.update_one(
+            {"id": customer["id"]},
+            {"$inc": {"total_receipts": 1, "total_spent": amount}}
+        )
+        
+        # Add to vector store
+        try:
+            vector_store = get_receipt_vector_store()
+            vector_store.add_receipt(receipt.id, receipt_dict)
+        except Exception as e:
+            logger.warning(f"Vector store error: {e}")
+        
+        # Send confirmation
+        await wa.send_receipt_confirmation(
+            phone_number, 
+            shop_name or "Unknown Shop", 
+            amount, 
+            len(items),
+            fraud_assessment["fraud_flag"]
+        )
+        
+        logger.info(f"✅ Receipt processed for {phone_number}: {shop_name}, R{amount}")
+        
+    except Exception as e:
+        logger.error(f"❌ Receipt processing failed: {e}")
+        await wa.send_text_message(
+            phone_number, 
+            "❌ Sorry, we couldn't process your receipt. Please try again with a clearer photo."
+        )
 
-📸 Send a photo of your receipt to enter today's draw
-📍 Share your location first for better tracking
-🏆 Daily winners announced at midnight
-💰 Win back what you spent!
-
-Commands:
-• RECEIPTS - View your receipts
-• WINS - View your winnings
-• STATUS - Check today's draw"""
+async def handle_text_command(phone_number: str, command: str, wa):
+    """Handle text commands from WhatsApp"""
+    
+    if command in ["help", "hi", "hello", "start", "menu"]:
+        await wa.send_welcome_message(phone_number)
         
-    elif message_content.lower() == "receipts":
+    elif command == "receipts":
         receipts = await db.receipts.find(
             {"customer_phone": phone_number},
             {"_id": 0, "image_data": 0}
         ).sort("created_at", -1).limit(5).to_list(5)
         
         if receipts:
-            response_message = "📋 Your recent receipts:\n\n"
+            msg = "📋 *Your Recent Receipts:*\n\n"
             for i, r in enumerate(receipts, 1):
-                status_emoji = "✅" if r["status"] == "processed" else "🏆" if r["status"] == "won" else "⏳"
-                response_message += f"{i}. {r.get('shop_name', 'Unknown')} - ${r.get('amount', 0):.2f} {status_emoji}\n"
+                status = "✅" if r["status"] == "processed" else "🏆" if r["status"] == "won" else "⏳"
+                msg += f"{i}. {status} {r.get('shop_name', 'Unknown')} - R{r.get('amount', 0):.2f}\n"
+            await wa.send_text_message(phone_number, msg)
         else:
-            response_message = "No receipts yet. Send a receipt photo to get started!"
+            await wa.send_text_message(phone_number, "No receipts yet. Send a receipt photo to get started!")
             
-    elif message_content.lower() == "wins":
+    elif command == "wins":
         wins = await db.draws.find(
             {"winner_customer_phone": phone_number},
             {"_id": 0}
@@ -1267,67 +1429,85 @@ Commands:
         
         if wins:
             total_won = sum(w["prize_amount"] for w in wins)
-            response_message = f"🏆 Your winnings: ${total_won:.2f}\n\n"
+            msg = f"🏆 *Your Winnings: R{total_won:.2f}*\n\n"
             for w in wins:
-                response_message += f"• {w['draw_date']}: ${w['prize_amount']:.2f}\n"
+                msg += f"• {w['draw_date']}: R{w['prize_amount']:.2f}\n"
+            await wa.send_text_message(phone_number, msg)
         else:
-            response_message = "No wins yet. Keep uploading receipts for a chance to win!"
+            await wa.send_text_message(phone_number, "No wins yet. Keep uploading receipts for a chance to win!")
             
-    elif message_content.lower() == "status":
+    elif command == "status":
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         draw = await db.draws.find_one({"draw_date": today}, {"_id": 0})
         
         if draw and draw["status"] == "completed":
             if draw["winner_customer_phone"] == phone_number:
-                response_message = f"🎉 YOU WON TODAY! Prize: ${draw['prize_amount']:.2f}"
+                msg = f"🎉 *YOU WON TODAY!*\n\n💰 Prize: R{draw['prize_amount']:.2f}\n\nCongratulations! 🎊"
             else:
-                response_message = f"Today's draw is complete. Winner has been notified.\nTotal entries: {draw['total_receipts']}"
+                msg = f"📊 *Today's Draw Complete*\n\n🎟️ Entries: {draw['total_receipts']}\n💰 Prize Pool: R{draw['total_amount']:.2f}\n🏆 Winner notified!"
+            await wa.send_text_message(phone_number, msg)
         else:
             today_receipts = await db.receipts.count_documents({
                 "created_at": {"$gte": f"{today}T00:00:00", "$lte": f"{today}T23:59:59"}
             })
-            response_message = f"🎰 Today's draw status:\nTotal entries: {today_receipts}\nDraw at midnight!"
-    else:
-        response_message = "Send a receipt photo or type HELP for commands."
+            msg = f"🎰 *Today's Draw Status*\n\n🎟️ Entries so far: {today_receipts}\n⏰ Draw time: Midnight UTC\n\nSend more receipts for more chances!"
+            await wa.send_text_message(phone_number, msg)
+            
+    elif command == "balance":
+        customer = await db.customers.find_one({"phone_number": phone_number}, {"_id": 0})
+        if customer:
+            msg = (
+                f"📊 *Your Stats*\n\n"
+                f"📋 Receipts: {customer.get('total_receipts', 0)}\n"
+                f"💵 Total Spent: R{customer.get('total_spent', 0):.2f}\n"
+                f"🏆 Wins: {customer.get('total_wins', 0)}\n"
+                f"💰 Won Back: R{customer.get('total_winnings', 0):.2f}"
+            )
+            await wa.send_text_message(phone_number, msg)
+        else:
+            await wa.send_text_message(phone_number, "No stats yet. Send your first receipt to get started!")
     
-    return {"reply": response_message, "success": True}
-
-@api_router.get("/whatsapp/qr")
-async def get_whatsapp_qr():
-    """Get WhatsApp QR code from Baileys service"""
-    try:
-        async with httpx.AsyncClient() as http_client:
-            response = await http_client.get(f"{WHATSAPP_SERVICE_URL}/qr", timeout=10)
-            return response.json()
-    except Exception as e:
-        logger.error(f"Failed to get WhatsApp QR: {e}")
-        return {"qr": None, "connected": False, "error": str(e)}
+    else:
+        await wa.send_text_message(
+            phone_number, 
+            "I didn't understand that. Send *HELP* for commands or send a receipt photo!"
+        )
 
 @api_router.get("/whatsapp/status")
 async def get_whatsapp_status():
-    """Get WhatsApp connection status from Baileys service"""
-    try:
-        async with httpx.AsyncClient() as http_client:
-            response = await http_client.get(f"{WHATSAPP_SERVICE_URL}/status", timeout=10)
-            return response.json()
-    except Exception as e:
-        logger.error(f"Failed to get WhatsApp status: {e}")
-        return {"connected": False, "status": "service_unavailable", "error": str(e)}
+    """Get WhatsApp Cloud API connection status"""
+    wa = get_whatsapp_client()
+    
+    token_configured = wa.access_token and wa.access_token != 'YOUR_ACCESS_TOKEN_HERE'
+    
+    return {
+        "connected": token_configured,
+        "status": "configured" if token_configured else "not_configured",
+        "phone_number_id": wa.phone_number_id,
+        "api_version": wa.api_version,
+        "type": "WhatsApp Cloud API (Official)"
+    }
 
 @api_router.post("/whatsapp/send")
 async def send_whatsapp_message(data: dict):
-    """Send message via WhatsApp service"""
-    try:
-        async with httpx.AsyncClient() as http_client:
-            response = await http_client.post(
-                f"{WHATSAPP_SERVICE_URL}/send",
-                json=data,
-                timeout=30
-            )
-            return response.json()
-    except Exception as e:
-        logger.error(f"Failed to send WhatsApp message: {e}")
-        return {"success": False, "error": str(e)}
+    """Send message via WhatsApp Cloud API"""
+    wa = get_whatsapp_client()
+    
+    phone_number = data.get("phone_number", "").replace("+", "")
+    message = data.get("message", "")
+    
+    if not phone_number or not message:
+        raise HTTPException(status_code=400, detail="phone_number and message required")
+    
+    result = await wa.send_text_message(phone_number, message)
+    return result
+
+@api_router.post("/whatsapp/test")
+async def test_whatsapp_connection(phone_number: str):
+    """Test WhatsApp connection by sending a test message"""
+    wa = get_whatsapp_client()
+    result = await wa.send_text_message(phone_number, "🎰 Test message from Retail Rewards SA!")
+    return result
 
 # --- Demo Data Endpoint ---
 
