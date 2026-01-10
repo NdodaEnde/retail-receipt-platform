@@ -12,13 +12,8 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# WhatsApp Cloud API Configuration
-WHATSAPP_API_VERSION = os.environ.get('WHATSAPP_API_VERSION', 'v23.0')
-WHATSAPP_PHONE_NUMBER_ID = os.environ.get('WHATSAPP_PHONE_NUMBER_ID', '')
-WHATSAPP_ACCESS_TOKEN = os.environ.get('WHATSAPP_ACCESS_TOKEN', '')
+# Default verify token (can be overridden by env var)
 WHATSAPP_VERIFY_TOKEN = os.environ.get('WHATSAPP_VERIFY_TOKEN', 'retail_rewards_webhook_2026')
-
-BASE_URL = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{WHATSAPP_PHONE_NUMBER_ID}"
 
 
 class WhatsAppCloudAPI:
@@ -27,10 +22,11 @@ class WhatsAppCloudAPI:
     """
     
     def __init__(self):
-        self.phone_number_id = WHATSAPP_PHONE_NUMBER_ID
-        self.access_token = WHATSAPP_ACCESS_TOKEN
-        self.api_version = WHATSAPP_API_VERSION
-        self.base_url = BASE_URL
+        # Load config lazily at initialization time (after .env is loaded)
+        self.phone_number_id = os.environ.get('WHATSAPP_PHONE_NUMBER_ID', '')
+        self.access_token = os.environ.get('WHATSAPP_ACCESS_TOKEN', '')
+        self.api_version = os.environ.get('WHATSAPP_API_VERSION', 'v23.0')
+        self.base_url = f"https://graph.facebook.com/{self.api_version}/{self.phone_number_id}"
         
         if not self.access_token or self.access_token == 'YOUR_ACCESS_TOKEN_HERE':
             logger.warning("⚠️ WhatsApp access token not configured")
