@@ -96,3 +96,17 @@ frontend/node_modules/.cache/default-development/7.pack
 # Environment files
 *.env
 *.env.*
+
+# Environment files with secrets
+.env
+.env.local
+.env.production
+backend/.env
+frontend/.env
+*.env
+
+# WhatsApp auth
+whatsapp-service/auth_info/
+
+# Qdrant data
+qdrant_receipts/
