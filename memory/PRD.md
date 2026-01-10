@@ -5,108 +5,105 @@ Create a retail module where customers buy items from retail shops (any retail) 
 
 ## Complete Workflow
 1. **Customer uploads receipt photo via WhatsApp** 
-2. **Baileys Node.js service receives image + optional location**
+2. **WhatsApp Cloud API webhook receives image + optional location**
 3. **LandingAI ADE extracts: shop name, amount, items, address**
 4. **Receipt image stored + structured data saved to MongoDB**
-5. **Geolocate shop from receipt data (or use customer location)**
+5. **Geolocate shop from receipt data**
 6. **Geolocate customer's upload position (from WhatsApp location share)**
-7. **Receipt enters daily draw pool**
-8. **Midnight UTC: Scheduler runs random draw**
-9. **Winner notified via WhatsApp**
+7. **Fraud detection: Calculate distance between shop and upload location**
+8. **Receipt enters daily draw pool (if not flagged)**
+9. **Midnight UTC: Scheduler runs random draw**
+10. **Winner notified via WhatsApp Cloud API**
 
 ## User Personas
 1. **Retail Customer**: Shops at various retail stores, sends receipt photos via WhatsApp
-2. **Platform Admin**: Manages draws, views analytics, monitors customer behavior
+2. **Platform Admin**: Manages draws, views analytics, monitors fraud, reviews flagged receipts
 3. **Business Analyst**: Uses aggregated data for market research
 
 ## Architecture
 - **Frontend**: React 19 + Tailwind CSS + Shadcn UI + Leaflet Maps + Recharts
 - **Backend**: FastAPI (Python) with async endpoints + APScheduler
 - **Database**: MongoDB (customers, receipts, shops, draws)
-- **WhatsApp Service**: Node.js + Baileys library (separate microservice)
-- **OCR**: LandingAI ADE (ready for integration)
+- **WhatsApp**: Meta WhatsApp Cloud API (Official)
+- **OCR**: LandingAI ADE + Qdrant vector search
+- **Fraud Detection**: Haversine distance calculation
 
-## What's Been Implemented (January 4, 2026)
+## What's Been Implemented (January 10, 2026)
 
-### Backend APIs
-- ✅ Customer CRUD endpoints + location tracking
-- ✅ Receipt upload (manual form) with geolocation
-- ✅ Receipt image processing endpoint (`/api/receipts/process-image`) - ready for WhatsApp
-- ✅ LandingAI ADE integration framework (needs API key)
-- ✅ Shop auto-detection, creation, and geocoding
-- ✅ Daily random draw system with winner notification
-- ✅ **APScheduler** - automated daily draw at midnight UTC
-- ✅ Analytics endpoints (overview, spending, shops, customers, time)
-- ✅ Map data endpoints
-- ✅ WhatsApp proxy endpoints (QR, status, send)
+### ✅ WhatsApp Cloud API Integration (COMPLETE)
+- Full migration from Baileys to official Meta WhatsApp Cloud API
+- Webhook for receiving messages (`/api/whatsapp/webhook`)
+- Send text messages, receipt confirmations, winner notifications
+- Download media (receipt images) from WhatsApp
+- Bot commands: HELP, RECEIPTS, WINS, STATUS, BALANCE
+- Message read receipts
 
-### WhatsApp Service (Node.js)
-- ✅ Baileys integration code (`/app/whatsapp-service/index.js`)
-- ✅ QR code generation and authentication
-- ✅ Image receipt download and forwarding to FastAPI
-- ✅ Bot commands (HELP, RECEIPTS, WINS, STATUS, BALANCE)
-- ✅ Winner notification endpoint
-- ⏳ Requires `npm install` and `npm start` to run
+### ✅ Backend APIs
+- Customer CRUD endpoints + location tracking
+- Receipt upload (manual form + WhatsApp) with geolocation
+- Receipt image processing endpoint (`/api/receipts/process-image`)
+- LandingAI ADE integration (needs API key for full OCR)
+- Shop auto-detection, creation, and geocoding
+- Daily random draw system with WhatsApp winner notification
+- **APScheduler** - automated daily draw at midnight UTC
+- Analytics endpoints (overview, spending, shops, customers, time)
+- Map data endpoints
+- Semantic search via Qdrant vector store
 
-### Frontend Pages
-- ✅ Landing page with hero section and platform stats
-- ✅ Customer dashboard with receipts and wins tabs
-- ✅ Receipt upload dialog
-- ✅ Interactive map view with shop markers
-- ✅ Daily draws page with winner announcement
-- ✅ Analytics dashboard (4 tabs: Spending, Shops, Customers, Time)
-- ✅ WhatsApp setup page with QR code display
+### ✅ Fraud Detection System
+- Haversine distance calculation between shop and upload location
+- Fraud risk thresholds: Valid (<50km), Review (50-100km), Suspicious (100-200km), Flagged (>200km)
+- Admin review page for flagged receipts
+- Approve/reject workflow
 
-### Scheduler
-- ✅ APScheduler configured for midnight UTC daily draws
-- ✅ Automatic winner notification via WhatsApp
-- ✅ Status endpoint: `/api/scheduler/status`
-- ✅ Manual trigger: `/api/scheduler/trigger-draw`
+### ✅ Frontend Pages
+- Landing page with stats
+- Customer dashboard with receipts
+- Interactive map (Leaflet, centered on South Africa)
+- Draws page with winners
+- Admin analytics dashboard
+- Fraud detection/review page
 
-## Required Setup for Full Operation
+## Pending Items
 
-### 1. Start WhatsApp Service
-```bash
-cd /app/whatsapp-service
-npm install
-npm start
+### P0 - High Priority
+- None (core functionality complete)
+
+### P1 - Enhancement
+- Configure LandingAI API key for full OCR capability (currently falls back to manual entry)
+- Set up WhatsApp webhook URL in Meta Business dashboard
+
+### P2 - Future
+- Prize fulfillment mechanism (EFT, voucher codes)
+- Terms & Conditions / Privacy Policy pages (POPIA compliance)
+- Production infrastructure (Cloud hosting, MongoDB Atlas, S3 for images)
+
+## Key Files
+- `/app/backend/server.py` - Main API server
+- `/app/backend/whatsapp_cloud.py` - WhatsApp Cloud API client
+- `/app/backend/receipt_processor.py` - LandingAI OCR logic
+- `/app/backend/vector_store.py` - Qdrant vector store
+- `/app/backend/.env` - Environment configuration
+
+## Environment Variables Required
 ```
-Then scan the QR code displayed in terminal/frontend with your WhatsApp app.
-
-### 2. LandingAI API Key (for receipt OCR)
-Add to `/app/backend/.env`:
+MONGO_URL=mongodb://localhost:27017
+DB_NAME=test_database
+WHATSAPP_PHONE_NUMBER_ID=993738803815711
+WHATSAPP_ACCESS_TOKEN=<your-access-token>
+WHATSAPP_VERIFY_TOKEN=retail_rewards_webhook_2026
+WHATSAPP_API_VERSION=v23.0
+LANDINGAI_API_KEY=<your-landingai-key>
 ```
-LANDINGAI_API_KEY=your_api_key_here
-```
 
-## API Endpoints Summary
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/receipts/process-image` | POST | Process receipt image (from WhatsApp) |
-| `/api/receipts/upload` | POST | Manual receipt upload |
-| `/api/draws/run` | POST | Run draw for specific date |
-| `/api/scheduler/status` | GET | Check scheduler status |
-| `/api/scheduler/trigger-draw` | POST | Manually trigger draw |
-| `/api/whatsapp/qr` | GET | Get QR code for authentication |
-| `/api/whatsapp/status` | GET | Check WhatsApp connection |
-| `/api/analytics/*` | GET | Various analytics endpoints |
-
-## Prioritized Backlog
-
-### P1 - Ready to Deploy
-- [x] Start WhatsApp microservice
-- [ ] Configure LandingAI API key for OCR
-- [ ] Test end-to-end WhatsApp → Receipt → Draw flow
-
-### P2 - Enhancements
-- [ ] Receipt image cloud storage (S3/GCS)
-- [ ] Customer authentication
-- [ ] Multi-timezone support for draws
-- [ ] Export analytics to CSV
-
-### P3 - Future
-- [ ] Push notifications
-- [ ] Social sharing of wins
-- [ ] Referral system
-- [ ] Multiple draw tiers
+## API Endpoints
+- `GET /api/health` - Health check
+- `GET /api/whatsapp/status` - WhatsApp connection status
+- `POST /api/whatsapp/webhook` - Receive WhatsApp messages
+- `GET /api/whatsapp/webhook` - Webhook verification
+- `POST /api/whatsapp/send` - Send WhatsApp message
+- `POST /api/receipts/process-image` - Process receipt image
+- `GET /api/fraud/flagged` - Get flagged receipts
+- `POST /api/fraud/review/{id}` - Approve/reject receipt
+- `POST /api/draws/run` - Trigger daily draw
+- `GET /api/analytics/overview` - Platform stats
