@@ -25,6 +25,7 @@ from apscheduler.triggers.cron import CronTrigger
 # Import custom modules for receipt processing
 from receipt_processor import get_receipt_processor
 from vector_store import get_receipt_vector_store
+from whatsapp_cloud import get_whatsapp_client, parse_webhook_message, WHATSAPP_VERIFY_TOKEN
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -36,9 +37,6 @@ db = client[os.environ['DB_NAME']]
 
 # Scheduler for daily draws
 scheduler = AsyncIOScheduler()
-
-# WhatsApp service URL
-WHATSAPP_SERVICE_URL = os.environ.get('WHATSAPP_SERVICE_URL', 'http://localhost:3001')
 
 # LandingAI configuration
 LANDINGAI_API_KEY = os.environ.get('LANDINGAI_API_KEY', '')
