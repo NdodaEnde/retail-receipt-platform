@@ -636,7 +636,7 @@ async def process_receipt_image(request: ReceiptImageRequest):
             customer_id=customer["id"],
             customer_phone=request.phone_number,
             shop_id=shop["id"] if shop else None,
-            shop_name=shop_name,
+            shop_name=shop_display_name,  # Use display name like "Shoprite Brackenfell"
             amount=extracted.get("amount", 0),
             currency="ZAR",
             items=extracted.get("items", []),
