@@ -224,21 +224,46 @@ async def process_receipt_with_landingai(image_base64: str, mime_type: str = "im
 async def geocode_shop_from_receipt(shop_name: str, address: str = None) -> tuple:
     """
     Try to geocode a shop from its name and/or address using improved geocoding service
-    Returns (latitude, longitude) or (None, None)
+    Returns (latitude, longitude, display_name) or (None, None, None)
     """
     try:
         geocoding_service = get_geocoding_service()
         result = await geocoding_service.geocode_shop(shop_name, address)
         
         if result:
-            logger.info(f"Geocoded {shop_name}: {result.get('latitude')}, {result.get('longitude')} (confidence: {result.get('confidence')})")
-            return (result["latitude"], result["longitude"])
+            lat = result["latitude"]
+            lon = result["longitude"]
+            formatted = result.get("formatted_address", "")
+            
+            # Extract suburb/area from formatted address for display name
+            display_name = shop_name
+            if formatted:
+                # Parse Google's formatted address to extract suburb
+                # Format: "Street, Suburb, City, PostCode, South Africa"
+                parts = [p.strip() for p in formatted.split(",")]
+                if len(parts) >= 3:
+                    # Try to find suburb (usually 2nd or 3rd part)
+                    for part in parts[1:4]:
+                        # Skip postal codes and "South Africa"
+                        if part.isdigit() or "south africa" in part.lower():
+                            continue
+                        # Skip street names (contain "St", "Rd", etc.)
+                        if any(x in part.lower() for x in [' st', ' rd', ' ave', ' dr', 'street', 'road']):
+                            continue
+                        # This is likely the suburb
+                        suburb = part.strip()
+                        if suburb and suburb.lower() not in shop_name.lower():
+                            display_name = f"{shop_name} {suburb}"
+                        break
+            
+            logger.info(f"Geocoded {shop_name}: {lat}, {lon} -> Display: {display_name}")
+            return (lat, lon, display_name)
         else:
             logger.warning(f"Could not geocode shop: {shop_name}, {address}")
     except Exception as e:
         logger.error(f"Geocoding error: {e}")
     
-    return (None, None)
+    return (None, None, shop_name)
 
 # ============== SCHEDULED DRAW FUNCTION ==============
 
