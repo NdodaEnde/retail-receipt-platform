@@ -208,6 +208,12 @@ export default function FraudDetection() {
                             <span className="font-mono text-sm text-muted-foreground">
                               Score: {receipt.fraud_score}/100
                             </span>
+                            {receipt.has_image && (
+                              <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+                                <Image className="w-3 h-3 mr-1" />
+                                Has Image
+                              </Badge>
+                            )}
                           </div>
                           
                           <div className="grid grid-cols-2 gap-4 text-sm">
