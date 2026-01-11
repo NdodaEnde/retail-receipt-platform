@@ -598,19 +598,20 @@ async def process_receipt_image(request: ReceiptImageRequest):
         
         # Try to geocode shop if we have a name
         shop_lat, shop_lon = None, None
+        shop_display_name = extracted.get("shop_name")
         shop_name = extracted.get("shop_name")
         shop_address = extracted.get("shop_address")
         
         if shop_name:
-            shop_lat, shop_lon = await geocode_shop_from_receipt(shop_name, shop_address)
+            shop_lat, shop_lon, shop_display_name = await geocode_shop_from_receipt(shop_name, shop_address)
         
         # Note: Do NOT fallback to upload location for shop
         # We need separate locations for fraud detection
         
-        # Get or create shop
+        # Get or create shop with display name (e.g., "Shoprite Brackenfell")
         shop = None
-        if shop_name:
-            shop = await get_or_create_shop(shop_name, shop_address, shop_lat, shop_lon)
+        if shop_display_name:
+            shop = await get_or_create_shop(shop_display_name, shop_address, shop_lat, shop_lon)
             # Update shop stats
             await db.shops.update_one(
                 {"id": shop["id"]},
