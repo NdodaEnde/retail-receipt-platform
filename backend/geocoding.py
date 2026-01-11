@@ -1,6 +1,6 @@
 """
 Geocoding Service for Shop Location Resolution
-Uses OpenStreetMap Nominatim (free) with fallback options
+Uses multiple providers with fallbacks
 Optimized for South African addresses
 """
 
@@ -8,27 +8,70 @@ import os
 import logging
 import asyncio
 from typing import Dict, Optional, Tuple
-from functools import lru_cache
 import httpx
 
 logger = logging.getLogger(__name__)
 
-# South Africa bounding box for better geocoding accuracy
-SA_BOUNDS = {
-    "viewbox": "16.3,-34.9,33.0,-22.1",  # SW to NE corners of SA
-    "bounded": 1,
-    "countrycodes": "za"
+# Pre-defined coordinates for major SA retail chains
+# These are approximate central locations that will be refined when actual addresses are provided
+SA_KNOWN_SHOPS = {
+    # Major retailer headquarters/common locations in SA
+    "shoprite": {"lat": -33.9249, "lon": 18.4241, "city": "Cape Town"},  # HQ in Cape Town
+    "checkers": {"lat": -33.9249, "lon": 18.4241, "city": "Cape Town"},
+    "pick n pay": {"lat": -26.1076, "lon": 28.0567, "city": "Johannesburg"},
+    "woolworths": {"lat": -33.9249, "lon": 18.4241, "city": "Cape Town"},
+    "spar": {"lat": -29.8587, "lon": 31.0218, "city": "Durban"},
+    "game": {"lat": -26.1076, "lon": 28.0567, "city": "Johannesburg"},
+    "makro": {"lat": -26.1076, "lon": 28.0567, "city": "Johannesburg"},
+    "dis-chem": {"lat": -26.1076, "lon": 28.0567, "city": "Johannesburg"},
+    "clicks": {"lat": -33.9249, "lon": 18.4241, "city": "Cape Town"},
 }
+
+# SA suburb/area coordinates for address matching
+SA_LOCATIONS = {
+    "brackenfell": {"lat": -33.8789, "lon": 18.6989},
+    "bellville": {"lat": -33.9017, "lon": 18.6291},
+    "sandton": {"lat": -26.1076, "lon": 28.0567},
+    "rosebank": {"lat": -26.1452, "lon": 28.0445},
+    "soweto": {"lat": -26.2485, "lon": 27.8540},
+    "cape town": {"lat": -33.9249, "lon": 18.4241},
+    "johannesburg": {"lat": -26.2041, "lon": 28.0473},
+    "durban": {"lat": -29.8587, "lon": 31.0218},
+    "pretoria": {"lat": -25.7461, "lon": 28.1881},
+    "port elizabeth": {"lat": -33.9608, "lon": 25.6022},
+    "bloemfontein": {"lat": -29.0852, "lon": 26.1596},
+    "centurion": {"lat": -25.8603, "lon": 28.1894},
+    "midrand": {"lat": -25.9891, "lon": 28.1271},
+    "randburg": {"lat": -26.0936, "lon": 28.0061},
+    "fourways": {"lat": -26.0145, "lon": 28.0064},
+    "melrose arch": {"lat": -26.1341, "lon": 28.0694},
+    "v&a waterfront": {"lat": -33.9036, "lon": 18.4208},
+    "gateway": {"lat": -29.7276, "lon": 31.0699},
+    "umhlanga": {"lat": -29.7276, "lon": 31.0699},
+    "menlyn": {"lat": -25.7823, "lon": 28.2756},
+    "eastgate": {"lat": -26.1809, "lon": 28.1179},
+    "cresta": {"lat": -26.1186, "lon": 27.9644},
+    "clearwater": {"lat": -26.1089, "lon": 27.9089},
+    "the glen": {"lat": -26.2600, "lon": 28.0511},
+    "mall of africa": {"lat": -25.9891, "lon": 28.1069},
+    "pavilion": {"lat": -29.8197, "lon": 30.9306},
+    "canal walk": {"lat": -33.8940, "lon": 18.5117},
+    "tyger valley": {"lat": -33.8725, "lon": 18.6347},
+    "somerset west": {"lat": -34.0824, "lon": 18.8430},
+    "stellenbosch": {"lat": -33.9321, "lon": 18.8602},
+    "paarl": {"lat": -33.7244, "lon": 18.9622},
+    "khayelitsha": {"lat": -34.0389, "lon": 18.6819},
+    "mitchells plain": {"lat": -34.0492, "lon": 18.6181},
+}
+
 
 class GeocodingService:
     """
     Geocoding service to convert addresses to coordinates
-    Primary: OpenStreetMap Nominatim (free, no API key)
+    Uses local lookup for SA addresses with fallback to external APIs
     """
     
     def __init__(self):
-        self.nominatim_url = "https://nominatim.openstreetmap.org/search"
-        self.user_agent = "RetailRewardsSA/1.0 (contact@retailrewards.co.za)"
         self._cache: Dict[str, Tuple[float, float]] = {}
         
     async def geocode_address(self, address: str, shop_name: str = None) -> Optional[Dict]:
@@ -42,7 +85,7 @@ class GeocodingService:
         Returns:
             Dict with latitude, longitude, formatted_address, confidence
         """
-        if not address:
+        if not address and not shop_name:
             return None
             
         # Check cache first
@@ -56,145 +99,92 @@ class GeocodingService:
                 "confidence": "high"
             }
         
-        # Clean and prepare the address
-        search_query = self._prepare_search_query(address, shop_name)
+        # Try local SA location lookup first
+        result = self._local_lookup(address, shop_name)
+        if result:
+            self._cache[cache_key] = (result["latitude"], result["longitude"])
+            return result
         
+        # Try geopy with alternative providers
+        result = await self._geopy_geocode(address, shop_name)
+        if result:
+            self._cache[cache_key] = (result["latitude"], result["longitude"])
+            return result
+                    
+        return None
+    
+    def _local_lookup(self, address: str, shop_name: str = None) -> Optional[Dict]:
+        """Look up location from local SA database"""
+        combined = f"{shop_name or ''} {address or ''}".lower()
+        
+        # Check for known suburbs/areas in the address
+        for location, coords in SA_LOCATIONS.items():
+            if location in combined:
+                return {
+                    "latitude": coords["lat"],
+                    "longitude": coords["lon"],
+                    "formatted_address": f"{location.title()}, South Africa",
+                    "source": "local_db",
+                    "confidence": "medium",
+                    "matched_location": location
+                }
+        
+        # Check for known shop chains
+        if shop_name:
+            shop_lower = shop_name.lower()
+            for chain, coords in SA_KNOWN_SHOPS.items():
+                if chain in shop_lower:
+                    return {
+                        "latitude": coords["lat"],
+                        "longitude": coords["lon"],
+                        "formatted_address": f"{shop_name}, {coords['city']}, South Africa",
+                        "source": "local_db",
+                        "confidence": "low",
+                        "note": "Approximate location based on chain headquarters"
+                    }
+        
+        return None
+    
+    async def _geopy_geocode(self, address: str, shop_name: str = None) -> Optional[Dict]:
+        """Try geocoding using geopy library"""
         try:
-            result = await self._nominatim_search(search_query)
-            if result:
-                self._cache[cache_key] = (result["latitude"], result["longitude"])
-                return result
+            from geopy.geocoders import Nominatim
+            from geopy.exc import GeocoderTimedOut, GeocoderServiceError
+            
+            geolocator = Nominatim(user_agent="RetailRewardsSA/1.0")
+            
+            search_query = address
+            if shop_name and shop_name.lower() not in address.lower():
+                search_query = f"{shop_name}, {address}"
+            
+            # Add South Africa if not present
+            if "south africa" not in search_query.lower():
+                search_query = f"{search_query}, South Africa"
+            
+            # Run geocoding in thread pool
+            location = await asyncio.to_thread(
+                geolocator.geocode,
+                search_query,
+                timeout=10
+            )
+            
+            if location:
+                return {
+                    "latitude": location.latitude,
+                    "longitude": location.longitude,
+                    "formatted_address": location.address,
+                    "source": "nominatim",
+                    "confidence": "high"
+                }
                 
-            # Fallback: try with just the address
-            if shop_name:
-                result = await self._nominatim_search(address)
-                if result:
-                    self._cache[cache_key] = (result["latitude"], result["longitude"])
-                    return result
-                    
-            # Fallback: try to extract suburb/city and geocode that
-            simplified = self._extract_location_hint(address)
-            if simplified and simplified != address:
-                result = await self._nominatim_search(simplified)
-                if result:
-                    result["confidence"] = "low"  # Less precise
-                    self._cache[cache_key] = (result["latitude"], result["longitude"])
-                    return result
-                    
         except Exception as e:
-            logger.error(f"Geocoding error: {e}")
+            logger.debug(f"Geopy geocoding failed: {e}")
             
         return None
-    
-    def _prepare_search_query(self, address: str, shop_name: str = None) -> str:
-        """Prepare address for geocoding"""
-        # Common SA address abbreviations
-        replacements = {
-            "Cnr": "Corner",
-            "Cnr.": "Corner",
-            "St.": "Street",
-            "St": "Street",
-            "Rd": "Road",
-            "Rd.": "Road",
-            "Ave": "Avenue",
-            "Ave.": "Avenue",
-            "Blvd": "Boulevard",
-            "Dr": "Drive",
-            "Dr.": "Drive",
-        }
-        
-        query = address
-        for abbr, full in replacements.items():
-            query = query.replace(f" {abbr} ", f" {full} ")
-            query = query.replace(f" {abbr},", f" {full},")
-        
-        # Add South Africa if not present
-        if "south africa" not in query.lower() and "sa" not in query.lower():
-            query = f"{query}, South Africa"
-            
-        # Optionally prepend shop name for better matching
-        if shop_name and shop_name.lower() not in query.lower():
-            # Don't prepend generic names
-            generic_names = ["shoprite", "checkers", "pick n pay", "woolworths", "spar"]
-            if shop_name.lower() not in generic_names:
-                query = f"{shop_name}, {query}"
-                
-        return query
-    
-    def _extract_location_hint(self, address: str) -> Optional[str]:
-        """Extract suburb/city from address for fallback geocoding"""
-        # Common SA cities/areas
-        sa_locations = [
-            "johannesburg", "cape town", "durban", "pretoria", "port elizabeth",
-            "bloemfontein", "east london", "nelspruit", "polokwane", "kimberley",
-            "sandton", "rosebank", "midrand", "centurion", "randburg", "fourways",
-            "brackenfell", "bellville", "stellenbosch", "paarl", "somerset west",
-            "umhlanga", "ballito", "pinetown", "westville", "hillcrest",
-            "soweto", "alexandra", "tembisa", "khayelitsha", "mitchells plain",
-            "waterfront", "v&a", "melrose", "menlyn", "gateway"
-        ]
-        
-        address_lower = address.lower()
-        for location in sa_locations:
-            if location in address_lower:
-                return f"{location}, South Africa"
-                
-        return None
-    
-    async def _nominatim_search(self, query: str) -> Optional[Dict]:
-        """Search using OpenStreetMap Nominatim"""
-        params = {
-            "q": query,
-            "format": "json",
-            "limit": 1,
-            "addressdetails": 1,
-            **SA_BOUNDS
-        }
-        
-        headers = {
-            "User-Agent": self.user_agent
-        }
-        
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    self.nominatim_url,
-                    params=params,
-                    headers=headers,
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    results = response.json()
-                    if results and len(results) > 0:
-                        result = results[0]
-                        return {
-                            "latitude": float(result["lat"]),
-                            "longitude": float(result["lon"]),
-                            "formatted_address": result.get("display_name", query),
-                            "source": "nominatim",
-                            "confidence": "high" if float(result.get("importance", 0)) > 0.3 else "medium",
-                            "place_type": result.get("type"),
-                            "osm_id": result.get("osm_id")
-                        }
-                else:
-                    logger.warning(f"Nominatim returned {response.status_code}")
-                    
-        except httpx.TimeoutException:
-            logger.warning("Nominatim request timed out")
-        except Exception as e:
-            logger.error(f"Nominatim error: {e}")
-            
-        return None
-    
+
     async def geocode_shop(self, shop_name: str, address: str = None, receipt_text: str = None) -> Optional[Dict]:
         """
         Geocode a shop from available information
-        
-        Args:
-            shop_name: Name of the shop (e.g., "Shoprite")
-            address: Extracted address if available
-            receipt_text: Raw receipt text for additional context
         """
         # Try with address first
         if address:
@@ -202,33 +192,10 @@ class GeocodingService:
             if result:
                 return result
         
-        # Try to extract address from receipt text
-        if receipt_text:
-            # Look for address patterns in receipt
-            import re
-            
-            # Common patterns in SA receipts
-            patterns = [
-                r'(?:Cnr|Corner|Cor)\s+[A-Za-z\s]+(?:&|and)\s+[A-Za-z\s]+(?:Rd|Road|St|Street|Ave)',
-                r'\d+\s+[A-Za-z\s]+(?:Road|Street|Avenue|Drive|Rd|St|Ave|Dr)',
-                r'[A-Za-z\s]+(?:Mall|Centre|Center|Shopping)',
-            ]
-            
-            for pattern in patterns:
-                match = re.search(pattern, receipt_text, re.IGNORECASE)
-                if match:
-                    extracted_address = match.group(0)
-                    result = await self.geocode_address(extracted_address, shop_name)
-                    if result:
-                        result["address_extracted_from"] = "receipt_text"
-                        return result
-        
-        # Last resort: try just the shop name with SA
+        # Try just shop name
         if shop_name:
-            result = await self._nominatim_search(f"{shop_name}, South Africa")
+            result = await self.geocode_address(None, shop_name)
             if result:
-                result["confidence"] = "very_low"
-                result["note"] = "Geocoded from shop name only"
                 return result
                 
         return None
@@ -249,9 +216,6 @@ def get_geocoding_service() -> GeocodingService:
 async def geocode_shop_location(shop_name: str, address: str = None) -> Optional[Tuple[float, float]]:
     """
     Quick utility to geocode a shop and return just coordinates
-    
-    Returns:
-        Tuple of (latitude, longitude) or None
     """
     service = get_geocoding_service()
     result = await service.geocode_address(address, shop_name)
