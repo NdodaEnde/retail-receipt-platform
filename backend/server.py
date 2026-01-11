@@ -835,7 +835,15 @@ async def list_receipts(
     if fraud_flag:
         query["fraud_flag"] = fraud_flag
     
-    receipts = await db.receipts.find(query, {"_id": 0, "image_data": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    # Get receipts and add has_image flag
+    receipts_cursor = db.receipts.find(query).sort("created_at", -1).skip(skip).limit(limit)
+    receipts = []
+    async for r in receipts_cursor:
+        r.pop('_id', None)
+        r['has_image'] = bool(r.get('image_data'))
+        r.pop('image_data', None)  # Don't send the actual image in list view
+        receipts.append(r)
+    
     total = await db.receipts.count_documents(query)
     return {"receipts": receipts, "total": total}
 
