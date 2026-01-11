@@ -223,22 +223,18 @@ async def process_receipt_with_landingai(image_base64: str, mime_type: str = "im
 
 async def geocode_shop_from_receipt(shop_name: str, address: str = None) -> tuple:
     """
-    Try to geocode a shop from its name and/or address
+    Try to geocode a shop from its name and/or address using improved geocoding service
     Returns (latitude, longitude) or (None, None)
     """
     try:
-        search_query = f"{shop_name}"
-        if address:
-            search_query = f"{shop_name}, {address}"
+        geocoding_service = get_geocoding_service()
+        result = await geocoding_service.geocode_shop(shop_name, address)
         
-        location = await asyncio.to_thread(
-            geolocator.geocode,
-            search_query,
-            timeout=10
-        )
-        
-        if location:
-            return (location.latitude, location.longitude)
+        if result:
+            logger.info(f"Geocoded {shop_name}: {result.get('latitude')}, {result.get('longitude')} (confidence: {result.get('confidence')})")
+            return (result["latitude"], result["longitude"])
+        else:
+            logger.warning(f"Could not geocode shop: {shop_name}, {address}")
     except Exception as e:
         logger.error(f"Geocoding error: {e}")
     
