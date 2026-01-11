@@ -1218,6 +1218,19 @@ async def get_receipts_by_hour():
 
 @api_router.get("/analytics/spending-by-shop")
 async def get_spending_by_shop(limit: int = 10):
+    """Get total spending by shop"""
+    pipeline = [
+        {"$group": {
+            "_id": "$shop_name",
+            "total_spent": {"$sum": "$amount"},
+            "receipt_count": {"$sum": 1}
+        }},
+        {"$sort": {"total_spent": -1}},
+        {"$limit": limit}
+    ]
+    
+    result = await db.receipts.aggregate(pipeline).to_list(limit)
+    return {"shops": [{"name": r["_id"], "total_spent": r["total_spent"], "receipt_count": r["receipt_count"]} for r in result]}
 
 # ============== GEOCODING ENDPOINTS ==============
 
