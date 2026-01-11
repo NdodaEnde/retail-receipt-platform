@@ -181,6 +181,7 @@ class ReceiptProcessor:
         """
         Parse receipt text to extract structured data
         Works with South African receipt formats
+        Handles both plain text and HTML table formats from LandingAI
         """
         result = {
             "shop_name": None,
@@ -193,6 +194,10 @@ class ReceiptProcessor:
         if not text:
             return result
 
+        # Check if text contains HTML table (LandingAI format)
+        if '<table>' in text.lower():
+            result = self._parse_html_table(text, result)
+        
         lines = text.strip().split('\n')
         lines = [l.strip() for l in lines if l.strip()]
 
@@ -205,70 +210,81 @@ class ReceiptProcessor:
             'truworths', 'edgars', 'jet', 'mr price', 'foschini'
         ]
         
-        for line in lines[:5]:  # Check first 5 lines
-            line_lower = line.lower()
+        for line in lines[:10]:  # Check first 10 lines
+            # Remove HTML tags for matching
+            clean_line = re.sub(r'<[^>]+>', '', line).strip()
+            line_lower = clean_line.lower()
             for retailer in sa_retailers:
                 if retailer in line_lower:
-                    result["shop_name"] = line
+                    result["shop_name"] = clean_line.upper() if len(clean_line) < 50 else retailer.upper()
                     break
             if result["shop_name"]:
                 break
         
-        # Fallback: use first line as shop name
+        # Fallback: use first meaningful line as shop name
         if not result["shop_name"] and lines:
-            result["shop_name"] = lines[0]
+            for line in lines[:5]:
+                clean_line = re.sub(r'<[^>]+>', '', line).strip()
+                if clean_line and len(clean_line) > 2 and not clean_line.startswith('<'):
+                    result["shop_name"] = clean_line
+                    break
 
         # --- Extract Address ---
         address_keywords = ['street', 'st.', 'road', 'rd.', 'ave', 'avenue', 
-                          'mall', 'centre', 'center', 'shop', 'store']
-        for line in lines[1:10]:
-            if any(kw in line.lower() for kw in address_keywords):
-                result["address"] = line
+                          'mall', 'centre', 'center', 'shop', 'store', 'cnr', 'corner']
+        for line in lines[1:15]:
+            clean_line = re.sub(r'<[^>]+>', '', line).strip()
+            if any(kw in clean_line.lower() for kw in address_keywords):
+                result["address"] = clean_line
                 break
 
-        # --- Extract Total Amount ---
-        # Look for patterns like "TOTAL R 123.45" or "AMOUNT DUE R123,45"
-        amount_patterns = [
-            r'(?:TOTAL|AMOUNT\s*DUE|BALANCE\s*DUE|GRAND\s*TOTAL|SUBTOTAL)[:\s]*R?\s*(\d+[.,]\d{2})',
-            r'R\s*(\d+[.,]\d{2})\s*(?:TOTAL|DUE)?$',
-            r'(\d+[.,]\d{2})\s*(?:ZAR|RAND)?$'
-        ]
-        
-        for line in reversed(lines):  # Check from bottom up
-            for pattern in amount_patterns:
-                match = re.search(pattern, line, re.IGNORECASE)
+        # --- Extract Total Amount (if not found in table) ---
+        if result["amount"] == 0:
+            # Look for TOTAL patterns
+            amount_patterns = [
+                r'TOTAL[:\s]*R?\s*(\d+[.,]\d{2})',
+                r'R(\d+[.,]\d{2})\s*$',
+                r'>R(\d+[.,]\d{2})<',  # HTML format
+            ]
+            
+            # First look for explicit TOTAL lines
+            for line in lines:
+                clean_line = re.sub(r'<[^>]+>', '', line).strip()
+                if 'total' in clean_line.lower() and 'subtotal' not in clean_line.lower():
+                    for pattern in amount_patterns:
+                        match = re.search(pattern, line, re.IGNORECASE)
+                        if match:
+                            amount_str = match.group(1).replace(',', '.')
+                            try:
+                                amount = float(amount_str)
+                                if amount > result["amount"]:  # Take the larger total
+                                    result["amount"] = amount
+                            except ValueError:
+                                continue
+
+        # --- Extract Items (if not found in table) ---
+        if not result["items"]:
+            item_pattern = r'^(.+?)\s+R?\s*(\d+[.,]\d{2})$'
+            skip_keywords = ['total', 'subtotal', 'vat', 'tax', 'cash', 'change', 'card', 'balance', 'rate', 'payment']
+            
+            for line in lines:
+                clean_line = re.sub(r'<[^>]+>', '', line).strip()
+                if any(kw in clean_line.lower() for kw in skip_keywords):
+                    continue
+                
+                match = re.match(item_pattern, clean_line)
                 if match:
-                    amount_str = match.group(1).replace(',', '.')
+                    item_name = match.group(1).strip()
                     try:
-                        result["amount"] = float(amount_str)
-                        break
+                        item_price = float(match.group(2).replace(',', '.'))
+                        if item_price > 0 and len(item_name) > 2:
+                            result["items"].append({
+                                "name": item_name,
+                                "price": item_price,
+                                "quantity": 1
+                            })
                     except ValueError:
                         continue
-            if result["amount"] > 0:
-                break
-
-        # --- Extract Items ---
-        # Look for lines with prices (R XX.XX pattern)
-        item_pattern = r'^(.+?)\s+R?\s*(\d+[.,]\d{2})$'
-        skip_keywords = ['total', 'subtotal', 'vat', 'tax', 'cash', 'change', 'card', 'balance']
-        
-        for line in lines:
-            if any(kw in line.lower() for kw in skip_keywords):
-                continue
-            
-            match = re.match(item_pattern, line.strip())
-            if match:
-                item_name = match.group(1).strip()
-                try:
-                    item_price = float(match.group(2).replace(',', '.'))
-                    if item_price > 0 and len(item_name) > 2:
-                        result["items"].append({
-                            "name": item_name,
-                            "price": item_price,
-                            "quantity": 1
-                        })
-                except ValueError:
-                    continue
 
         # --- Extract Date ---
         date_patterns = [
@@ -278,14 +294,64 @@ class ReceiptProcessor:
         ]
         
         for line in lines:
+            clean_line = re.sub(r'<[^>]+>', '', line).strip()
             for pattern in date_patterns:
-                match = re.search(pattern, line, re.IGNORECASE)
+                match = re.search(pattern, clean_line, re.IGNORECASE)
                 if match:
                     result["date"] = match.group(1)
                     break
             if result["date"]:
                 break
 
+        return result
+
+    def _parse_html_table(self, text: str, result: Dict) -> Dict:
+        """Parse HTML table format from LandingAI OCR output"""
+        try:
+            # Extract table rows
+            row_pattern = r'<tr><td>([^<]*)</td><td>([^<]*)</td></tr>'
+            rows = re.findall(row_pattern, text)
+            
+            skip_keywords = ['total', 'subtotal', 'vat', 'tax', 'cash', 'change', 
+                           'card', 'balance', 'rate', 'payment', 'invoice', 'description']
+            
+            for item_name, price_str in rows:
+                item_name = item_name.strip()
+                price_str = price_str.strip()
+                
+                # Skip header rows and totals
+                if not item_name or not price_str:
+                    continue
+                if any(kw in item_name.lower() for kw in skip_keywords):
+                    # But extract the total amount
+                    if 'total' in item_name.lower() and 'subtotal' not in item_name.lower():
+                        price_match = re.search(r'R?(\d+[.,]\d{2})', price_str)
+                        if price_match:
+                            try:
+                                amount = float(price_match.group(1).replace(',', '.'))
+                                if amount > result["amount"]:
+                                    result["amount"] = amount
+                            except ValueError:
+                                pass
+                    continue
+                
+                # Extract price
+                price_match = re.search(r'R?(\d+[.,]\d{2})', price_str)
+                if price_match and len(item_name) > 2:
+                    try:
+                        item_price = float(price_match.group(1).replace(',', '.'))
+                        if item_price > 0:
+                            result["items"].append({
+                                "name": item_name,
+                                "price": item_price,
+                                "quantity": 1
+                            })
+                    except ValueError:
+                        continue
+            
+        except Exception as e:
+            logger.error(f"HTML table parsing error: {e}")
+        
         return result
 
 
