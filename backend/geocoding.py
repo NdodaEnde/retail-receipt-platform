@@ -47,7 +47,8 @@ class GeocodingService:
     
     def __init__(self):
         self._cache: Dict[str, Dict] = {}
-        self.google_api_key = GOOGLE_MAPS_API_KEY
+        # Load API key at initialization time (after .env is loaded by server.py)
+        self.google_api_key = os.environ.get('GOOGLE_MAPS_API_KEY', '')
         
         if self.google_api_key:
             logger.info("✅ Google Maps Geocoding API configured")
