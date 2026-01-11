@@ -117,6 +117,10 @@ This is clean and frictionless. The customer doesn't need to download an app or 
 14. **Smart Recommendations**
     - "Based on your purchases, try Shop X for better prices on items you buy regularly"
 
+15. **Digital Counter**
+    - A counter for total customers in our database. I am assuming we will use the number of times a QR code is scanned and/ telephone number
+
+
 ---
 
 ## Immediate Priority Recommendations
