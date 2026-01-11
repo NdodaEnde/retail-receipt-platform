@@ -26,6 +26,7 @@ from apscheduler.triggers.cron import CronTrigger
 from receipt_processor import get_receipt_processor
 from vector_store import get_receipt_vector_store
 from whatsapp_cloud import get_whatsapp_client, parse_webhook_message, WHATSAPP_VERIFY_TOKEN
+from geocoding import get_geocoding_service
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
