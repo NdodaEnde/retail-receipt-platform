@@ -230,11 +230,35 @@ class ReceiptProcessor:
                     break
 
         # --- Extract Address ---
-        address_keywords = ['street', 'st.', 'road', 'rd.', 'ave', 'avenue', 
-                          'mall', 'centre', 'center', 'shop', 'store', 'cnr', 'corner']
+        # Look for address patterns in receipt - common SA formats
+        address_keywords = ['street', 'st.', 'road', 'rd.', 'rd', 'ave', 'avenue', 
+                          'mall', 'centre', 'center', 'shop', 'store', 'cnr', 'corner',
+                          'drive', 'dr.', 'lane', 'way', 'blvd', 'boulevard']
+        
+        # Also look for suburb/city names that indicate an address line
+        sa_cities = ['cape town', 'johannesburg', 'durban', 'pretoria', 'bloemfontein',
+                    'port elizabeth', 'gqeberha', 'sandton', 'centurion', 'midrand',
+                    'brackenfell', 'bellville', 'soweto', 'umhlanga', 'ballito']
+        
         for line in lines[1:15]:
             clean_line = re.sub(r'<[^>]+>', '', line).strip()
-            if any(kw in clean_line.lower() for kw in address_keywords):
+            line_lower = clean_line.lower()
+            
+            # Skip if this is the shop name
+            if result.get("shop_name") and clean_line.upper() == result["shop_name"].upper():
+                continue
+            
+            # Skip phone numbers
+            if re.match(r'^tel\s|^\d{3}\s?\d{3}\s?\d{4}|^0\d{2}\s?\d{3}\s?\d{4}', line_lower):
+                continue
+                
+            # Check for address keywords
+            if any(kw in line_lower for kw in address_keywords):
+                result["address"] = clean_line
+                break
+            
+            # Check for SA city/suburb names
+            if any(city in line_lower for city in sa_cities):
                 result["address"] = clean_line
                 break
 
