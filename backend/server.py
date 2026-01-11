@@ -1341,8 +1341,11 @@ async def get_geocoding_stats():
     }
 
 @api_router.post("/geocode/address")
-async def geocode_address_endpoint(address: str, shop_name: str = None):
+async def geocode_address_endpoint(address: str = None, shop_name: str = None):
     """Test geocoding for a specific address"""
+    if not address and not shop_name:
+        raise HTTPException(status_code=400, detail="Either address or shop_name is required")
+    
     geocoding_service = get_geocoding_service()
     result = await geocoding_service.geocode_address(address, shop_name)
     
