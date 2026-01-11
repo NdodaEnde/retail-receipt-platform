@@ -12,8 +12,6 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-# Google Maps API Configuration
-GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY', '')
 GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 
 # Fallback: Pre-defined coordinates for major SA locations
