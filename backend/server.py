@@ -792,6 +792,31 @@ async def get_receipt(receipt_id: str):
         raise HTTPException(status_code=404, detail="Receipt not found")
     return receipt
 
+@api_router.get("/receipts/{receipt_id}/full")
+async def get_receipt_full(receipt_id: str):
+    """Get full receipt details including image data and all items"""
+    receipt = await db.receipts.find_one({"id": receipt_id}, {"_id": 0})
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    
+    # Get customer info
+    customer = await db.customers.find_one(
+        {"phone_number": receipt.get("customer_phone")}, 
+        {"_id": 0}
+    )
+    
+    # Get shop info
+    shop = await db.shops.find_one(
+        {"id": receipt.get("shop_id")}, 
+        {"_id": 0}
+    )
+    
+    return {
+        "receipt": receipt,
+        "customer": customer,
+        "shop": shop
+    }
+
 @api_router.get("/receipts")
 async def list_receipts(
     skip: int = 0, 
