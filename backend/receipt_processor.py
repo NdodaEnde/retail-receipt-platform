@@ -264,19 +264,26 @@ class ReceiptProcessor:
 
         # --- Extract Total Amount (if not found in table) ---
         if result["amount"] == 0:
-            # Look for TOTAL patterns
+            # Look for TOTAL/Amount Due patterns
             amount_patterns = [
-                r'TOTAL[:\s]*R?\s*(\d+[.,]\d{2})',
-                r'R(\d+[.,]\d{2})\s*$',
-                r'>R(\d+[.,]\d{2})<',  # HTML format
+                r'(?:TOTAL|AMOUNT\s*DUE|BALANCE\s*DUE|GRAND\s*TOTAL|SUBTOTAL)[:\s]*R?\s*(\d+[.,]\d{2})',
+                r'(\d+[.,]\d{2})\s*$',  # Amount at end of line
+                r'R\s*(\d+[.,]\d{2})',   # R followed by amount
+                r'>R?(\d+[.,]\d{2})<',   # HTML format
             ]
             
-            # First look for explicit TOTAL lines
+            # First look for explicit TOTAL/Amount Due lines
             for line in lines:
                 clean_line = re.sub(r'<[^>]+>', '', line).strip()
-                if 'total' in clean_line.lower() and 'subtotal' not in clean_line.lower():
+                line_lower = clean_line.lower()
+                
+                # Look for total/amount due keywords
+                if any(kw in line_lower for kw in ['total', 'amount due', 'balance due', 'amount owing']):
+                    if 'subtotal' in line_lower and 'total' not in line_lower.replace('subtotal', ''):
+                        continue  # Skip subtotal unless there's also "total"
+                    
                     for pattern in amount_patterns:
-                        match = re.search(pattern, line, re.IGNORECASE)
+                        match = re.search(pattern, clean_line, re.IGNORECASE)
                         if match:
                             amount_str = match.group(1).replace(',', '.')
                             try:
