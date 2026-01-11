@@ -1,6 +1,4 @@
-Yes, let me reason through this with you:
-
-## Current Flow Recap
+## Current Flow
 
 ### Customer Side ✅
 1. **Buy from shop** → Get physical receipt
@@ -18,7 +16,7 @@ This is clean and frictionless. The customer doesn't need to download an app or 
 |------------|--------|-------|
 | Receipt image storage | ✅ | Original photo preserved |
 | OCR data extraction | ✅ | Shop, items, prices, totals |
-| Shop geolocation | ⚠️ **Partial** | We extract shop name/address from receipt text, but we're NOT yet geocoding it to lat/long coordinates |
+| Shop geolocation | ✅ | We extract shop name/address from receipt text, we using Google Maps API to geocoding it to lat/long coordinates |
 | Customer upload location | ✅ | We capture lat/long when they share location via WhatsApp |
 | Fraud detection | ✅ | Distance-based (when both locations available) |
 | Admin receipt viewing | ✅ | Images + extracted data |
@@ -96,7 +94,7 @@ This is clean and frictionless. The customer doesn't need to download an app or 
 ### 🛡️ **Trust & Compliance**
 
 10. **Receipt Dispute Resolution**
-    - As you mentioned - customers can request certified copies
+    - As mentioned - customers can request certified copies
     - Partner with retailers: "Verify this purchase happened"
 
 11. **POPIA Compliance Dashboard**
@@ -131,6 +129,10 @@ If I were to prioritize what to build next:
 
 3. **🟢 P2: Customer Receipt History** - Let customers request their receipt history via WhatsApp ("Send HISTORY to get your last 10 receipts")
 
+4. **🔴 P0: Receipt Data Extracted** - should include, timestamp. uploaded date should be the same as that on the receipt timestamp. Admin should see the copy of 
+            receipt under the profile of customers.meaning, under the profile name of X, you have a history of purchases, when you click on that receipt, you should be able to 
+            see the receipt and line items bought. This is only visible under fraud component, where they have a view buttom.
+
 ---
 
-What resonates with you? Would you like me to implement any of these, or shall we first complete the webhook setup after deployment?
+
