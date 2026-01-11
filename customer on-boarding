@@ -1,0 +1,227 @@
+// After someone submits their first receipt
+
+await whatsapp.sendMessage(phoneNumber, {
+  type: 'image',
+  image: {
+    link: 'https://yourcdn.com/share-qr.png'
+  },
+  caption: `✅ You're entered in tonight's R200 draw!
+
+💡 Want bonus entries?
+Forward this image to 3 friends.
+For every friend who enters, you get +1 bonus entry!
+
+Your referral link: wa.me/27123456789?text=Friend+recommended+me`
+});
+```
+
+**Why this works:**
+- Native WhatsApp behavior (people forward stuff)
+- Incentivized (bonus entries)
+- Visual (QR code image is self-contained)
+- Trackable (unique referral codes)
+
+---
+
+### **B. Pamphlets/Flyers** (Hotspot Distribution)
+
+**Design specs:**
+```
+A5 Size (148mm x 210mm)
+Full color, glossy
+Print: 1000 units = R800-1200
+
+┌────────────────────────────┐
+│  FRONT:                    │
+│  ┌──────────────────────┐  │
+│  │  BIG QR CODE         │  │
+│  │  (Takes up 60%)      │  │
+│  └──────────────────────┘  │
+│                            │
+│  WIN PRIZES DAILY!         │
+│  Scan & Send Receipt       │
+│  Tonight: R200             │
+└────────────────────────────┘
+
+┌────────────────────────────┐
+│  BACK:                     │
+│  How It Works:             │
+│  1️⃣ Buy anything          │
+│  2️⃣ Scan QR code          │
+│  3️⃣ Send receipt photo    │
+│  4️⃣ Win tonight!          │
+│                            │
+│  FAQ:                      │
+│  Q: What receipts work?    │
+│  A: ANY store receipt!     │
+│                            │
+│  Q: When do I find out?    │
+│  A: Winners announced 8pm  │
+│                            │
+│  wa.me/27123456789         │
+└────────────────────────────┘
+```
+
+**Distribution hotspots:**
+```
+🎯 HIGH TRAFFIC AREAS:
+
+Johannesburg:
+- Joburg CBD taxi ranks (Ghandi Square, Park Station)
+- Sandton City mall entrance
+- Rosebank Mall
+- Eastgate shopping center
+- Alexandra taxi rank
+
+Cape Town:
+- Cape Town Station
+- Century City
+- Canal Walk
+- Claremont station
+- Khayelitsha taxi rank
+
+Durban:
+- Workshop Mall
+- Gateway Theatre of Shopping
+- Durban Station
+- Umlazi Mega City
+
+Pretoria:
+- Pretoria Station
+- Menlyn Park
+- Hatfield Plaza
+- Mamelodi taxi rank
+
+STRATEGY:
+- Target taxi ranks (commuters = daily shoppers)
+- Mall parking lots (just shopped = fresh receipts)
+- University campuses (students share virally)
+- Community centers (trust + reach)
+```
+
+**Distribution teams:**
+```
+OPTION 1: Student Brand Ambassadors
+- Hire 2-3 students per city
+- R150/day + transport
+- 4 hours/day (afternoon rush)
+- Target: 200 flyers distributed/day
+- Bonus: R5 per verified signup
+
+Cost: R450/day per city
+      R13,500/month (3 cities, 5 days/week)
+
+OPTION 2: Community Partnerships
+- Partner with local organizations
+- They distribute at events
+- Revenue share on signups
+- Lower cost, higher trust
+
+Cost: R0 upfront
+      Revenue share: 10% of prize pool
+```
+
+---
+
+### **C. Branded T-Shirts** (Walking Billboards)
+
+**Design:**
+```
+FRONT:
+┌──────────────────┐
+│  [LOGO]          │
+│                  │
+│  DAILY PRIZE     │
+│  DRAW            │
+│                  │
+│  [QR CODE]       │
+│  (Medium size)   │
+│                  │
+│  SCAN TO WIN     │
+└──────────────────┘
+
+BACK:
+┌──────────────────┐
+│  WIN R200        │
+│  TONIGHT!        │
+│                  │
+│  Send Receipt    │
+│  Win Prizes      │
+│                  │
+│  8PM Daily       │
+└──────────────────┘
+```
+
+**Distribution model:**
+```
+STUDENTS:
+- University students (10-20 across SA)
+- Get free t-shirt + R50/day
+- Wear on campus, at malls, events
+- Become "ambassadors"
+
+WINNERS:
+- Send free t-shirt to every winner
+- Encourage wearing + posting on social
+- "I'm a winner" social proof
+- Branded merch = free advertising
+
+Cost:
+- T-shirts: R60 each (bulk)
+- 100 shirts = R6,000
+- Reach: 1000s of impressions/month
+```
+
+---
+
+### **D. Community Partnerships** (Trust + Scale)
+
+**Target organizations:**
+```
+STOKVELS:
+- 11 million South Africans in stokvels
+- Group savings = prize pool alignment
+- Built-in trust network
+- WhatsApp-native communication
+
+Partnership offer:
+"Exclusive group prizes for your members
++ Bonus entries for stokvel winners
++ Revenue share on group participation"
+
+CHURCHES:
+- Sunday bulletin insert (QR code flyer)
+- Pastor announcement
+- WhatsApp groups (most churches have them)
+- Trust = high conversion
+
+Partnership offer:
+"10% of your congregation's winnings
+goes back to church fundraising"
+
+SPORTS CLUBS:
+- Soccer clubs, netball teams
+- Existing WhatsApp groups
+- Competitive dynamics (team vs team)
+- Engage young adults
+
+Partnership offer:
+"Team with most entries wins bonus prize
++ Special team jerseys for winning club"
+
+UNIVERSITY SOCIETIES:
+- Student orgs on every campus
+- Desperate for funding
+- Large WhatsApp groups
+- High viral potential
+
+Partnership offer:
+"R500 to society for every 100 signups
++ Exclusive student prizes"
+
+
+
+Multi-receipt tracking system (customer ticket dashboard)?
+Live odds calculator (real-time probability updates)?
+Power user leaderboard (top submitters, engagement rewards)?
+Receipt deduplication logic (prevent gaming the system)?  
