@@ -196,19 +196,26 @@ class GeocodingService:
         """
         Geocode a shop from available information
         """
-        # Try with full address first
+        # Try with full address first (best accuracy)
         if address:
             result = await self.geocode_address(address, shop_name)
             if result and result.get("confidence") in ["high", "medium"]:
                 return result
         
-        # Try shop name + address
+        # Try shop name + address combined
         if shop_name and address:
-            result = await self.geocode_address(f"{shop_name}, {address}", None)
-            if result:
+            combined = f"{shop_name}, {address}"
+            result = await self.geocode_address(combined, None)
+            if result and result.get("confidence") in ["high", "medium"]:
                 return result
         
-        # Try just shop name (will get approximate location)
+        # Try just address if shop name is generic/unusual
+        if address:
+            result = await self.geocode_address(address, None)
+            if result and result.get("confidence") in ["high", "medium"]:
+                return result
+        
+        # Last resort: just shop name (will get approximate location)
         if shop_name:
             result = await self.geocode_address(shop_name, None)
             if result:
