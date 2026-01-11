@@ -889,7 +889,16 @@ async def get_vector_store_stats():
 async def get_flagged_receipts(skip: int = 0, limit: int = 50):
     """Get all receipts flagged for review or suspicious activity"""
     query = {"fraud_flag": {"$in": ["review", "suspicious", "flagged"]}}
-    receipts = await db.receipts.find(query, {"_id": 0, "image_data": 0}).sort("fraud_score", -1).skip(skip).limit(limit).to_list(limit)
+    
+    # Get receipts and add has_image flag
+    receipts_cursor = db.receipts.find(query).sort("fraud_score", -1).skip(skip).limit(limit)
+    receipts = []
+    async for r in receipts_cursor:
+        r.pop('_id', None)
+        r['has_image'] = bool(r.get('image_data'))
+        r.pop('image_data', None)  # Don't send the actual image in list view
+        receipts.append(r)
+    
     total = await db.receipts.count_documents(query)
     return {"receipts": receipts, "total": total}
 
