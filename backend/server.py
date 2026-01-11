@@ -1218,6 +1218,134 @@ async def get_receipts_by_hour():
 
 @api_router.get("/analytics/spending-by-shop")
 async def get_spending_by_shop(limit: int = 10):
+
+# ============== GEOCODING ENDPOINTS ==============
+
+@api_router.post("/geocode/shop/{shop_id}")
+async def geocode_single_shop(shop_id: str):
+    """Geocode a single shop by its ID"""
+    shop = await db.shops.find_one({"id": shop_id}, {"_id": 0})
+    if not shop:
+        raise HTTPException(status_code=404, detail="Shop not found")
+    
+    geocoding_service = get_geocoding_service()
+    result = await geocoding_service.geocode_shop(shop["name"], shop.get("address"))
+    
+    if result:
+        await db.shops.update_one(
+            {"id": shop_id},
+            {"$set": {
+                "latitude": result["latitude"],
+                "longitude": result["longitude"],
+                "geocoded_address": result.get("formatted_address"),
+                "geocode_confidence": result.get("confidence"),
+                "geocoded_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        return {
+            "success": True,
+            "shop_id": shop_id,
+            "coordinates": {"latitude": result["latitude"], "longitude": result["longitude"]},
+            "confidence": result.get("confidence"),
+            "formatted_address": result.get("formatted_address")
+        }
+    else:
+        return {
+            "success": False,
+            "shop_id": shop_id,
+            "error": "Could not geocode shop location"
+        }
+
+@api_router.post("/geocode/shops/batch")
+async def geocode_shops_batch(limit: int = 50):
+    """Geocode all shops that don't have coordinates yet"""
+    # Find shops without coordinates
+    shops_without_coords = await db.shops.find(
+        {"$or": [{"latitude": None}, {"latitude": {"$exists": False}}]},
+        {"_id": 0}
+    ).limit(limit).to_list(limit)
+    
+    if not shops_without_coords:
+        return {"message": "All shops already geocoded", "processed": 0}
+    
+    geocoding_service = get_geocoding_service()
+    results = {"success": 0, "failed": 0, "details": []}
+    
+    for shop in shops_without_coords:
+        result = await geocoding_service.geocode_shop(shop["name"], shop.get("address"))
+        
+        if result:
+            await db.shops.update_one(
+                {"id": shop["id"]},
+                {"$set": {
+                    "latitude": result["latitude"],
+                    "longitude": result["longitude"],
+                    "geocoded_address": result.get("formatted_address"),
+                    "geocode_confidence": result.get("confidence"),
+                    "geocoded_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            results["success"] += 1
+            results["details"].append({
+                "shop": shop["name"],
+                "status": "success",
+                "confidence": result.get("confidence")
+            })
+        else:
+            results["failed"] += 1
+            results["details"].append({
+                "shop": shop["name"],
+                "status": "failed"
+            })
+        
+        # Rate limit to avoid hitting API limits (Nominatim: 1 req/sec)
+        await asyncio.sleep(1.1)
+    
+    return results
+
+@api_router.get("/geocode/stats")
+async def get_geocoding_stats():
+    """Get statistics on shop geocoding status"""
+    total_shops = await db.shops.count_documents({})
+    geocoded = await db.shops.count_documents({"latitude": {"$ne": None, "$exists": True}})
+    not_geocoded = total_shops - geocoded
+    
+    # Count by confidence level
+    high_confidence = await db.shops.count_documents({"geocode_confidence": "high"})
+    medium_confidence = await db.shops.count_documents({"geocode_confidence": "medium"})
+    low_confidence = await db.shops.count_documents({"geocode_confidence": {"$in": ["low", "very_low"]}})
+    
+    return {
+        "total_shops": total_shops,
+        "geocoded": geocoded,
+        "not_geocoded": not_geocoded,
+        "geocoded_percentage": round(geocoded / total_shops * 100, 1) if total_shops > 0 else 0,
+        "by_confidence": {
+            "high": high_confidence,
+            "medium": medium_confidence,
+            "low": low_confidence
+        }
+    }
+
+@api_router.post("/geocode/address")
+async def geocode_address_endpoint(address: str, shop_name: str = None):
+    """Test geocoding for a specific address"""
+    geocoding_service = get_geocoding_service()
+    result = await geocoding_service.geocode_address(address, shop_name)
+    
+    if result:
+        return {
+            "success": True,
+            "coordinates": {"latitude": result["latitude"], "longitude": result["longitude"]},
+            "formatted_address": result.get("formatted_address"),
+            "confidence": result.get("confidence"),
+            "source": result.get("source")
+        }
+    else:
+        return {
+            "success": False,
+            "error": "Could not geocode address"
+        }
     """Get spending distribution by shop"""
     shops = await db.shops.find({}, {"_id": 0, "name": 1, "total_sales": 1, "receipt_count": 1}).sort("total_sales", -1).limit(limit).to_list(limit)
     return {"shops": shops}
