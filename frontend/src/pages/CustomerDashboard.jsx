@@ -546,11 +546,16 @@ export default function CustomerDashboard() {
                           >
                             <div className="flex-1">
                               <p className="text-sm font-medium">{item.name}</p>
-                              {item.quantity > 1 && (
-                                <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
-                              )}
+                              <div className="flex gap-3 text-xs text-muted-foreground">
+                                {item.quantity > 1 && (
+                                  <span>Qty: {item.quantity}</span>
+                                )}
+                                {item.unit_price && item.quantity > 1 && (
+                                  <span>@ R{item.unit_price?.toFixed(2)} each</span>
+                                )}
+                              </div>
                             </div>
-                            <p className="font-mono text-primary">R{item.price?.toFixed(2)}</p>
+                            <p className="font-mono text-primary">R{(item.total_price || item.price)?.toFixed(2)}</p>
                           </div>
                         ))
                       ) : (
