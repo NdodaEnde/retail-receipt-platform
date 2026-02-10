@@ -414,6 +414,9 @@ class ReceiptProcessor:
                 item_name = item_name.strip()
                 price_str = price_str.strip()
                 
+                # Decode HTML entities
+                item_name = item_name.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
+                
                 # Skip header rows and totals
                 if not item_name or not price_str:
                     continue
