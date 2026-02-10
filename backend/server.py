@@ -602,14 +602,22 @@ async def process_receipt_image(request: ReceiptImageRequest):
         shop_name = extracted.get("shop_name")
         shop_address = extracted.get("shop_address")
         postal_code = extracted.get("postal_code")  # Get postal code from OCR
+        geocoded_address = None
         
         if shop_name:
             # Pass postal code to geocoding for better accuracy
-            shop_lat, shop_lon, shop_display_name = await geocode_shop_from_receipt(
+            shop_lat, shop_lon, shop_display_name, geocoded_address = await geocode_shop_from_receipt(
                 shop_name, 
                 shop_address,
                 postal_code=postal_code
             )
+        
+        # Use geocoded address if OCR address is missing or looks like garbage
+        # (garbage = contains "logo", "font", "background", etc.)
+        if geocoded_address:
+            if not shop_address or any(word in shop_address.lower() for word in ['logo', 'font', 'background', 'features', 'distressed']):
+                shop_address = geocoded_address
+                logger.info(f"Using geocoded address: {geocoded_address}")
         
         # Note: Do NOT fallback to upload location for shop
         # We need separate locations for fraud detection
