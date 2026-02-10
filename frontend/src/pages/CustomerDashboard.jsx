@@ -576,39 +576,49 @@ export default function CustomerDashboard() {
                 </div>
               </div>
 
-              {/* Location Info */}
-              {(receiptDetail.receipt?.upload_latitude || receiptDetail.receipt?.shop_address) && (
-                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-orange-500" />
-                    Location Data
-                  </h4>
-                  <div className="grid md:grid-cols-2 gap-4 text-sm">
-                    {receiptDetail.receipt?.shop_address && (
-                      <div>
-                        <p className="text-muted-foreground text-xs">Shop Address</p>
-                        <p>{receiptDetail.receipt.shop_address}</p>
-                      </div>
-                    )}
-                    {receiptDetail.receipt?.upload_latitude && (
-                      <div>
-                        <p className="text-muted-foreground text-xs">Upload Location</p>
-                        <p className="font-mono">
-                          {receiptDetail.receipt.upload_latitude.toFixed(4)}, {receiptDetail.receipt.upload_longitude.toFixed(4)}
-                        </p>
-                      </div>
-                    )}
-                    {receiptDetail.receipt?.distance_km && (
-                      <div>
-                        <p className="text-muted-foreground text-xs">Distance from Shop</p>
-                        <p className="font-mono text-orange-400">
-                          {receiptDetail.receipt.distance_km.toFixed(1)} km
-                        </p>
-                      </div>
-                    )}
+              {/* Location Info - Always show this section */}
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-orange-500" />
+                  Location Data
+                </h4>
+                <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground text-xs">Shop Address</p>
+                    <p>{receiptDetail.receipt?.shop_address || 'Not detected'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Shop Coordinates</p>
+                    <p className="font-mono">
+                      {receiptDetail.receipt?.shop_latitude 
+                        ? `${receiptDetail.receipt.shop_latitude.toFixed(4)}, ${receiptDetail.receipt.shop_longitude.toFixed(4)}`
+                        : 'Not geocoded'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Upload Location</p>
+                    <p className="font-mono">
+                      {receiptDetail.receipt?.upload_latitude 
+                        ? `${receiptDetail.receipt.upload_latitude.toFixed(4)}, ${receiptDetail.receipt.upload_longitude.toFixed(4)}`
+                        : 'Not shared'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Distance from Shop</p>
+                    <p className={`font-mono ${receiptDetail.receipt?.distance_km > 50 ? 'text-orange-400' : 'text-green-400'}`}>
+                      {receiptDetail.receipt?.distance_km 
+                        ? `${receiptDetail.receipt.distance_km.toFixed(1)} km`
+                        : 'N/A (no upload location)'}
+                    </p>
                   </div>
                 </div>
-              )}
+                {receiptDetail.receipt?.upload_address && (
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <p className="text-muted-foreground text-xs">Upload Address</p>
+                    <p className="text-sm">{receiptDetail.receipt.upload_address}</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
           
