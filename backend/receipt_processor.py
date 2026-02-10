@@ -284,7 +284,8 @@ class ReceiptProcessor:
             "address": None,
             "amount": 0.0,
             "items": [],
-            "date": None
+            "date": None,
+            "postal_code": None  # Track detected postal code for geocoding
         }
 
         if not text:
@@ -296,6 +297,47 @@ class ReceiptProcessor:
         
         lines = text.strip().split('\n')
         lines = [l.strip() for l in lines if l.strip()]
+        
+        # --- First pass: Scan ENTIRE text for SA postal codes ---
+        # SA postal codes are 4 digits, typically 0001-9999
+        # Look through ALL lines (postal code could be anywhere - header or footer)
+        all_text_lower = text.lower()
+        postal_code_pattern = r'\b(\d{4})\b'
+        
+        # Common SA postal code ranges
+        valid_postal_ranges = [
+            (1, 299),      # Johannesburg
+            (300, 499),    # Pretoria
+            (500, 699),    # Northern regions
+            (700, 999),    # North West
+            (1000, 2999),  # Gauteng
+            (3000, 4999),  # KZN
+            (5000, 5999),  # Free State
+            (6000, 6999),  # Eastern Cape
+            (7000, 7999),  # Western Cape
+            (8000, 8999),  # Northern Cape
+            (9000, 9999),  # Various
+        ]
+        
+        def is_valid_sa_postal(code_str):
+            try:
+                code = int(code_str)
+                # Exclude obvious non-postal codes (years, times, etc.)
+                if code >= 1900 and code <= 2100:  # Looks like a year
+                    return False
+                if code < 1 or code > 9999:
+                    return False
+                return True
+            except:
+                return False
+        
+        # Find all 4-digit numbers in the text
+        potential_codes = re.findall(postal_code_pattern, text)
+        for code in potential_codes:
+            if is_valid_sa_postal(code):
+                result["postal_code"] = code
+                logger.info(f"Detected potential SA postal code: {code}")
+                break  # Take the first valid one
 
         # --- Extract Shop Name ---
         # Usually first non-empty line or look for known SA retailers
