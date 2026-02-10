@@ -314,6 +314,7 @@ class ReceiptProcessor:
                 "success": True,
                 "shop_name": parsed.get("shop_name"),
                 "shop_address": parsed.get("address"),
+                "postal_code": parsed.get("postal_code"),  # Include postal code for geocoding
                 "amount": parsed.get("amount", 0.0),
                 "currency": "ZAR",
                 "items": final_items,
