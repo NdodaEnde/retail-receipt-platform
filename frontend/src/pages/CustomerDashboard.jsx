@@ -463,6 +463,165 @@ export default function CustomerDashboard() {
           </Tabs>
         </div>
       )}
+
+      {/* Receipt Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="glass border-white/10 max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="receipt-detail-dialog">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-primary" />
+              Receipt Details
+            </DialogTitle>
+          </DialogHeader>
+          
+          {receiptDetail && (
+            <div className="space-y-6 py-4">
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="p-3 rounded-lg bg-white/5">
+                  <p className="text-muted-foreground text-xs mb-1">Shop</p>
+                  <p className="font-semibold flex items-center gap-2">
+                    <Store className="w-4 h-4 text-primary" />
+                    {receiptDetail.receipt?.shop_name || "Unknown"}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-white/5">
+                  <p className="text-muted-foreground text-xs mb-1">Amount</p>
+                  <p className="font-mono font-bold text-xl text-primary">
+                    R{receiptDetail.receipt?.amount?.toFixed(2)}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-white/5">
+                  <p className="text-muted-foreground text-xs mb-1">Date</p>
+                  <p className="text-sm">
+                    {receiptDetail.receipt?.created_at ? formatDate(receiptDetail.receipt.created_at) : "N/A"}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-white/5">
+                  <p className="text-muted-foreground text-xs mb-1">Status</p>
+                  <Badge className={getStatusBadge(receiptDetail.receipt?.status)}>
+                    {receiptDetail.receipt?.status === 'won' ? '🏆 Winner!' : receiptDetail.receipt?.status}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Two columns: Image and Items */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Receipt Image */}
+                <div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Image className="w-4 h-4 text-primary" />
+                    Receipt Image
+                  </h3>
+                  <div className="rounded-xl overflow-hidden border border-white/10 bg-white/5">
+                    {receiptDetail.receipt?.image_data ? (
+                      <img 
+                        src={`data:image/png;base64,${receiptDetail.receipt.image_data}`}
+                        alt="Receipt"
+                        className="w-full max-h-[400px] object-contain"
+                        data-testid="receipt-image"
+                      />
+                    ) : (
+                      <div className="p-8 text-center text-muted-foreground">
+                        <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p>No image available</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Items List */}
+                <div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Package className="w-4 h-4 text-primary" />
+                    Items ({receiptDetail.receipt?.items?.length || 0})
+                  </h3>
+                  <ScrollArea className="h-[400px] rounded-xl border border-white/10 bg-white/5">
+                    <div className="p-4 space-y-2">
+                      {receiptDetail.receipt?.items?.length > 0 ? (
+                        receiptDetail.receipt.items.map((item, index) => (
+                          <div 
+                            key={index}
+                            className="flex justify-between items-center p-2 rounded-lg hover:bg-white/5"
+                          >
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{item.name}</p>
+                              {item.quantity > 1 && (
+                                <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                              )}
+                            </div>
+                            <p className="font-mono text-primary">R{item.price?.toFixed(2)}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <p>No items extracted</p>
+                        </div>
+                      )}
+                      
+                      {/* Total */}
+                      {receiptDetail.receipt?.items?.length > 0 && (
+                        <div className="border-t border-white/10 pt-3 mt-3">
+                          <div className="flex justify-between items-center font-semibold">
+                            <span>Total</span>
+                            <span className="font-mono text-lg text-primary">
+                              R{receiptDetail.receipt?.amount?.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+
+              {/* Location Info */}
+              {(receiptDetail.receipt?.upload_latitude || receiptDetail.receipt?.shop_address) && (
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-orange-500" />
+                    Location Data
+                  </h4>
+                  <div className="grid md:grid-cols-2 gap-4 text-sm">
+                    {receiptDetail.receipt?.shop_address && (
+                      <div>
+                        <p className="text-muted-foreground text-xs">Shop Address</p>
+                        <p>{receiptDetail.receipt.shop_address}</p>
+                      </div>
+                    )}
+                    {receiptDetail.receipt?.upload_latitude && (
+                      <div>
+                        <p className="text-muted-foreground text-xs">Upload Location</p>
+                        <p className="font-mono">
+                          {receiptDetail.receipt.upload_latitude.toFixed(4)}, {receiptDetail.receipt.upload_longitude.toFixed(4)}
+                        </p>
+                      </div>
+                    )}
+                    {receiptDetail.receipt?.distance_km && (
+                      <div>
+                        <p className="text-muted-foreground text-xs">Distance from Shop</p>
+                        <p className="font-mono text-orange-400">
+                          {receiptDetail.receipt.distance_km.toFixed(1)} km
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDetailDialogOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
