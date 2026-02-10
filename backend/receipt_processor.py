@@ -570,7 +570,14 @@ class ReceiptProcessor:
         return result
 
     def _parse_html_table(self, text: str, result: Dict) -> Dict:
-        """Parse HTML table format from LandingAI OCR output - handles 2, 3, or 4 column tables"""
+        """Parse HTML table format from LandingAI OCR output - handles 2, 3, or 4 column tables
+        
+        Extracts granular item data for SKU-level analytics:
+        - name: Item/product name
+        - quantity: Number of units purchased
+        - unit_price: Price per single unit
+        - total_price: Total for this line (qty × unit_price)
+        """
         try:
             # Find all table rows
             row_pattern = r'<tr>(.*?)</tr>'
@@ -592,9 +599,10 @@ class ReceiptProcessor:
                 if not cells:
                     continue
                 
-                # Determine table format and extract item name + price
+                # Initialize item data
                 item_name = None
-                item_price = None
+                unit_price = None
+                total_price = None
                 quantity = 1
                 
                 # Skip empty rows or header rows
@@ -618,33 +626,69 @@ class ReceiptProcessor:
                                     pass
                     continue
                 
+                # Helper to extract price from string
+                def extract_price(s):
+                    if not s:
+                        return None
+                    match = re.search(r'(\d+[.,]\d{2})$', s.strip())
+                    if not match:
+                        match = re.search(r'(\d+)[.,](\d{2})', s)
+                    if match:
+                        try:
+                            return float(match.group(0).replace(',', '.'))
+                        except:
+                            return None
+                    return None
+                
                 # Handle different column formats:
                 if len(cells) == 2:
                     # Format: [item_name, price]
                     item_name = cells[0]
-                    price_str = cells[1]
+                    total_price = extract_price(cells[1])
+                    # No unit price available, assume quantity 1
+                    unit_price = total_price
                     
                 elif len(cells) == 3:
                     # Format: [qty, item_name, price] or [item_name, unit_price, total_price]
                     if cells[0].isdigit():
                         quantity = int(cells[0])
                         item_name = cells[1]
-                        price_str = cells[2]
+                        total_price = extract_price(cells[2])
+                        # Calculate unit price if we have quantity
+                        if total_price and quantity > 0:
+                            unit_price = round(total_price / quantity, 2)
                     else:
                         item_name = cells[0]
-                        price_str = cells[2]  # Use total price
+                        unit_price = extract_price(cells[1])
+                        total_price = extract_price(cells[2])
+                        # Calculate quantity if we have both prices
+                        if unit_price and total_price and unit_price > 0:
+                            quantity = max(1, round(total_price / unit_price))
                         
                 elif len(cells) == 4:
                     # Format: [qty, item_name, unit_price, total_price]
-                    # Take item name from column 2, price from last column (total)
+                    # This is the ideal format with all data
                     if cells[0].isdigit():
-                        quantity = int(cells[0]) if cells[0] else 1
-                    item_name = cells[1]
-                    price_str = cells[3]  # Last column is usually total
+                        quantity = int(cells[0])
+                    elif cells[0]:
+                        # Try to parse as number
+                        try:
+                            quantity = int(float(cells[0]))
+                        except:
+                            quantity = 1
                     
-                    # If last column is empty, try third column
-                    if not price_str or not re.search(r'\d', price_str):
-                        price_str = cells[2]
+                    item_name = cells[1]
+                    unit_price = extract_price(cells[2])
+                    total_price = extract_price(cells[3])
+                    
+                    # If total is empty but we have unit price, calculate it
+                    if not total_price and unit_price:
+                        total_price = round(unit_price * quantity, 2)
+                    
+                    # If unit price is empty but we have total, calculate it
+                    if not unit_price and total_price and quantity > 0:
+                        unit_price = round(total_price / quantity, 2)
+                        
                 else:
                     # Unknown format - try to extract name and price from available cells
                     for i, cell in enumerate(cells):
@@ -652,9 +696,10 @@ class ReceiptProcessor:
                             if not any(c.isdigit() for c in cell):
                                 item_name = cell
                             elif re.match(r'^\d+[.,]\d{2}$', cell.strip()):
-                                price_str = cell
-                    if not price_str:
-                        price_str = cells[-1] if cells else ""
+                                total_price = extract_price(cell)
+                    if not total_price and cells:
+                        total_price = extract_price(cells[-1])
+                    unit_price = total_price
                 
                 # Clean up item name
                 if item_name:
@@ -666,27 +711,19 @@ class ReceiptProcessor:
                     continue
                 if item_name.replace('.', '').replace(',', '').isdigit():
                     continue
-                    
-                # Extract price
-                if price_str:
-                    price_match = re.search(r'(\d+[.,]\d{2})$', price_str.strip())
-                    if not price_match:
-                        price_match = re.search(r'(\d+)[.,](\d{2})', price_str)
-                    if price_match:
-                        try:
-                            price_text = price_match.group(0).replace(',', '.')
-                            item_price = float(price_text)
-                        except ValueError:
-                            continue
                 
-                # Add valid item
-                if item_name and item_price and item_price > 0:
-                    result["items"].append({
+                # Add valid item with granular pricing data
+                if item_name and total_price and total_price > 0:
+                    item_data = {
                         "name": item_name,
-                        "price": item_price,
-                        "quantity": quantity
-                    })
-                    logger.debug(f"Extracted item: {item_name} x{quantity} = R{item_price}")
+                        "quantity": quantity,
+                        "unit_price": unit_price,
+                        "total_price": total_price,
+                        # Keep 'price' for backward compatibility
+                        "price": total_price
+                    }
+                    result["items"].append(item_data)
+                    logger.debug(f"Extracted item: {item_name} x{quantity} @ R{unit_price} = R{total_price}")
             
             logger.info(f"Parsed HTML table: {len(result['items'])} items, total: R{result['amount']}")
             
