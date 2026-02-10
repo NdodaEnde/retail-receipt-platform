@@ -601,9 +601,15 @@ async def process_receipt_image(request: ReceiptImageRequest):
         shop_display_name = extracted.get("shop_name")
         shop_name = extracted.get("shop_name")
         shop_address = extracted.get("shop_address")
+        postal_code = extracted.get("postal_code")  # Get postal code from OCR
         
         if shop_name:
-            shop_lat, shop_lon, shop_display_name = await geocode_shop_from_receipt(shop_name, shop_address)
+            # Pass postal code to geocoding for better accuracy
+            shop_lat, shop_lon, shop_display_name = await geocode_shop_from_receipt(
+                shop_name, 
+                shop_address,
+                postal_code=postal_code
+            )
         
         # Note: Do NOT fallback to upload location for shop
         # We need separate locations for fraud detection
