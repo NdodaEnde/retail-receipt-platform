@@ -626,6 +626,9 @@ async def process_receipt_image(request: ReceiptImageRequest):
         # Assess fraud risk
         fraud_assessment = assess_fraud_risk(distance_km, extracted.get("amount", 0))
         
+        # Determine which image to store (prefer converted JPEG for display)
+        image_to_store = extracted.get("converted_image") or request.image_data
+        
         # Determine receipt status based on fraud flag
         receipt_status = "processed"
         if fraud_assessment["fraud_flag"] == "flagged":
@@ -641,7 +644,7 @@ async def process_receipt_image(request: ReceiptImageRequest):
             currency="ZAR",
             items=extracted.get("items", []),
             raw_text=extracted.get("raw_text"),
-            image_data=request.image_data,  # Store the image
+            image_data=image_to_store,  # Store the converted JPEG if available
             upload_latitude=request.latitude,
             upload_longitude=request.longitude,
             upload_address=upload_address,
