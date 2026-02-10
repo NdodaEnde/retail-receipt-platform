@@ -494,16 +494,36 @@ class ReceiptProcessor:
                     if 'subtotal' in line_lower and 'total' not in line_lower.replace('subtotal', ''):
                         continue  # Skip subtotal unless there's also "total"
                     
+                    # Skip gratuity/tip lines
+                    if 'gratuity' in line_lower or 'tip' in line_lower:
+                        continue
+                    
                     for pattern in amount_patterns:
                         match = re.search(pattern, clean_line, re.IGNORECASE)
                         if match:
                             amount_str = match.group(1).replace(',', '.')
                             try:
                                 amount = float(amount_str)
-                                if amount > result["amount"]:  # Take the larger total
+                                # Sanity check - amount should be reasonable (> R50 for a restaurant)
+                                if amount > result["amount"] and amount > 50:
                                     result["amount"] = amount
+                                    logger.info(f"Found amount: R{amount} from: {clean_line[:50]}")
                             except ValueError:
                                 continue
+            
+            # Also look for "Amount due ZAR X,XXX.X" format (specific to some POS systems)
+            amount_due_pattern = r'Amount\s+due\s+(?:ZAR|R)?\s*([\d,]+\.?\d*)'
+            for line in lines:
+                clean_line = re.sub(r'<[^>]+>', '', line).strip()
+                match = re.search(amount_due_pattern, clean_line, re.IGNORECASE)
+                if match:
+                    try:
+                        amount = float(match.group(1).replace(',', ''))
+                        if amount > result["amount"]:
+                            result["amount"] = amount
+                            logger.info(f"Found Amount due: R{amount}")
+                    except ValueError:
+                        pass
 
         # --- Extract Items (if not found in table) ---
         if not result["items"]:
