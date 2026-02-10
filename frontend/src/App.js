@@ -72,6 +72,7 @@ function AnimatedRoutes() {
       >
         <Routes location={location}>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/upload" element={<UploadReceipt />} />
           <Route path="/dashboard" element={<CustomerDashboard />} />
           <Route path="/map" element={<MapView />} />
           <Route path="/draws" element={<DrawsPage />} />
