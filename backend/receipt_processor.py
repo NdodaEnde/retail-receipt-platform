@@ -216,6 +216,49 @@ class ReceiptProcessor:
 
             processing_time = (datetime.utcnow() - start_time).total_seconds()
             logger.info(f"✅ LandingAI extraction complete in {processing_time:.2f}s")
+            
+            # Try to extract structured line items with schema
+            line_items_from_schema = []
+            try:
+                # Define schema for receipt line items
+                items_schema = {
+                    "line_items": {
+                        "type": "array",
+                        "description": "List of items purchased on the receipt",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "item_name": {"type": "string", "description": "Name of the item"},
+                                "quantity": {"type": "number", "description": "Number of units purchased"},
+                                "unit_price": {"type": "number", "description": "Price per single unit"},
+                                "total_price": {"type": "number", "description": "Total price for this line item"}
+                            }
+                        }
+                    },
+                    "total_amount": {"type": "number", "description": "Total amount due on the receipt"},
+                    "shop_name": {"type": "string", "description": "Name of the shop or restaurant"}
+                }
+                
+                extract_response = self.client.extract(
+                    document=Path(tmp_path),
+                    schema=items_schema,
+                    model="dpt-2-latest"
+                )
+                
+                if extract_response and hasattr(extract_response, 'data'):
+                    extracted_data = extract_response.data
+                    if 'line_items' in extracted_data:
+                        for item in extracted_data['line_items']:
+                            if item.get('item_name'):
+                                line_items_from_schema.append({
+                                    'name': item.get('item_name', ''),
+                                    'quantity': int(item.get('quantity', 1)) if item.get('quantity') else 1,
+                                    'unit_price': float(item.get('unit_price', 0)) if item.get('unit_price') else None,
+                                    'total_price': float(item.get('total_price', 0)) if item.get('total_price') else None
+                                })
+                        logger.info(f"Schema extraction found {len(line_items_from_schema)} items")
+            except Exception as e:
+                logger.warning(f"Schema extraction failed, falling back to text parsing: {e}")
 
             # Extract chunks with grounding
             chunks = []
