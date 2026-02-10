@@ -16,27 +16,67 @@ GOOGLE_GEOCODE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 
 # Fallback: Pre-defined coordinates for major SA locations
 SA_LOCATIONS = {
+    # Cape Town Southern Suburbs
+    "constantia": {"lat": -34.0230, "lon": 18.4260},
+    "newlands": {"lat": -33.9780, "lon": 18.4580},
+    "claremont": {"lat": -33.9850, "lon": 18.4670},
+    "wynberg": {"lat": -34.0010, "lon": 18.4650},
+    "kenilworth": {"lat": -33.9980, "lon": 18.4810},
+    "tokai": {"lat": -34.0550, "lon": 18.4430},
+    "rondebosch": {"lat": -33.9630, "lon": 18.4730},
+    "plumstead": {"lat": -34.0160, "lon": 18.4700},
+    
+    # Cape Town Northern Suburbs
     "brackenfell": {"lat": -33.8789, "lon": 18.6989},
     "bellville": {"lat": -33.9017, "lon": 18.6291},
+    "durbanville": {"lat": -33.8320, "lon": 18.6470},
+    "kraaifontein": {"lat": -33.8510, "lon": 18.7280},
+    "kuils river": {"lat": -33.9310, "lon": 18.6850},
+    
+    # Cape Town Atlantic Seaboard & City Bowl
+    "sea point": {"lat": -33.9170, "lon": 18.3880},
+    "green point": {"lat": -33.9050, "lon": 18.4000},
+    "camps bay": {"lat": -33.9510, "lon": 18.3780},
+    "cape town": {"lat": -33.9249, "lon": 18.4241},
+    "gardens": {"lat": -33.9330, "lon": 18.4130},
+    
+    # Johannesburg
     "sandton": {"lat": -26.1076, "lon": 28.0567},
     "rosebank": {"lat": -26.1452, "lon": 28.0445},
+    "fourways": {"lat": -26.0173, "lon": 28.0128},
+    "bryanston": {"lat": -26.0586, "lon": 28.0214},
     "soweto": {"lat": -26.2485, "lon": 27.8540},
-    "cape town": {"lat": -33.9249, "lon": 18.4241},
     "johannesburg": {"lat": -26.2041, "lon": 28.0473},
-    "durban": {"lat": -29.8587, "lon": 31.0218},
+    "randburg": {"lat": -26.0943, "lon": 27.9980},
+    
+    # Pretoria / Centurion
     "pretoria": {"lat": -25.7461, "lon": 28.1881},
+    "centurion": {"lat": -25.8603, "lon": 28.1894},
+    "midrand": {"lat": -25.9891, "lon": 28.1271},
+    
+    # Other major cities
+    "durban": {"lat": -29.8587, "lon": 31.0218},
     "port elizabeth": {"lat": -33.9608, "lon": 25.6022},
-    "gqeberha": {"lat": -33.9608, "lon": 25.6022},  # New name for PE
+    "gqeberha": {"lat": -33.9608, "lon": 25.6022},
     "bloemfontein": {"lat": -29.0852, "lon": 26.1596},
     "east london": {"lat": -33.0153, "lon": 27.9116},
     "polokwane": {"lat": -23.9045, "lon": 29.4688},
     "nelspruit": {"lat": -25.4753, "lon": 30.9694},
-    "mbombela": {"lat": -25.4753, "lon": 30.9694},  # New name for Nelspruit
+    "mbombela": {"lat": -25.4753, "lon": 30.9694},
     "kimberley": {"lat": -28.7282, "lon": 24.7499},
     "rustenburg": {"lat": -25.6670, "lon": 27.2420},
     "pietermaritzburg": {"lat": -29.6006, "lon": 30.3794},
-    "centurion": {"lat": -25.8603, "lon": 28.1894},
-    "midrand": {"lat": -25.9891, "lon": 28.1271},
+    
+    # Garden Route
+    "george": {"lat": -33.9631, "lon": 22.4617},
+    "knysna": {"lat": -34.0356, "lon": 23.0488},
+    "plettenberg bay": {"lat": -34.0527, "lon": 23.3716},
+    "mossel bay": {"lat": -34.1831, "lon": 22.1464},
+    
+    # Winelands
+    "stellenbosch": {"lat": -33.9346, "lon": 18.8640},
+    "paarl": {"lat": -33.7271, "lon": 18.9706},
+    "franschhoek": {"lat": -33.9133, "lon": 19.1180},
 }
 
 
