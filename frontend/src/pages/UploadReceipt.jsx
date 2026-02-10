@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -23,6 +23,11 @@ export default function UploadReceipt() {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
+  // Auto-request location when page loads
+  useEffect(() => {
+    getLocation();
+  }, []);
+
   // Get user's location
   const getLocation = () => {
     setGettingLocation(true);
@@ -34,17 +39,21 @@ export default function UploadReceipt() {
             longitude: position.coords.longitude
           });
           setGettingLocation(false);
-          toast.success("Location captured!");
+          toast.success("Location captured for fraud verification!");
         },
         (error) => {
           console.error("Location error:", error);
           setGettingLocation(false);
-          toast.error("Could not get location. Receipt will still be processed.");
-        }
+          // Don't show error toast on auto-request - it might be denied silently
+          if (error.code === error.PERMISSION_DENIED) {
+            toast.warning("Location access denied. Distance verification won't be available.");
+          }
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
       );
     } else {
       setGettingLocation(false);
-      toast.error("Geolocation not supported");
+      toast.error("Geolocation not supported by your browser");
     }
   };
 
