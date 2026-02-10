@@ -401,12 +401,14 @@ class ReceiptProcessor:
     def _parse_html_table(self, text: str, result: Dict) -> Dict:
         """Parse HTML table format from LandingAI OCR output"""
         try:
-            # Extract table rows
-            row_pattern = r'<tr><td>([^<]*)</td><td>([^<]*)</td></tr>'
-            rows = re.findall(row_pattern, text)
+            # Extract table rows - handle IDs in td elements
+            # Pattern matches: <tr><td id="...">content</td><td id="...">content</td></tr>
+            row_pattern = r'<tr><td[^>]*>([^<]*)</td><td[^>]*>([^<]*)</td></tr>'
+            rows = re.findall(row_pattern, text, re.IGNORECASE)
             
             skip_keywords = ['total', 'subtotal', 'vat', 'tax', 'cash', 'change', 
-                           'card', 'balance', 'rate', 'payment', 'invoice', 'description']
+                           'card', 'balance', 'rate', 'payment', 'invoice', 'description',
+                           'qty', 'item', 'price', 'value', 'tendered', 'tax%']
             
             for item_name, price_str in rows:
                 item_name = item_name.strip()
@@ -417,7 +419,7 @@ class ReceiptProcessor:
                     continue
                 if any(kw in item_name.lower() for kw in skip_keywords):
                     # But extract the total amount
-                    if 'total' in item_name.lower() and 'subtotal' not in item_name.lower():
+                    if ('total' in item_name.lower() or 'bill' in item_name.lower()) and 'subtotal' not in item_name.lower():
                         price_match = re.search(r'R?(\d+[.,]\d{2})', price_str)
                         if price_match:
                             try:
@@ -430,7 +432,7 @@ class ReceiptProcessor:
                 
                 # Extract price
                 price_match = re.search(r'R?(\d+[.,]\d{2})', price_str)
-                if price_match and len(item_name) > 2:
+                if price_match and len(item_name) > 1:
                     try:
                         item_price = float(price_match.group(1).replace(',', '.'))
                         if item_price > 0:
@@ -441,6 +443,8 @@ class ReceiptProcessor:
                             })
                     except ValueError:
                         continue
+            
+            logger.info(f"Parsed HTML table: {len(result['items'])} items, total: R{result['amount']}")
             
         except Exception as e:
             logger.error(f"HTML table parsing error: {e}")
