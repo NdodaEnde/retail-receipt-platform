@@ -20,6 +20,11 @@ export default function CustomerDashboard() {
   const [wins, setWins] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  
+  // Receipt detail modal state
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [receiptDetail, setReceiptDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Upload form state
   const [uploadData, setUploadData] = useState({
