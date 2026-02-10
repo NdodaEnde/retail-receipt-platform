@@ -116,6 +116,28 @@ export default function UploadReceipt() {
       return;
     }
 
+    // Try to get location one more time if not available
+    let uploadLocation = location;
+    if (!uploadLocation && navigator.geolocation) {
+      try {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 5000
+          });
+        });
+        uploadLocation = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        };
+        setLocation(uploadLocation);
+        toast.success("Location captured!");
+      } catch (err) {
+        console.log("Could not get location on submit:", err);
+        // Continue without location
+      }
+    }
+
     setLoading(true);
     setResult(null);
 
@@ -129,8 +151,8 @@ export default function UploadReceipt() {
           phone_number: formatPhoneNumber(phoneNumber),
           image_data: base64,
           mime_type: image.type,
-          latitude: location?.latitude,
-          longitude: location?.longitude
+          latitude: uploadLocation?.latitude,
+          longitude: uploadLocation?.longitude
         });
 
         if (response.data.success !== false) {
