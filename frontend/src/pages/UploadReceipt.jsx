@@ -217,6 +217,7 @@ export default function UploadReceipt() {
                     <Label className="text-sm font-medium flex items-center gap-2">
                       <MapPin className="w-4 h-4" />
                       Your Location
+                      <Badge variant="outline" className="text-xs">Required for verification</Badge>
                     </Label>
                     {location ? (
                       <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
@@ -230,16 +231,21 @@ export default function UploadReceipt() {
                         variant="outline"
                         onClick={getLocation}
                         disabled={gettingLocation}
-                        className="w-full"
+                        className="w-full border-orange-500/30 hover:bg-orange-500/10"
                         data-testid="get-location-btn"
                       >
                         {gettingLocation ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         ) : (
-                          <MapPin className="w-4 h-4 mr-2" />
+                          <MapPin className="w-4 h-4 mr-2 text-orange-500" />
                         )}
-                        {gettingLocation ? "Getting location..." : "Share Location (Optional)"}
+                        {gettingLocation ? "Getting location..." : "Enable Location Sharing"}
                       </Button>
+                    )}
+                    {!location && !gettingLocation && (
+                      <p className="text-xs text-orange-400">
+                        Location helps verify you're near the shop for fraud prevention
+                      </p>
                     )}
                   </div>
 
