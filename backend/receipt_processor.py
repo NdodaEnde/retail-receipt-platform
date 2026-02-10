@@ -299,45 +299,59 @@ class ReceiptProcessor:
         lines = [l.strip() for l in lines if l.strip()]
         
         # --- First pass: Scan ENTIRE text for SA postal codes ---
-        # SA postal codes are 4 digits, typically 0001-9999
-        # Look through ALL lines (postal code could be anywhere - header or footer)
-        all_text_lower = text.lower()
-        postal_code_pattern = r'\b(\d{4})\b'
+        # SA postal codes are 4 digits, typically appearing alone or with suburb name
+        # They should NOT be part of phone numbers, VAT numbers, or prices
         
-        # Common SA postal code ranges
-        valid_postal_ranges = [
-            (1, 299),      # Johannesburg
-            (300, 499),    # Pretoria
-            (500, 699),    # Northern regions
-            (700, 999),    # North West
-            (1000, 2999),  # Gauteng
-            (3000, 4999),  # KZN
-            (5000, 5999),  # Free State
-            (6000, 6999),  # Eastern Cape
-            (7000, 7999),  # Western Cape
-            (8000, 8999),  # Northern Cape
-            (9000, 9999),  # Various
-        ]
-        
-        def is_valid_sa_postal(code_str):
+        def is_valid_sa_postal(code_str, line_context):
+            """Check if a 4-digit number is likely a postal code, not phone/VAT/price"""
             try:
                 code = int(code_str)
-                # Exclude obvious non-postal codes (years, times, etc.)
-                if code >= 1900 and code <= 2100:  # Looks like a year
+                line_lower = line_context.lower()
+                
+                # Exclude if in phone number context
+                if 'tel' in line_lower or 'phone' in line_lower or 'cell' in line_lower:
                     return False
+                if re.search(r'0\d{2}\s?\d{3}\s?' + code_str, line_context):  # Part of phone number
+                    return False
+                    
+                # Exclude if part of VAT number
+                if 'vat' in line_lower:
+                    return False
+                    
+                # Exclude if looks like a year
+                if code >= 1900 and code <= 2100:
+                    return False
+                    
+                # Exclude if appears with R (price) or decimal
+                if re.search(r'R\s*' + code_str, line_context) or re.search(code_str + r'[.,]\d{2}', line_context):
+                    return False
+                
+                # Valid SA postal codes are between 0001-9999
+                # Most commonly 7000-7999 for Western Cape, 2000-2999 for Gauteng, etc.
                 if code < 1 or code > 9999:
                     return False
-                return True
+                
+                # Prefer codes that appear alone on a line or with suburb context
+                # e.g., "Constantia 7848" or just "7848"
+                clean_line = re.sub(r'[^\w\s]', '', line_context).strip()
+                words = clean_line.split()
+                if code_str in words:
+                    return True
+                    
+                return False
             except:
                 return False
         
-        # Find all 4-digit numbers in the text
-        potential_codes = re.findall(postal_code_pattern, text)
-        for code in potential_codes:
-            if is_valid_sa_postal(code):
-                result["postal_code"] = code
-                logger.info(f"Detected potential SA postal code: {code}")
-                break  # Take the first valid one
+        # Search each line for potential postal codes
+        for line in lines:
+            potential_codes = re.findall(r'\b(\d{4})\b', line)
+            for code in potential_codes:
+                if is_valid_sa_postal(code, line):
+                    result["postal_code"] = code
+                    logger.info(f"Detected SA postal code: {code} from line: {line[:50]}")
+                    break
+            if result["postal_code"]:
+                break
 
         # --- Extract Shop Name ---
         # Usually first non-empty line or look for known SA retailers
