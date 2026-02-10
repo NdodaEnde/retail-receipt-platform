@@ -93,3 +93,4 @@ whatsapp-service/auth_info/
 # Qdrant data
 qdrant_receipts/
 frontend/node_modules/.cache/default-development/2.pack
+frontend/node_modules/.cache/default-development/5.pack
