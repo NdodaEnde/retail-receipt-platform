@@ -292,7 +292,8 @@ class ReceiptProcessor:
             return result
 
         # Check if text contains HTML table (LandingAI format)
-        if '<table>' in text.lower():
+        # Check if text contains HTML table (LandingAI format) - look for <table with optional attributes
+        if '<table' in text.lower():
             result = self._parse_html_table(text, result)
         
         lines = text.strip().split('\n')
