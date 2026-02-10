@@ -373,7 +373,7 @@ export default function CustomerDashboard() {
                                 <div className="flex gap-1 justify-end flex-wrap">
                                   <Badge 
                                     variant={receipt.status === 'won' ? 'default' : 'secondary'}
-                                    className={receipt.status === 'won' ? 'bg-secondary text-secondary-foreground' : ''}
+                                    className={receipt.status === 'won' ? 'bg-secondary text-secondary-foreground' : getStatusBadge(receipt.status)}
                                   >
                                     {receipt.status === 'won' ? '🏆 Winner!' : receipt.status}
                                   </Badge>
@@ -385,14 +385,27 @@ export default function CustomerDashboard() {
                                 </div>
                               </div>
                             </div>
-                            {receipt.upload_latitude && (
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <MapPin className="w-3 h-3" />
-                                <span className="font-mono">
-                                  {receipt.upload_latitude.toFixed(4)}, {receipt.upload_longitude.toFixed(4)}
-                                </span>
-                              </div>
-                            )}
+                            <div className="flex justify-between items-center">
+                              {receipt.upload_latitude && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <MapPin className="w-3 h-3" />
+                                  <span className="font-mono">
+                                    {receipt.upload_latitude.toFixed(4)}, {receipt.upload_longitude.toFixed(4)}
+                                  </span>
+                                </div>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                data-testid={`view-receipt-btn-${receipt.id}`}
+                                onClick={() => fetchReceiptDetail(receipt.id)}
+                                disabled={loadingDetail}
+                                className="ml-auto rounded-lg text-xs"
+                              >
+                                <Eye className="w-3 h-3 mr-1" />
+                                View
+                              </Button>
+                            </div>
                           </CardContent>
                         </Card>
                       </motion.div>
