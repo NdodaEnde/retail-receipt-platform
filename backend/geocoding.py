@@ -232,10 +232,27 @@ class GeocodingService:
         
         return None
     
-    async def geocode_shop(self, shop_name: str, address: str = None, receipt_text: str = None) -> Optional[Dict]:
+    async def geocode_shop(self, shop_name: str, address: str = None, receipt_text: str = None, postal_code: str = None) -> Optional[Dict]:
         """
         Geocode a shop from available information
+        Uses postal code for better accuracy when available
         """
+        # If we have a postal code, prioritize using it with the shop name
+        # This is more accurate than just shop name (e.g., "blanko, 7848, South Africa")
+        if postal_code:
+            query_with_postal = f"{shop_name}, {postal_code}, South Africa"
+            logger.info(f"Geocoding with postal code: {query_with_postal}")
+            result = await self.geocode_address(query_with_postal, None)
+            if result and result.get("confidence") in ["high", "medium"]:
+                result["note"] = f"Geocoded using postal code {postal_code}"
+                return result
+            
+            # Try just postal code if shop name didn't help
+            result = await self.geocode_address(f"{postal_code}, South Africa", None)
+            if result:
+                result["note"] = f"Geocoded from postal code {postal_code} only"
+                return result
+        
         # Try with full address first (best accuracy)
         if address:
             result = await self.geocode_address(address, shop_name)
