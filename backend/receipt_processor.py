@@ -671,14 +671,13 @@ class ReceiptProcessor:
                     # - Single items (qty=1): may only show one price column
                     # - Multiple items (qty>1): shows unit_price AND total_price
                     
-                    # Parse quantity
+                    # Parse quantity from column 1 (trust the OCR value)
+                    qty_from_ocr = None
                     if cells[0] and cells[0].strip():
                         try:
-                            quantity = int(float(cells[0].strip()))
+                            qty_from_ocr = int(float(cells[0].strip()))
                         except:
-                            quantity = 1
-                    else:
-                        quantity = 1  # Empty qty means single unit
+                            qty_from_ocr = None
                     
                     item_name = cells[1]
                     
@@ -687,27 +686,26 @@ class ReceiptProcessor:
                     price_col4 = extract_price(cells[3])  # Usually total price
                     
                     if price_col3 and price_col4:
-                        # Both prices available - use directly
+                        # Both prices available
                         unit_price = price_col3
                         total_price = price_col4
-                        # Can also infer quantity: total / unit
-                        if unit_price > 0:
-                            inferred_qty = round(total_price / unit_price)
-                            if inferred_qty > quantity:
-                                quantity = inferred_qty
+                        # Use OCR quantity if available, otherwise calculate from prices
+                        if qty_from_ocr:
+                            quantity = qty_from_ocr
+                        elif unit_price > 0:
+                            quantity = round(total_price / unit_price)
+                        else:
+                            quantity = 1
                                 
                     elif price_col3 and not price_col4:
                         # Only column 3 has price (unit price)
                         unit_price = price_col3
-                        if quantity > 1:
-                            # Calculate total for multiple items
-                            total_price = round(unit_price * quantity, 2)
-                        else:
-                            # Single item - unit = total
-                            total_price = unit_price
+                        quantity = qty_from_ocr if qty_from_ocr else 1
+                        # Calculate total
+                        total_price = round(unit_price * quantity, 2)
                             
                     elif price_col4 and not price_col3:
-                        # Only column 4 has price (total price for single item)
+                        # Only column 4 has price (total for single item)
                         total_price = price_col4
                         unit_price = total_price  # Single item, so unit = total
                         quantity = 1
