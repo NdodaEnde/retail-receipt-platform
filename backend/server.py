@@ -221,14 +221,14 @@ async def process_receipt_with_landingai(image_base64: str, mime_type: str = "im
         result["error"] = str(e)
         return result
 
-async def geocode_shop_from_receipt(shop_name: str, address: str = None) -> tuple:
+async def geocode_shop_from_receipt(shop_name: str, address: str = None, postal_code: str = None) -> tuple:
     """
-    Try to geocode a shop from its name and/or address using improved geocoding service
-    Returns (latitude, longitude, display_name) or (None, None, None)
+    Try to geocode a shop from its name, address, and/or postal code using improved geocoding service
+    Returns (latitude, longitude, display_name) or (None, None, shop_name)
     """
     try:
         geocoding_service = get_geocoding_service()
-        result = await geocoding_service.geocode_shop(shop_name, address)
+        result = await geocoding_service.geocode_shop(shop_name, address, postal_code=postal_code)
         
         if result:
             lat = result["latitude"]
