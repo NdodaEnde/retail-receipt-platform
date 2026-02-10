@@ -222,6 +222,7 @@ class ReceiptProcessor:
                 "grounding": grounding_data,
                 "chunks": chunks,
                 "processing_time": round(processing_time, 2),
+                "converted_image": converted_image_base64,  # Return converted JPEG if HEIC was converted
                 "error": None
             })
 
