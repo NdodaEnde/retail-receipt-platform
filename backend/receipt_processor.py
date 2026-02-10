@@ -106,22 +106,58 @@ class ReceiptProcessor:
         if "," in image_base64:
             image_base64 = image_base64.split(",")[1]
         
-        # Determine file suffix based on mime type
+        # Decode image
+        try:
+            image_bytes = base64.b64decode(image_base64)
+        except Exception as e:
+            logger.error(f"Base64 decode error: {e}")
+            result["error"] = "Invalid image data"
+            return result
+        
+        # Check if HEIC format (iPhone) and convert
+        try:
+            from PIL import Image
+            import io
+            
+            # Check magic bytes for HEIC (ftypheic, ftypheix, etc.)
+            if b'ftyp' in image_bytes[:20] and (b'heic' in image_bytes[:20] or b'heix' in image_bytes[:20] or b'mif1' in image_bytes[:20]):
+                logger.info("Detected HEIC format, converting to JPEG...")
+                try:
+                    import pillow_heif
+                    pillow_heif.register_heif_opener()
+                except ImportError:
+                    logger.warning("pillow-heif not installed, HEIC conversion may fail")
+                
+                img = Image.open(io.BytesIO(image_bytes))
+                img = img.convert('RGB')
+                
+                # Resize if too large
+                max_size = 2000
+                if max(img.size) > max_size:
+                    ratio = max_size / max(img.size)
+                    new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
+                    img = img.resize(new_size, Image.Resampling.LANCZOS)
+                
+                # Save to bytes
+                buffer = io.BytesIO()
+                img.save(buffer, format='JPEG', quality=90)
+                image_bytes = buffer.getvalue()
+                mime_type = "image/jpeg"
+                logger.info(f"Converted HEIC to JPEG ({len(image_bytes)} bytes)")
+        except Exception as e:
+            logger.warning(f"Image preprocessing warning: {e}")
+        
+        # Determine file suffix
         if "jpeg" in mime_type or "jpg" in mime_type:
             suffix = ".jpg"
         elif "png" in mime_type:
             suffix = ".png"
         else:
-            suffix = ".jpg"  # Default to jpg
+            suffix = ".jpg"
         
-        # Save image to temp file (LandingAI needs file path)
+        # Save to temp file
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
-            try:
-                tmp_file.write(base64.b64decode(image_base64))
-            except Exception as e:
-                logger.error(f"Base64 decode error: {e}")
-                result["error"] = "Invalid image data"
-                return result
+            tmp_file.write(image_bytes)
             tmp_path = tmp_file.name
 
         try:
