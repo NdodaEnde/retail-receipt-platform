@@ -291,13 +291,32 @@ class ReceiptProcessor:
             # Parse the extracted text
             parsed = self._parse_receipt_text(full_text, chunks)
             
+            # Prefer schema-extracted items if available and better quality
+            final_items = parsed.get("items", [])
+            if line_items_from_schema:
+                # Check if schema items have better data (unit prices)
+                schema_has_unit_prices = any(item.get('unit_price') for item in line_items_from_schema)
+                parsed_has_unit_prices = any(item.get('unit_price') != item.get('total_price') for item in final_items)
+                
+                if schema_has_unit_prices or len(line_items_from_schema) > len(final_items):
+                    # Use schema items, fill in missing prices
+                    for item in line_items_from_schema:
+                        if item.get('total_price') and not item.get('unit_price'):
+                            item['unit_price'] = item['total_price']
+                        if item.get('unit_price') and not item.get('total_price'):
+                            item['total_price'] = item['unit_price'] * item.get('quantity', 1)
+                        # Add price field for backward compatibility
+                        item['price'] = item.get('total_price', 0)
+                    final_items = line_items_from_schema
+                    logger.info(f"Using schema-extracted items ({len(final_items)} items)")
+            
             result.update({
                 "success": True,
                 "shop_name": parsed.get("shop_name"),
                 "shop_address": parsed.get("address"),
                 "amount": parsed.get("amount", 0.0),
                 "currency": "ZAR",
-                "items": parsed.get("items", []),
+                "items": final_items,
                 "date": parsed.get("date"),
                 "raw_text": full_text,
                 "grounding": grounding_data,
