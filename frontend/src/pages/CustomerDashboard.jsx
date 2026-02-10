@@ -44,21 +44,38 @@ export default function CustomerDashboard() {
     }
   }, []);
 
+  const formatPhoneNumber = (num) => {
+    // Remove all non-digits
+    let cleaned = num.replace(/\D/g, "");
+    // Remove leading 0 and add 27 for SA numbers
+    if (cleaned.startsWith("0")) {
+      cleaned = "27" + cleaned.substring(1);
+    }
+    // Add 27 if number looks like a local number
+    if (cleaned.length === 9 && !cleaned.startsWith("27")) {
+      cleaned = "27" + cleaned;
+    }
+    return cleaned;
+  };
+
   const fetchCustomerData = useCallback(async () => {
     if (!phoneNumber) return;
+    
+    // Format phone number to include country code
+    const formattedPhone = formatPhoneNumber(phoneNumber);
     
     setLoading(true);
     try {
       // Get or create customer
-      const customerRes = await axios.post(`${API}/customers`, { phone_number: phoneNumber });
+      const customerRes = await axios.post(`${API}/customers`, { phone_number: formattedPhone });
       setCustomer(customerRes.data);
       
       // Get receipts
-      const receiptsRes = await axios.get(`${API}/receipts/customer/${phoneNumber}`);
+      const receiptsRes = await axios.get(`${API}/receipts/customer/${formattedPhone}`);
       setReceipts(receiptsRes.data.receipts);
       
       // Get wins
-      const winsRes = await axios.get(`${API}/draws/winner/${phoneNumber}`);
+      const winsRes = await axios.get(`${API}/draws/winner/${formattedPhone}`);
       setWins(winsRes.data.wins);
       
     } catch (error) {
