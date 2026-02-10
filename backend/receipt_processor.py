@@ -724,20 +724,10 @@ class ReceiptProcessor:
                                 quantity = 1
                             logger.info(f"Inferred quantity for {item_name}: {total_price}/{unit_price} = {quantity}")
                     else:
-                        # Only one price - check if item name has quantity prefix
-                        # Patterns: "2 x Item", "2x Item", "2 Item", "x2 Item"
-                        qty_match = re.match(r'^(\d+)\s*[xX]?\s+(.+)$', item_name)
-                        if qty_match:
-                            quantity = int(qty_match.group(1))
-                            item_name = qty_match.group(2).strip()
-                            total_price = extract_price(price_cell)
-                            if total_price and quantity > 0:
-                                unit_price = round(total_price / quantity, 2)
-                        else:
-                            # Single price, assume quantity 1
-                            total_price = extract_price(price_cell)
-                            unit_price = total_price
-                            quantity = 1
+                        # Only one price - cannot infer quantity, assume 1
+                        total_price = extract_price(price_cell)
+                        unit_price = total_price
+                        quantity = 1
                     
                 elif len(cells) == 3:
                     # Format: [qty, item_name, price] or [item_name, unit_price, total_price]
