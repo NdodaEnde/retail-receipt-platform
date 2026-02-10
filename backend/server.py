@@ -793,6 +793,24 @@ async def upload_receipt(
         {"$inc": {"total_receipts": 1, "total_spent": parsed_data["amount"]}}
     )
     
+    # Send WhatsApp confirmation in background (non-blocking)
+    async def send_whatsapp_confirmation():
+        try:
+            wa = get_whatsapp_client()
+            await wa.send_receipt_confirmation(
+                phone_number,
+                parsed_data["shop_name"] or "Unknown Shop",
+                parsed_data["amount"],
+                len(parsed_data["items"]),
+                "valid"  # Web uploads are auto-approved
+            )
+            logger.info(f"WhatsApp confirmation sent to {phone_number}")
+        except Exception as e:
+            logger.warning(f"Failed to send WhatsApp confirmation: {e}")
+    
+    # Run WhatsApp notification in background
+    background_tasks.add_task(send_whatsapp_confirmation)
+    
     # Remove image_data and any _id from response
     response_receipt = {k: v for k, v in receipt_dict.items() if k not in ['image_data', '_id']}
     response_receipt['has_image'] = image_data is not None
