@@ -332,7 +332,7 @@ export default function FraudDetection() {
                   <div className="rounded-xl overflow-hidden border border-white/10 bg-white/5">
                     {receiptDetail.receipt?.image_data ? (
                       <img 
-                        src={`data:image/png;base64,${receiptDetail.receipt.image_data}`}
+                        src={`data:image/jpeg;base64,${receiptDetail.receipt.image_data}`}
                         alt="Receipt"
                         className="w-full max-h-[400px] object-contain"
                         data-testid="receipt-image"
