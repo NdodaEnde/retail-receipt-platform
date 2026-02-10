@@ -8,6 +8,7 @@ import MapView from "./pages/MapView";
 import DrawsPage from "./pages/DrawsPage";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import FraudDetection from "./pages/FraudDetection";
+import UploadReceipt from "./pages/UploadReceipt";
 import "./App.css";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -15,6 +16,7 @@ export const API = `${BACKEND_URL}/api`;
 
 const navItems = [
   { path: "/", icon: Home, label: "Home" },
+  { path: "/upload", icon: Receipt, label: "Upload" },
   { path: "/dashboard", icon: Receipt, label: "Receipts" },
   { path: "/map", icon: Map, label: "Map" },
   { path: "/draws", icon: Trophy, label: "Draws" },
