@@ -549,53 +549,123 @@ class ReceiptProcessor:
         return result
 
     def _parse_html_table(self, text: str, result: Dict) -> Dict:
-        """Parse HTML table format from LandingAI OCR output"""
+        """Parse HTML table format from LandingAI OCR output - handles 2, 3, or 4 column tables"""
         try:
-            # Extract table rows - handle IDs in td elements
-            # Pattern matches: <tr><td id="...">content</td><td id="...">content</td></tr>
-            row_pattern = r'<tr><td[^>]*>([^<]*)</td><td[^>]*>([^<]*)</td></tr>'
-            rows = re.findall(row_pattern, text, re.IGNORECASE)
+            # Find all table rows
+            row_pattern = r'<tr>(.*?)</tr>'
+            rows = re.findall(row_pattern, text, re.IGNORECASE | re.DOTALL)
             
             skip_keywords = ['total', 'subtotal', 'vat', 'tax', 'cash', 'change', 
                            'card', 'balance', 'rate', 'payment', 'invoice', 'description',
-                           'qty', 'item', 'price', 'value', 'tendered', 'tax%']
+                           'qty', 'item', 'price', 'value', 'tendered', 'tax%', 'tai',
+                           'gratuity', 'tip', 'service', 'amount due']
             
-            for item_name, price_str in rows:
-                item_name = item_name.strip()
-                price_str = price_str.strip()
+            logger.info(f"Parsing HTML table with {len(rows)} rows")
+            
+            for row in rows:
+                # Extract all cells from this row
+                cell_pattern = r'<td[^>]*>([^<]*)</td>'
+                cells = re.findall(cell_pattern, row)
+                cells = [c.strip() for c in cells]
                 
-                # Decode HTML entities
-                item_name = item_name.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
-                
-                # Skip header rows and totals
-                if not item_name or not price_str:
-                    continue
-                if any(kw in item_name.lower() for kw in skip_keywords):
-                    # But extract the total amount
-                    if ('total' in item_name.lower() or 'bill' in item_name.lower()) and 'subtotal' not in item_name.lower():
-                        price_match = re.search(r'R?(\d+[.,]\d{2})', price_str)
-                        if price_match:
-                            try:
-                                amount = float(price_match.group(1).replace(',', '.'))
-                                if amount > result["amount"]:
-                                    result["amount"] = amount
-                            except ValueError:
-                                pass
+                if not cells:
                     continue
                 
+                # Determine table format and extract item name + price
+                item_name = None
+                item_price = None
+                quantity = 1
+                
+                # Skip empty rows or header rows
+                if all(not c for c in cells):
+                    continue
+                
+                # Check if this is a header row or total row
+                row_text = ' '.join(cells).lower()
+                if any(kw in row_text for kw in skip_keywords):
+                    # Extract total amount if present
+                    if 'total' in row_text or 'amount due' in row_text or 'tai' in row_text:
+                        for cell in cells:
+                            price_match = re.search(r'(\d+[.,]\d{2})$', cell.strip())
+                            if price_match:
+                                try:
+                                    amount = float(price_match.group(1).replace(',', '.'))
+                                    if amount > result["amount"] and amount > 100:  # Sanity check
+                                        result["amount"] = amount
+                                        logger.info(f"Found total amount: R{amount}")
+                                except ValueError:
+                                    pass
+                    continue
+                
+                # Handle different column formats:
+                if len(cells) == 2:
+                    # Format: [item_name, price]
+                    item_name = cells[0]
+                    price_str = cells[1]
+                    
+                elif len(cells) == 3:
+                    # Format: [qty, item_name, price] or [item_name, unit_price, total_price]
+                    if cells[0].isdigit():
+                        quantity = int(cells[0])
+                        item_name = cells[1]
+                        price_str = cells[2]
+                    else:
+                        item_name = cells[0]
+                        price_str = cells[2]  # Use total price
+                        
+                elif len(cells) == 4:
+                    # Format: [qty, item_name, unit_price, total_price]
+                    # Take item name from column 2, price from last column (total)
+                    if cells[0].isdigit():
+                        quantity = int(cells[0]) if cells[0] else 1
+                    item_name = cells[1]
+                    price_str = cells[3]  # Last column is usually total
+                    
+                    # If last column is empty, try third column
+                    if not price_str or not re.search(r'\d', price_str):
+                        price_str = cells[2]
+                else:
+                    # Unknown format - try to extract name and price from available cells
+                    for i, cell in enumerate(cells):
+                        if cell and not cell.isdigit() and len(cell) > 2:
+                            if not any(c.isdigit() for c in cell):
+                                item_name = cell
+                            elif re.match(r'^\d+[.,]\d{2}$', cell.strip()):
+                                price_str = cell
+                    if not price_str:
+                        price_str = cells[-1] if cells else ""
+                
+                # Clean up item name
+                if item_name:
+                    item_name = item_name.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>')
+                    item_name = item_name.strip()
+                
+                # Skip if item name is too short or looks like a number
+                if not item_name or len(item_name) < 2:
+                    continue
+                if item_name.replace('.', '').replace(',', '').isdigit():
+                    continue
+                    
                 # Extract price
-                price_match = re.search(r'R?(\d+[.,]\d{2})', price_str)
-                if price_match and len(item_name) > 1:
-                    try:
-                        item_price = float(price_match.group(1).replace(',', '.'))
-                        if item_price > 0:
-                            result["items"].append({
-                                "name": item_name,
-                                "price": item_price,
-                                "quantity": 1
-                            })
-                    except ValueError:
-                        continue
+                if price_str:
+                    price_match = re.search(r'(\d+[.,]\d{2})$', price_str.strip())
+                    if not price_match:
+                        price_match = re.search(r'(\d+)[.,](\d{2})', price_str)
+                    if price_match:
+                        try:
+                            price_text = price_match.group(0).replace(',', '.')
+                            item_price = float(price_text)
+                        except ValueError:
+                            continue
+                
+                # Add valid item
+                if item_name and item_price and item_price > 0:
+                    result["items"].append({
+                        "name": item_name,
+                        "price": item_price,
+                        "quantity": quantity
+                    })
+                    logger.debug(f"Extracted item: {item_name} x{quantity} = R{item_price}")
             
             logger.info(f"Parsed HTML table: {len(result['items'])} items, total: R{result['amount']}")
             
