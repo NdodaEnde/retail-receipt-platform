@@ -114,6 +114,9 @@ class ReceiptProcessor:
             result["error"] = "Invalid image data"
             return result
         
+        # Track if we converted the image
+        converted_image_base64 = None
+        
         # Check if HEIC format (iPhone) and convert
         try:
             from PIL import Image
@@ -143,6 +146,8 @@ class ReceiptProcessor:
                 img.save(buffer, format='JPEG', quality=90)
                 image_bytes = buffer.getvalue()
                 mime_type = "image/jpeg"
+                # Store the converted image as base64
+                converted_image_base64 = base64.b64encode(image_bytes).decode('utf-8')
                 logger.info(f"Converted HEIC to JPEG ({len(image_bytes)} bytes)")
         except Exception as e:
             logger.warning(f"Image preprocessing warning: {e}")
