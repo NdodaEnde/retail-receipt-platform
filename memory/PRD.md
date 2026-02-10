@@ -8,7 +8,7 @@ Create a retail module where customers buy items from retail shops (any retail) 
 2. **WhatsApp Cloud API webhook receives image + optional location**
 3. **LandingAI ADE extracts: shop name, amount, items, address**
 4. **Receipt image stored + structured data saved to MongoDB**
-5. **Geolocate shop from receipt data**
+5. **Geolocate shop from receipt data using Google Maps API**
 6. **Geolocate customer's upload position (from WhatsApp location share)**
 7. **Fraud detection: Calculate distance between shop and upload location**
 8. **Receipt enters daily draw pool (if not flagged)**
@@ -25,65 +25,92 @@ Create a retail module where customers buy items from retail shops (any retail) 
 - **Backend**: FastAPI (Python) with async endpoints + APScheduler
 - **Database**: MongoDB (customers, receipts, shops, draws)
 - **WhatsApp**: Meta WhatsApp Cloud API (Official)
-- **OCR**: LandingAI ADE + Qdrant vector search
+- **OCR**: LandingAI ADE (with HEIC support) + OpenAI Embeddings + Qdrant vector search
+- **Geocoding**: Google Maps Geocoding API
 - **Fraud Detection**: Haversine distance calculation
 
-## What's Been Implemented (January 10, 2026)
+## What's Been Implemented
 
-### ✅ WhatsApp Cloud API Integration (COMPLETE)
+### Session: February 10, 2026
+- **Receipt View Modal on Dashboard**: Added "View" button to customer receipts page with full detail modal showing image, items, location data
+- **WhatsApp Confirmation for Web Uploads**: Added background task to send WhatsApp confirmation when receipts are uploaded via web interface
+
+### Session: February 9-10, 2026
+- **Dashboard Phone Formatting Fix**: Fixed receipts not loading on `/dashboard` page by auto-formatting phone numbers to include country code (27)
+- **HEIC Image Support**: Added automatic conversion of iPhone HEIC images to JPEG before OCR processing
+- **Google Maps Geocoding**: Replaced failing Nominatim with Google Maps API for accurate shop location detection
+- **Shop Display Names**: Implemented smart naming (e.g., "Shoprite Brackenfell") combining OCR shop name with geocoded location
+- **Manual Upload Page**: Created `/upload` page for demo purposes with image upload, location sharing, and OCR processing
+- **Fraud Detection Modal**: Added detailed receipt view on Fraud page with image display and item-level data
+
+### Core Features (Complete)
+#### ✅ WhatsApp Cloud API Integration
 - Full migration from Baileys to official Meta WhatsApp Cloud API
 - Webhook for receiving messages (`/api/whatsapp/webhook`)
 - Send text messages, receipt confirmations, winner notifications
 - Download media (receipt images) from WhatsApp
 - Bot commands: HELP, RECEIPTS, WINS, STATUS, BALANCE
 - Message read receipts
+- **Note**: Inbound webhook blocked in preview environment (network issue)
 
-### ✅ Backend APIs
+#### ✅ Backend APIs
 - Customer CRUD endpoints + location tracking
 - Receipt upload (manual form + WhatsApp) with geolocation
 - Receipt image processing endpoint (`/api/receipts/process-image`)
-- LandingAI ADE integration (needs API key for full OCR)
-- Shop auto-detection, creation, and geocoding
+- LandingAI ADE integration for OCR
+- Shop auto-detection, creation, and geocoding via Google Maps
 - Daily random draw system with WhatsApp winner notification
 - **APScheduler** - automated daily draw at midnight UTC
 - Analytics endpoints (overview, spending, shops, customers, time)
 - Map data endpoints
 - Semantic search via Qdrant vector store
 
-### ✅ Fraud Detection System
+#### ✅ Fraud Detection System
 - Haversine distance calculation between shop and upload location
 - Fraud risk thresholds: Valid (<50km), Review (50-100km), Suspicious (100-200km), Flagged (>200km)
-- Admin review page for flagged receipts
+- Admin review page for flagged receipts with detailed view modal
 - Approve/reject workflow
 
-### ✅ Frontend Pages
+#### ✅ Frontend Pages
 - Landing page with stats
-- Customer dashboard with receipts
+- Customer dashboard with receipts (now with View button)
 - Interactive map (Leaflet, centered on South Africa)
 - Draws page with winners
 - Admin analytics dashboard
-- Fraud detection/review page
+- Fraud detection/review page with image display
+- Manual upload page for demos
 
-## Pending Items
+## Known Issues / Blockers
 
-### P0 - High Priority
-- None (core functionality complete)
+### P0 - Critical
+- **WhatsApp Inbound Messages**: Meta webhook cannot reach preview environment URL. Solution: Deploy to production environment and configure webhook URL in Meta Business Dashboard.
 
-### P1 - Enhancement
-- Configure LandingAI API key for full OCR capability (currently falls back to manual entry)
-- Set up WhatsApp webhook URL in Meta Business dashboard
+### P1 - Non-blocking
+- **OpenAI API Key**: The configured key appears invalid (401 error). Vector store embedding fails but doesn't block core functionality.
 
-### P2 - Future
-- Prize fulfillment mechanism (EFT, voucher codes)
-- Terms & Conditions / Privacy Policy pages (POPIA compliance)
-- Production infrastructure (Cloud hosting, MongoDB Atlas, S3 for images)
+## Pending Tasks
+
+### Upcoming
+1. **Production Deployment**: Deploy to Render/similar to enable WhatsApp webhook
+2. **Receipt Parser Enhancement**: Improve item extraction for restaurant receipts
+3. **WhatsApp 24-hour Window**: Document workaround for Meta test number limitations
+
+### Future / Backlog
+- Analytics: Basket analysis, customer behavior dashboards
+- Monetization: B2B data sales, targeted promotions
+- Gamification: Loyalty tiers, streaks, referral program
+- Compliance: Terms & Conditions, Privacy Policy (POPIA)
+- Customer features: WhatsApp command for receipt history download
 
 ## Key Files
 - `/app/backend/server.py` - Main API server
 - `/app/backend/whatsapp_cloud.py` - WhatsApp Cloud API client
-- `/app/backend/receipt_processor.py` - LandingAI OCR logic
+- `/app/backend/receipt_processor.py` - LandingAI OCR logic with HEIC support
 - `/app/backend/vector_store.py` - Qdrant vector store
-- `/app/backend/.env` - Environment configuration
+- `/app/backend/geocoding.py` - Google Maps Geocoding service
+- `/app/frontend/src/pages/CustomerDashboard.jsx` - Receipt history with view modal
+- `/app/frontend/src/pages/FraudDetection.jsx` - Admin review with image modal
+- `/app/frontend/src/pages/UploadReceipt.jsx` - Manual upload page
 
 ## Environment Variables Required
 ```
@@ -94,16 +121,19 @@ WHATSAPP_ACCESS_TOKEN=<your-access-token>
 WHATSAPP_VERIFY_TOKEN=retail_rewards_webhook_2026
 WHATSAPP_API_VERSION=v23.0
 LANDINGAI_API_KEY=<your-landingai-key>
+OPENAI_API_KEY=<your-openai-key>
+GOOGLE_MAPS_API_KEY=<your-google-maps-key>
 ```
 
 ## API Endpoints
 - `GET /api/health` - Health check
-- `GET /api/whatsapp/status` - WhatsApp connection status
-- `POST /api/whatsapp/webhook` - Receive WhatsApp messages
 - `GET /api/whatsapp/webhook` - Webhook verification
-- `POST /api/whatsapp/send` - Send WhatsApp message
-- `POST /api/receipts/process-image` - Process receipt image
+- `POST /api/whatsapp/webhook` - Receive WhatsApp messages
+- `POST /api/receipts/process-image` - Process receipt image (with WhatsApp notification)
+- `POST /api/receipts/upload` - Manual upload (with WhatsApp notification)
+- `GET /api/receipts/{id}/full` - Full receipt details with image
 - `GET /api/fraud/flagged` - Get flagged receipts
 - `POST /api/fraud/review/{id}` - Approve/reject receipt
 - `POST /api/draws/run` - Trigger daily draw
 - `GET /api/analytics/overview` - Platform stats
+- `POST /api/geocode/address` - Test geocoding
