@@ -127,6 +127,31 @@ export default function CustomerDashboard() {
     });
   };
 
+  const fetchReceiptDetail = async (receiptId) => {
+    setLoadingDetail(true);
+    try {
+      const response = await axios.get(`${API}/receipts/${receiptId}/full`);
+      setReceiptDetail(response.data);
+      setDetailDialogOpen(true);
+    } catch (error) {
+      console.error("Failed to fetch receipt details:", error);
+      toast.error("Failed to load receipt details");
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      processed: "bg-green-500/20 text-green-400 border-green-500/30",
+      pending: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+      won: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+      review: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+      rejected: "bg-red-500/20 text-red-400 border-red-500/30"
+    };
+    return styles[status] || styles.pending;
+  };
+
   return (
     <div className="min-h-screen p-6 pt-8" data-testid="customer-dashboard">
       {/* Header */}
