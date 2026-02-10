@@ -117,38 +117,76 @@ class ReceiptProcessor:
         # Track if we converted the image
         converted_image_base64 = None
         
-        # Check if HEIC format (iPhone) and convert
+        # Normalize and convert all mobile image formats to JPEG for consistent display
+        # Supports: HEIC/HEIF (iPhone), WebP (Android), PNG, JPEG
         try:
             from PIL import Image
             import io
             
-            # Check magic bytes for HEIC (ftypheic, ftypheix, etc.)
+            needs_conversion = False
+            format_name = "unknown"
+            
+            # Check magic bytes for HEIC (iPhone default since iOS 11)
             if b'ftyp' in image_bytes[:20] and (b'heic' in image_bytes[:20] or b'heix' in image_bytes[:20] or b'mif1' in image_bytes[:20]):
-                logger.info("Detected HEIC format, converting to JPEG...")
+                format_name = "HEIC"
+                needs_conversion = True
                 try:
                     import pillow_heif
                     pillow_heif.register_heif_opener()
                 except ImportError:
                     logger.warning("pillow-heif not installed, HEIC conversion may fail")
+            
+            # Check for WebP (some Android devices)
+            elif image_bytes[:4] == b'RIFF' and image_bytes[8:12] == b'WEBP':
+                format_name = "WebP"
+                needs_conversion = True
+            
+            # Check for PNG (screenshots)
+            elif image_bytes[:8] == b'\x89PNG\r\n\x1a\n':
+                format_name = "PNG"
+                needs_conversion = True  # Convert to JPEG for smaller size
+            
+            # JPEG is already good - just check if resizing needed
+            elif image_bytes[:2] == b'\xff\xd8':
+                format_name = "JPEG"
+                # Check if image is too large (>5MB) and needs compression
+                if len(image_bytes) > 5 * 1024 * 1024:
+                    needs_conversion = True
+            
+            if needs_conversion:
+                logger.info(f"Processing {format_name} image, converting to optimized JPEG...")
                 
                 img = Image.open(io.BytesIO(image_bytes))
-                img = img.convert('RGB')
                 
-                # Resize if too large
+                # Handle RGBA (PNG with transparency) - convert to RGB
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    # Create white background for transparent images
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    if img.mode == 'P':
+                        img = img.convert('RGBA')
+                    background.paste(img, mask=img.split()[-1] if img.mode == 'RGBA' else None)
+                    img = background
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
+                
+                # Resize if too large (max 2000px on longest side)
                 max_size = 2000
                 if max(img.size) > max_size:
                     ratio = max_size / max(img.size)
                     new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
                     img = img.resize(new_size, Image.Resampling.LANCZOS)
+                    logger.info(f"Resized image to {new_size}")
                 
-                # Save to bytes
+                # Save as optimized JPEG
                 buffer = io.BytesIO()
-                img.save(buffer, format='JPEG', quality=90)
+                img.save(buffer, format='JPEG', quality=85, optimize=True)
                 image_bytes = buffer.getvalue()
                 mime_type = "image/jpeg"
-                # Store the converted image as base64
                 converted_image_base64 = base64.b64encode(image_bytes).decode('utf-8')
-                logger.info(f"Converted HEIC to JPEG ({len(image_bytes)} bytes)")
+                logger.info(f"Converted {format_name} to JPEG ({len(image_bytes)} bytes)")
+            else:
+                logger.info(f"Image format {format_name} - no conversion needed")
+                
         except Exception as e:
             logger.warning(f"Image preprocessing warning: {e}")
         
