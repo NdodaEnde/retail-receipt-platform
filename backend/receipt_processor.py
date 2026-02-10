@@ -330,16 +330,52 @@ class ReceiptProcessor:
         # Collect multiple address lines if found
         address_keywords = ['street', 'st.', 'road', 'rd.', 'rd', 'ave', 'avenue', 
                           'mall', 'centre', 'center', 'shop', 'store', 'cnr', 'corner',
-                          'drive', 'dr.', 'lane', 'way', 'blvd', 'boulevard', 'park']
+                          'drive', 'dr.', 'lane', 'way', 'blvd', 'boulevard', 'park',
+                          'plaza', 'square', 'complex']
         
         # Also look for suburb/city names that indicate an address line
         sa_cities = ['cape town', 'johannesburg', 'durban', 'pretoria', 'bloemfontein',
                     'port elizabeth', 'gqeberha', 'sandton', 'centurion', 'midrand',
                     'brackenfell', 'bellville', 'soweto', 'umhlanga', 'ballito',
                     'randburg', 'rosebank', 'fourways', 'bryanston', 'morningside',
-                    'greenside', 'parkhurst', 'melville', 'northcliff', 'linden']
+                    'greenside', 'parkhurst', 'melville', 'northcliff', 'linden',
+                    'constantia', 'newlands', 'claremont', 'wynberg', 'kenilworth',
+                    'tokai', 'kirstenhof', 'bergvliet', 'meadowridge', 'plumstead',
+                    'rondebosch', 'mowbray', 'observatory', 'woodstock', 'gardens',
+                    'sea point', 'green point', 'camps bay', 'clifton', 'bantry bay',
+                    'hout bay', 'llandudno', 'noordhoek', 'fish hoek', 'simons town',
+                    'muizenberg', 'kalk bay', 'st james', 'retreat', 'steenberg',
+                    'durbanville', 'kraaifontein', 'kuils river', 'blue downs',
+                    'mitchell\'s plain', 'khayelitsha', 'philippi', 'athlone', 'pinelands',
+                    'edenvale', 'bedfordview', 'germiston', 'kempton park', 'boksburg',
+                    'benoni', 'springs', 'alberton', 'roodepoort', 'krugersdorp',
+                    'george', 'knysna', 'plettenberg bay', 'mossel bay', 'stellenbosch',
+                    'paarl', 'franschhoek', 'somerset west', 'strand', 'gordons bay']
+        
+        # SA postal code to suburb mapping (for better geocoding)
+        sa_postal_codes = {
+            '7848': 'Constantia, Cape Town',
+            '7806': 'Newlands, Cape Town',
+            '7708': 'Claremont, Cape Town',
+            '7800': 'Rondebosch, Cape Town',
+            '7405': 'Wynberg, Cape Town',
+            '7945': 'Tokai, Cape Town',
+            '7441': 'Durbanville, Cape Town',
+            '7550': 'Bellville, Cape Town',
+            '7530': 'Brackenfell, Cape Town',
+            '7560': 'Kraaifontein, Cape Town',
+            '2196': 'Sandton, Johannesburg',
+            '2057': 'Rosebank, Johannesburg',
+            '2191': 'Fourways, Johannesburg',
+            '2021': 'Bryanston, Johannesburg',
+            '0157': 'Centurion, Pretoria',
+            '0181': 'Midrand, Johannesburg',
+        }
         
         address_parts = []
+        detected_postal_code = None
+        detected_suburb = None
+        
         for line in lines[1:15]:
             clean_line = re.sub(r'<[^>]+>', '', line).strip()
             line_lower = clean_line.lower()
@@ -353,6 +389,15 @@ class ReceiptProcessor:
                 continue
             if 'tel' in line_lower and any(c.isdigit() for c in clean_line):
                 continue
+            
+            # Check for SA postal code (4 digits)
+            postal_match = re.search(r'\b(\d{4})\b', clean_line)
+            if postal_match:
+                code = postal_match.group(1)
+                if code in sa_postal_codes:
+                    detected_postal_code = code
+                    detected_suburb = sa_postal_codes[code]
+                    logger.info(f"Detected postal code {code} -> {detected_suburb}")
                 
             # Check for address keywords
             if any(kw in line_lower for kw in address_keywords):
@@ -367,6 +412,11 @@ class ReceiptProcessor:
         # Combine address parts
         if address_parts:
             result["address"] = ", ".join(address_parts[:3])  # Max 3 lines
+        
+        # If we detected a postal code but no address, use the postal code mapping
+        if detected_suburb and not result.get("address"):
+            result["address"] = detected_suburb
+            logger.info(f"Using postal code for address: {detected_suburb}")
 
         # --- Extract Total Amount (if not found in table) ---
         if result["amount"] == 0:
