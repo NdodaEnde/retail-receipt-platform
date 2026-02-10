@@ -667,27 +667,54 @@ class ReceiptProcessor:
                         
                 elif len(cells) == 4:
                     # Format: [qty, item_name, unit_price, total_price]
-                    # This is the ideal format with all data
-                    if cells[0].isdigit():
-                        quantity = int(cells[0])
-                    elif cells[0]:
-                        # Try to parse as number
+                    # Receipt logic:
+                    # - Single items (qty=1): may only show one price column
+                    # - Multiple items (qty>1): shows unit_price AND total_price
+                    
+                    # Parse quantity
+                    if cells[0] and cells[0].strip():
                         try:
-                            quantity = int(float(cells[0]))
+                            quantity = int(float(cells[0].strip()))
                         except:
                             quantity = 1
+                    else:
+                        quantity = 1  # Empty qty means single unit
                     
                     item_name = cells[1]
-                    unit_price = extract_price(cells[2])
-                    total_price = extract_price(cells[3])
                     
-                    # If total is empty but we have unit price, calculate it
-                    if not total_price and unit_price:
-                        total_price = round(unit_price * quantity, 2)
+                    # Extract prices from columns 3 and 4
+                    price_col3 = extract_price(cells[2])  # Usually unit price
+                    price_col4 = extract_price(cells[3])  # Usually total price
                     
-                    # If unit price is empty but we have total, calculate it
-                    if not unit_price and total_price and quantity > 0:
-                        unit_price = round(total_price / quantity, 2)
+                    if price_col3 and price_col4:
+                        # Both prices available - use directly
+                        unit_price = price_col3
+                        total_price = price_col4
+                        # Can also infer quantity: total / unit
+                        if unit_price > 0:
+                            inferred_qty = round(total_price / unit_price)
+                            if inferred_qty > quantity:
+                                quantity = inferred_qty
+                                
+                    elif price_col3 and not price_col4:
+                        # Only column 3 has price (unit price)
+                        unit_price = price_col3
+                        if quantity > 1:
+                            # Calculate total for multiple items
+                            total_price = round(unit_price * quantity, 2)
+                        else:
+                            # Single item - unit = total
+                            total_price = unit_price
+                            
+                    elif price_col4 and not price_col3:
+                        # Only column 4 has price (total price for single item)
+                        total_price = price_col4
+                        unit_price = total_price  # Single item, so unit = total
+                        quantity = 1
+                        
+                    else:
+                        # No valid prices found
+                        continue
                         
                 else:
                     # Unknown format - try to extract name and price from available cells
