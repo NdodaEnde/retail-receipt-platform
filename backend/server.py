@@ -224,7 +224,7 @@ async def process_receipt_with_landingai(image_base64: str, mime_type: str = "im
 async def geocode_shop_from_receipt(shop_name: str, address: str = None, postal_code: str = None) -> tuple:
     """
     Try to geocode a shop from its name, address, and/or postal code using improved geocoding service
-    Returns (latitude, longitude, display_name) or (None, None, shop_name)
+    Returns (latitude, longitude, display_name, geocoded_address) or (None, None, shop_name, None)
     """
     try:
         geocoding_service = get_geocoding_service()
@@ -257,13 +257,13 @@ async def geocode_shop_from_receipt(shop_name: str, address: str = None, postal_
                         break
             
             logger.info(f"Geocoded {shop_name}: {lat}, {lon} -> Display: {display_name}")
-            return (lat, lon, display_name)
+            return (lat, lon, display_name, formatted)
         else:
             logger.warning(f"Could not geocode shop: {shop_name}, {address}")
     except Exception as e:
         logger.error(f"Geocoding error: {e}")
     
-    return (None, None, shop_name)
+    return (None, None, shop_name, None)
 
 # ============== SCHEDULED DRAW FUNCTION ==============
 
