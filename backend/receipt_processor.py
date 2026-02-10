@@ -102,10 +102,26 @@ class ReceiptProcessor:
         
         start_time = datetime.utcnow()
         
+        # Remove data URL prefix if present (e.g., "data:image/png;base64,")
+        if "," in image_base64:
+            image_base64 = image_base64.split(",")[1]
+        
+        # Determine file suffix based on mime type
+        if "jpeg" in mime_type or "jpg" in mime_type:
+            suffix = ".jpg"
+        elif "png" in mime_type:
+            suffix = ".png"
+        else:
+            suffix = ".jpg"  # Default to jpg
+        
         # Save image to temp file (LandingAI needs file path)
-        suffix = ".jpg" if "jpeg" in mime_type else ".png"
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp_file:
-            tmp_file.write(base64.b64decode(image_base64))
+            try:
+                tmp_file.write(base64.b64decode(image_base64))
+            except Exception as e:
+                logger.error(f"Base64 decode error: {e}")
+                result["error"] = "Invalid image data"
+                return result
             tmp_path = tmp_file.name
 
         try:
