@@ -1,9 +1,9 @@
 # Receipt-to-Win: Product Requirements Document
 
 ## Document Info
-- **Version**: 1.6
+- **Version**: 1.7
 - **Last Updated**: March 4, 2026
-- **Status**: MVP Complete, Production Deployment Pending
+- **Status**: MVP Complete, Supabase Migration Complete
 
 ---
 
@@ -21,6 +21,8 @@ Create a retail rewards platform where South African customers can win back thei
 
 ### Current Status
 - MVP complete and functional
+- **Database migrated from MongoDB to Supabase (PostgreSQL)**
+- **Images now stored in Supabase Storage (not base64)**
 - WhatsApp outbound messaging working
 - WhatsApp inbound blocked (requires production deployment)
 - OCR processing operational
@@ -150,11 +152,12 @@ Create a retail rewards platform where South African customers can win back thei
 ### 6.1 Stack
 - **Frontend**: React 19, Tailwind CSS, Shadcn UI
 - **Backend**: FastAPI (Python 3.11+), async
-- **Database**: MongoDB (Motor async driver)
+- **Database**: Supabase (PostgreSQL) - migrated from MongoDB
+- **Image Storage**: Supabase Storage (1GB free tier)
 - **OCR**: LandingAI ADE
 - **Geocoding**: Google Maps API
 - **Messaging**: Meta WhatsApp Cloud API
-- **Search**: Qdrant vector store
+- **Search**: Qdrant vector store (optional)
 
 ### 6.2 Data Flow
 ```
@@ -167,9 +170,11 @@ Customer → WhatsApp/Web → Backend API → OCR → Geocoding → DB → Draw 
 | File | Purpose | Lines |
 |------|---------|-------|
 | `server.py` | Main API, business logic | ~1900 |
+| `database.py` | Supabase abstraction layer | ~515 |
 | `receipt_processor.py` | OCR integration | ~850 |
 | `geocoding.py` | Google Maps service | ~340 |
 | `whatsapp_cloud.py` | WhatsApp client | ~310 |
+| `schema.sql` | PostgreSQL schema | ~258 |
 
 ---
 
