@@ -1,139 +1,301 @@
-# Retail Rewards Platform - PRD
+# Receipt-to-Win: Product Requirements Document
 
-## Original Problem Statement
-Create a retail module where customers buy items from retail shops (any retail) by cash/credit card, take a picture of the receipt slip, and upload it via WhatsApp. The system captures receipt data to the database, geo-locates the shop they bought from, and geo-locates the point when they upload the receipt. As an incentive, daily customers stand a chance to win back their spend through a random draw.
+## Document Info
+- **Version**: 1.6
+- **Last Updated**: March 4, 2026
+- **Status**: MVP Complete, Production Deployment Pending
 
-## Complete Workflow
-1. **Customer uploads receipt photo via WhatsApp** 
-2. **WhatsApp Cloud API webhook receives image + optional location**
-3. **LandingAI ADE extracts: shop name, amount, items, address**
-4. **Receipt image stored + structured data saved to MongoDB**
-5. **Geolocate shop from receipt data using Google Maps API**
-6. **Geolocate customer's upload position (from WhatsApp location share)**
-7. **Fraud detection: Calculate distance between shop and upload location**
-8. **Receipt enters daily draw pool (if not flagged)**
-9. **Midnight UTC: Scheduler runs random draw**
-10. **Winner notified via WhatsApp Cloud API**
+---
 
-## User Personas
-1. **Retail Customer**: Shops at various retail stores, sends receipt photos via WhatsApp
-2. **Platform Admin**: Manages draws, views analytics, monitors fraud, reviews flagged receipts
-3. **Business Analyst**: Uses aggregated data for market research
+## 1. Executive Summary
 
-## Architecture
-- **Frontend**: React 19 + Tailwind CSS + Shadcn UI + Leaflet Maps + Recharts
-- **Backend**: FastAPI (Python) with async endpoints + APScheduler
-- **Database**: MongoDB (customers, receipts, shops, draws)
-- **WhatsApp**: Meta WhatsApp Cloud API (Official)
-- **OCR**: LandingAI ADE (with HEIC support) + OpenAI Embeddings + Qdrant vector search
-- **Geocoding**: Google Maps Geocoding API
-- **Fraud Detection**: Haversine distance calculation
+### Product Vision
+Create a retail rewards platform where South African customers can win back their entire purchase amount by uploading receipt photos via WhatsApp.
 
-## What's Been Implemented
+### Business Model
+- **Customer Acquisition**: Free lottery incentive (win back your spend)
+- **Revenue Streams**: 
+  - B2B retail data analytics
+  - Targeted promotions
+  - Receipt verification API
 
-### Session: February 10, 2026
-- **Receipt View Modal on Dashboard**: Added "View" button to customer receipts page with full detail modal showing image, items, location data
-- **WhatsApp Confirmation for Web Uploads**: Added background task to send WhatsApp confirmation when receipts are uploaded via web interface
+### Current Status
+- MVP complete and functional
+- WhatsApp outbound messaging working
+- WhatsApp inbound blocked (requires production deployment)
+- OCR processing operational
+- Fraud detection system live
 
-### Session: February 9-10, 2026
-- **Dashboard Phone Formatting Fix**: Fixed receipts not loading on `/dashboard` page by auto-formatting phone numbers to include country code (27)
-- **HEIC Image Support**: Added automatic conversion of iPhone HEIC images to JPEG before OCR processing
-- **Google Maps Geocoding**: Replaced failing Nominatim with Google Maps API for accurate shop location detection
-- **Shop Display Names**: Implemented smart naming (e.g., "Shoprite Brackenfell") combining OCR shop name with geocoded location
-- **Manual Upload Page**: Created `/upload` page for demo purposes with image upload, location sharing, and OCR processing
-- **Fraud Detection Modal**: Added detailed receipt view on Fraud page with image display and item-level data
+---
 
-### Core Features (Complete)
-#### ✅ WhatsApp Cloud API Integration
-- Full migration from Baileys to official Meta WhatsApp Cloud API
-- Webhook for receiving messages (`/api/whatsapp/webhook`)
-- Send text messages, receipt confirmations, winner notifications
-- Download media (receipt images) from WhatsApp
-- Bot commands: HELP, RECEIPTS, WINS, STATUS, BALANCE
-- Message read receipts
-- **Note**: Inbound webhook blocked in preview environment (network issue)
+## 2. Original Problem Statement
 
-#### ✅ Backend APIs
-- Customer CRUD endpoints + location tracking
-- Receipt upload (manual form + WhatsApp) with geolocation
-- Receipt image processing endpoint (`/api/receipts/process-image`)
-- LandingAI ADE integration for OCR
-- Shop auto-detection, creation, and geocoding via Google Maps
-- Daily random draw system with WhatsApp winner notification
-- **APScheduler** - automated daily draw at midnight UTC
-- Analytics endpoints (overview, spending, shops, customers, time)
-- Map data endpoints
-- Semantic search via Qdrant vector store
+> Create a retail module where customers buy items from retail shops (any retail) by cash/credit card, take a picture of the receipt slip, and upload it via WhatsApp. The system captures receipt data to the database, geo-locates the shop they bought from, and geo-locates the point when they upload the receipt. As an incentive, daily customers stand a chance to win back their spend through a random draw.
 
-#### ✅ Fraud Detection System
-- Haversine distance calculation between shop and upload location
-- Fraud risk thresholds: Valid (<50km), Review (50-100km), Suspicious (100-200km), Flagged (>200km)
-- Admin review page for flagged receipts with detailed view modal
-- Approve/reject workflow
+---
 
-#### ✅ Frontend Pages
-- Landing page with stats
-- Customer dashboard with receipts (now with View button)
-- Interactive map (Leaflet, centered on South Africa)
-- Draws page with winners
-- Admin analytics dashboard
-- Fraud detection/review page with image display
-- Manual upload page for demos
+## 3. User Personas
 
-## Known Issues / Blockers
+### Persona 1: Retail Customer (Primary)
+- **Profile**: South African adult who shops at retail stores
+- **Goal**: Win back purchase amount with minimal effort
+- **Behavior**: Takes receipt photo immediately after shopping, sends via WhatsApp
+- **Pain Points**: Doesn't want complicated registration, wants instant feedback
+
+### Persona 2: Platform Admin
+- **Profile**: Operations manager at KlpIt Tech
+- **Goal**: Manage draws, monitor fraud, view analytics
+- **Behavior**: Daily check of flagged receipts, run draws, review stats
+- **Pain Points**: Needs clear fraud indicators, easy approve/reject workflow
+
+### Persona 3: Business Analyst (Future)
+- **Profile**: Market researcher at FMCG company
+- **Goal**: Understand consumer purchasing patterns
+- **Behavior**: Queries aggregated data for insights
+- **Pain Points**: Needs clean, structured data with good coverage
+
+---
+
+## 4. Core Requirements
+
+### 4.1 Receipt Submission (P0)
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| WhatsApp image submission | Blocked | Requires production webhook |
+| Web upload interface | Complete | Manual upload page available |
+| Support JPEG images | Complete | Standard format |
+| Support PNG images | Complete | Screenshots |
+| Support HEIC images | Complete | iPhone photos |
+| Support WebP images | Complete | Android photos |
+
+### 4.2 OCR Processing (P0)
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| Extract shop name | Complete | LandingAI ADE |
+| Extract total amount | Complete | Multiple patterns supported |
+| Extract line items | Complete | Name, quantity, unit price, total |
+| Extract address | Complete | For geocoding |
+| Extract postal code | Complete | Improved geocoding accuracy |
+| Extract date | Complete | Receipt date detection |
+| Handle multi-column formats | Complete | 2, 3, 4 column tables |
+
+### 4.3 Geolocation (P0)
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| Geocode shop from receipt | Complete | Google Maps API |
+| Capture customer location | Complete | Browser geolocation |
+| Calculate distance | Complete | Haversine formula |
+| SA postal code lookup | Complete | Local fallback database |
+
+### 4.4 Fraud Detection (P0)
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| Distance-based scoring | Complete | 0-100 score |
+| Flag categories | Complete | valid/review/suspicious/flagged |
+| Admin review queue | Complete | Approve/reject workflow |
+| Auto-exclude flagged | Complete | Blocked from draw |
+
+### 4.5 Prize Draw (P0)
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| Daily random selection | Complete | Midnight UTC |
+| Winner notification | Complete | WhatsApp message |
+| Draw history | Complete | Full audit trail |
+| Multiple entries per customer | Complete | One per receipt |
+
+### 4.6 Customer Features (P1)
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| View receipt history | Complete | Dashboard with filters |
+| View receipt details | Complete | Image, items, location |
+| View winning history | Complete | Wins tab |
+| WhatsApp bot commands | Complete | HELP, RECEIPTS, WINS, etc. |
+
+### 4.7 Admin Features (P1)
+| Requirement | Status | Notes |
+|-------------|--------|-------|
+| Analytics dashboard | Complete | Stats, charts |
+| Map visualization | Complete | Leaflet with SA focus |
+| Fraud review page | Complete | With image display |
+| Geocoding management | Complete | Batch operations |
+
+---
+
+## 5. Non-Functional Requirements
+
+### 5.1 Performance
+- Receipt processing: < 10 seconds
+- API response time: < 500ms (p95)
+- Support 1000+ daily receipts
+
+### 5.2 Reliability
+- 99.5% uptime target
+- Graceful degradation if OCR fails
+- Retry logic for external APIs
+
+### 5.3 Security
+- No PII in logs
+- Secure API key storage
+- HTTPS required
+
+### 5.4 Scalability
+- MongoDB sharding ready
+- Stateless backend design
+- Async processing throughout
+
+---
+
+## 6. Technical Architecture
+
+### 6.1 Stack
+- **Frontend**: React 19, Tailwind CSS, Shadcn UI
+- **Backend**: FastAPI (Python 3.11+), async
+- **Database**: MongoDB (Motor async driver)
+- **OCR**: LandingAI ADE
+- **Geocoding**: Google Maps API
+- **Messaging**: Meta WhatsApp Cloud API
+- **Search**: Qdrant vector store
+
+### 6.2 Data Flow
+```
+Customer → WhatsApp/Web → Backend API → OCR → Geocoding → DB → Draw Scheduler
+                                                                    ↓
+                                                              Winner Notification
+```
+
+### 6.3 Key Files
+| File | Purpose | Lines |
+|------|---------|-------|
+| `server.py` | Main API, business logic | ~1900 |
+| `receipt_processor.py` | OCR integration | ~850 |
+| `geocoding.py` | Google Maps service | ~340 |
+| `whatsapp_cloud.py` | WhatsApp client | ~310 |
+
+---
+
+## 7. Integration Details
+
+### 7.1 WhatsApp Cloud API
+- **Business**: KlpIt Tech / ReceiptsProd2026
+- **Phone**: +27 65 561 5874
+- **Phone ID**: 955997190937092
+- **WABA ID**: 2129214027857484
+- **Template**: receipts_welcome (approved)
+- **Webhook**: Requires production URL
+
+### 7.2 LandingAI ADE
+- **Model**: dpt-2-latest
+- **Methods**: parse(), extract()
+- **Features**: Grounding boxes, schema extraction
+
+### 7.3 Google Maps
+- **Service**: Geocoding API
+- **Region**: ZA (South Africa)
+- **Fallback**: Local suburb database
+
+---
+
+## 8. What's Been Implemented
+
+### Complete Features
+1. Full-stack web application (React + FastAPI + MongoDB)
+2. WhatsApp Cloud API integration (outbound working)
+3. LandingAI OCR with image format conversion
+4. Google Maps geocoding with postal code priority
+5. Fraud detection with distance-based scoring
+6. Admin dashboard with analytics
+7. Customer dashboard with receipt details
+8. Daily draw system with scheduler
+9. Interactive map view
+10. Web-based receipt upload
+
+### Partial Features
+1. WhatsApp inbound messages (webhook blocked by preview environment)
+2. Vector search (OpenAI key issue, non-blocking)
+
+---
+
+## 9. Known Issues
 
 ### P0 - Critical
-- **WhatsApp Inbound Messages**: Meta webhook cannot reach preview environment URL. Solution: Deploy to production environment and configure webhook URL in Meta Business Dashboard.
+| Issue | Impact | Resolution |
+|-------|--------|------------|
+| WhatsApp inbound blocked | Core feature unavailable | Deploy to production |
 
-### P1 - Non-blocking
-- **OpenAI API Key**: The configured key appears invalid (401 error). Vector store embedding fails but doesn't block core functionality.
+### P1 - Important
+| Issue | Impact | Resolution |
+|-------|--------|------------|
+| OCR column merging | Data quality | Improve parsing logic |
+| OpenAI 401 error | Search unavailable | Update API key |
 
-## Pending Tasks
+---
 
-### Upcoming
-1. **Production Deployment**: Deploy to Render/similar to enable WhatsApp webhook
-2. **Receipt Parser Enhancement**: Improve item extraction for restaurant receipts
-3. **WhatsApp 24-hour Window**: Document workaround for Meta test number limitations
+## 10. Next Steps
 
-### Future / Backlog
-- Analytics: Basket analysis, customer behavior dashboards
-- Monetization: B2B data sales, targeted promotions
-- Gamification: Loyalty tiers, streaks, referral program
-- Compliance: Terms & Conditions, Privacy Policy (POPIA)
-- Customer features: WhatsApp command for receipt history download
+### Immediate (Week 1)
+1. Deploy to production environment (Render/Railway)
+2. Configure production webhook URL in Meta Dashboard
+3. Test end-to-end WhatsApp flow
+4. Update documentation
 
-## Key Files
-- `/app/backend/server.py` - Main API server
-- `/app/backend/whatsapp_cloud.py` - WhatsApp Cloud API client
-- `/app/backend/receipt_processor.py` - LandingAI OCR logic with HEIC support
-- `/app/backend/vector_store.py` - Qdrant vector store
-- `/app/backend/geocoding.py` - Google Maps Geocoding service
-- `/app/frontend/src/pages/CustomerDashboard.jsx` - Receipt history with view modal
-- `/app/frontend/src/pages/FraudDetection.jsx` - Admin review with image modal
-- `/app/frontend/src/pages/UploadReceipt.jsx` - Manual upload page
+### Short-term (Month 1)
+1. Onboard first batch of test users
+2. Collect feedback on OCR accuracy
+3. Improve fraud detection thresholds
+4. Add receipt deduplication
 
-## Environment Variables Required
-```
-MONGO_URL=mongodb://localhost:27017
-DB_NAME=test_database
-WHATSAPP_PHONE_NUMBER_ID=993738803815711
-WHATSAPP_ACCESS_TOKEN=<your-access-token>
-WHATSAPP_VERIFY_TOKEN=retail_rewards_webhook_2026
-WHATSAPP_API_VERSION=v23.0
-LANDINGAI_API_KEY=<your-landingai-key>
-OPENAI_API_KEY=<your-openai-key>
-GOOGLE_MAPS_API_KEY=<your-google-maps-key>
-```
+### Medium-term (Quarter 1)
+1. Analytics improvements
+2. Gamification features
+3. B2B data API
+4. Compliance (POPIA)
 
-## API Endpoints
-- `GET /api/health` - Health check
-- `GET /api/whatsapp/webhook` - Webhook verification
-- `POST /api/whatsapp/webhook` - Receive WhatsApp messages
-- `POST /api/receipts/process-image` - Process receipt image (with WhatsApp notification)
-- `POST /api/receipts/upload` - Manual upload (with WhatsApp notification)
-- `GET /api/receipts/{id}/full` - Full receipt details with image
-- `GET /api/fraud/flagged` - Get flagged receipts
-- `POST /api/fraud/review/{id}` - Approve/reject receipt
-- `POST /api/draws/run` - Trigger daily draw
-- `GET /api/analytics/overview` - Platform stats
-- `POST /api/geocode/address` - Test geocoding
+---
+
+## 11. Success Metrics
+
+### MVP Launch
+- [ ] WhatsApp inbound working
+- [ ] 100 registered customers
+- [ ] 500 receipts processed
+- [ ] First draw winner notified
+
+### Growth (6 months)
+- [ ] 10,000 customers
+- [ ] 50,000 receipts
+- [ ] 50+ unique shops
+- [ ] <2% fraud rate
+
+---
+
+## 12. Appendix
+
+### A. Supported Retailers
+Major SA chains supported via OCR:
+- Checkers, Shoprite, Pick n Pay, Woolworths
+- Spar, Dis-Chem, Clicks
+- Game, Makro, Builders
+- Engen, Shell, BP, Sasol
+- Various restaurants and specialty stores
+
+### B. SA Postal Code Regions
+- 0001-0999: Northern provinces
+- 1000-2999: Gauteng
+- 3000-4999: KwaZulu-Natal
+- 5000-5999: Free State
+- 6000-6999: Eastern Cape
+- 7000-7999: Western Cape
+- 8000-8999: Northern Cape
+- 9000-9999: Limpopo/Mpumalanga
+
+### C. Fraud Scoring
+| Distance (km) | Score | Flag | Action |
+|---------------|-------|------|--------|
+| 0-50 | 0-50 | valid | Auto-approve |
+| 50-100 | 50-75 | review | Manual check |
+| 100-200 | 75-100 | suspicious | Verify |
+| 200+ | 100 | flagged | Block |
+
+---
+
+*Document maintained by KlpIt Tech development team*
