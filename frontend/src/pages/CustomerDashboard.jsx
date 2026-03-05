@@ -6,9 +6,9 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../components/ui/dialog";
 import { ScrollArea } from "../components/ui/scroll-area";
-import { Receipt, Upload, Trophy, MapPin, Clock, DollarSign, Store, Plus, Phone } from "lucide-react";
+import { Receipt, Upload, Trophy, MapPin, Clock, DollarSign, Store, Plus, Phone, Eye, Image, Package, User, Shield } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 import { API } from "../App";
@@ -20,6 +20,11 @@ export default function CustomerDashboard() {
   const [wins, setWins] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  
+  // Receipt detail modal state
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [receiptDetail, setReceiptDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Upload form state
   const [uploadData, setUploadData] = useState({
@@ -44,21 +49,38 @@ export default function CustomerDashboard() {
     }
   }, []);
 
+  const formatPhoneNumber = (num) => {
+    // Remove all non-digits
+    let cleaned = num.replace(/\D/g, "");
+    // Remove leading 0 and add 27 for SA numbers
+    if (cleaned.startsWith("0")) {
+      cleaned = "27" + cleaned.substring(1);
+    }
+    // Add 27 if number looks like a local number
+    if (cleaned.length === 9 && !cleaned.startsWith("27")) {
+      cleaned = "27" + cleaned;
+    }
+    return cleaned;
+  };
+
   const fetchCustomerData = useCallback(async () => {
     if (!phoneNumber) return;
+    
+    // Format phone number to include country code
+    const formattedPhone = formatPhoneNumber(phoneNumber);
     
     setLoading(true);
     try {
       // Get or create customer
-      const customerRes = await axios.post(`${API}/customers`, { phone_number: phoneNumber });
+      const customerRes = await axios.post(`${API}/customers`, { phone_number: formattedPhone });
       setCustomer(customerRes.data);
       
       // Get receipts
-      const receiptsRes = await axios.get(`${API}/receipts/customer/${phoneNumber}`);
+      const receiptsRes = await axios.get(`${API}/receipts/customer/${formattedPhone}`);
       setReceipts(receiptsRes.data.receipts);
       
       // Get wins
-      const winsRes = await axios.get(`${API}/draws/winner/${phoneNumber}`);
+      const winsRes = await axios.get(`${API}/draws/winner/${formattedPhone}`);
       setWins(winsRes.data.wins);
       
     } catch (error) {
@@ -103,6 +125,31 @@ export default function CustomerDashboard() {
       hour: "2-digit",
       minute: "2-digit"
     });
+  };
+
+  const fetchReceiptDetail = async (receiptId) => {
+    setLoadingDetail(true);
+    try {
+      const response = await axios.get(`${API}/receipts/${receiptId}/full`);
+      setReceiptDetail(response.data);
+      setDetailDialogOpen(true);
+    } catch (error) {
+      console.error("Failed to fetch receipt details:", error);
+      toast.error("Failed to load receipt details");
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      processed: "bg-green-500/20 text-green-400 border-green-500/30",
+      pending: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+      won: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+      review: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+      rejected: "bg-red-500/20 text-red-400 border-red-500/30"
+    };
+    return styles[status] || styles.pending;
   };
 
   return (
@@ -326,7 +373,7 @@ export default function CustomerDashboard() {
                                 <div className="flex gap-1 justify-end flex-wrap">
                                   <Badge 
                                     variant={receipt.status === 'won' ? 'default' : 'secondary'}
-                                    className={receipt.status === 'won' ? 'bg-secondary text-secondary-foreground' : ''}
+                                    className={receipt.status === 'won' ? 'bg-secondary text-secondary-foreground' : getStatusBadge(receipt.status)}
                                   >
                                     {receipt.status === 'won' ? '🏆 Winner!' : receipt.status}
                                   </Badge>
@@ -338,14 +385,27 @@ export default function CustomerDashboard() {
                                 </div>
                               </div>
                             </div>
-                            {receipt.upload_latitude && (
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <MapPin className="w-3 h-3" />
-                                <span className="font-mono">
-                                  {receipt.upload_latitude.toFixed(4)}, {receipt.upload_longitude.toFixed(4)}
-                                </span>
-                              </div>
-                            )}
+                            <div className="flex justify-between items-center">
+                              {receipt.upload_latitude && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <MapPin className="w-3 h-3" />
+                                  <span className="font-mono">
+                                    {receipt.upload_latitude.toFixed(4)}, {receipt.upload_longitude.toFixed(4)}
+                                  </span>
+                                </div>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                data-testid={`view-receipt-btn-${receipt.id}`}
+                                onClick={() => fetchReceiptDetail(receipt.id)}
+                                disabled={loadingDetail}
+                                className="ml-auto rounded-lg text-xs"
+                              >
+                                <Eye className="w-3 h-3 mr-1" />
+                                View
+                              </Button>
+                            </div>
                           </CardContent>
                         </Card>
                       </motion.div>
@@ -403,6 +463,180 @@ export default function CustomerDashboard() {
           </Tabs>
         </div>
       )}
+
+      {/* Receipt Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="glass border-white/10 max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="receipt-detail-dialog">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-primary" />
+              Receipt Details
+            </DialogTitle>
+          </DialogHeader>
+          
+          {receiptDetail && (
+            <div className="space-y-6 py-4">
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="p-3 rounded-lg bg-white/5">
+                  <p className="text-muted-foreground text-xs mb-1">Shop</p>
+                  <p className="font-semibold flex items-center gap-2">
+                    <Store className="w-4 h-4 text-primary" />
+                    {receiptDetail.receipt?.shop_name || "Unknown"}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-white/5">
+                  <p className="text-muted-foreground text-xs mb-1">Amount</p>
+                  <p className="font-mono font-bold text-xl text-primary">
+                    R{receiptDetail.receipt?.amount?.toFixed(2)}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-white/5">
+                  <p className="text-muted-foreground text-xs mb-1">Date</p>
+                  <p className="text-sm">
+                    {receiptDetail.receipt?.created_at ? formatDate(receiptDetail.receipt.created_at) : "N/A"}
+                  </p>
+                </div>
+                <div className="p-3 rounded-lg bg-white/5">
+                  <p className="text-muted-foreground text-xs mb-1">Status</p>
+                  <Badge className={getStatusBadge(receiptDetail.receipt?.status)}>
+                    {receiptDetail.receipt?.status === 'won' ? '🏆 Winner!' : receiptDetail.receipt?.status}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Two columns: Image and Items */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Receipt Image */}
+                <div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Image className="w-4 h-4 text-primary" />
+                    Receipt Image
+                  </h3>
+                  <div className="rounded-xl overflow-hidden border border-white/10 bg-white/5">
+                    {(receiptDetail.receipt?.image_url || receiptDetail.receipt?.image_data) ? (
+                      <img
+                        src={receiptDetail.receipt.image_url || `data:image/jpeg;base64,${receiptDetail.receipt.image_data}`}
+                        alt="Receipt"
+                        className="w-full max-h-[400px] object-contain"
+                        data-testid="receipt-image"
+                      />
+                    ) : (
+                      <div className="p-8 text-center text-muted-foreground">
+                        <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p>No image available</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Items List */}
+                <div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Package className="w-4 h-4 text-primary" />
+                    Items ({receiptDetail.receipt?.items?.length || 0})
+                  </h3>
+                  <ScrollArea className="h-[400px] rounded-xl border border-white/10 bg-white/5">
+                    <div className="p-4 space-y-2">
+                      {receiptDetail.receipt?.items?.length > 0 ? (
+                        receiptDetail.receipt.items.map((item, index) => (
+                          <div 
+                            key={index}
+                            className="flex justify-between items-center p-2 rounded-lg hover:bg-white/5"
+                          >
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{item.name}</p>
+                              <div className="flex gap-3 text-xs text-muted-foreground">
+                                {item.quantity > 1 && (
+                                  <span>Qty: {item.quantity}</span>
+                                )}
+                                {item.unit_price && item.quantity > 1 && (
+                                  <span>@ R{item.unit_price?.toFixed(2)} each</span>
+                                )}
+                              </div>
+                            </div>
+                            <p className="font-mono text-primary">R{(item.total_price || item.price)?.toFixed(2)}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <p>No items extracted</p>
+                        </div>
+                      )}
+                      
+                      {/* Total */}
+                      {receiptDetail.receipt?.items?.length > 0 && (
+                        <div className="border-t border-white/10 pt-3 mt-3">
+                          <div className="flex justify-between items-center font-semibold">
+                            <span>Total</span>
+                            <span className="font-mono text-lg text-primary">
+                              R{receiptDetail.receipt?.amount?.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+
+              {/* Location Info - Always show this section */}
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-orange-500" />
+                  Location Data
+                </h4>
+                <div className="grid md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground text-xs">Shop Address</p>
+                    <p>{receiptDetail.receipt?.shop_address || 'Not detected'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Shop Coordinates</p>
+                    <p className="font-mono">
+                      {receiptDetail.receipt?.shop_latitude 
+                        ? `${receiptDetail.receipt.shop_latitude.toFixed(4)}, ${receiptDetail.receipt.shop_longitude.toFixed(4)}`
+                        : 'Not geocoded'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Upload Location</p>
+                    <p className="font-mono">
+                      {receiptDetail.receipt?.upload_latitude 
+                        ? `${receiptDetail.receipt.upload_latitude.toFixed(4)}, ${receiptDetail.receipt.upload_longitude.toFixed(4)}`
+                        : 'Not shared'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs">Distance from Shop</p>
+                    <p className={`font-mono ${receiptDetail.receipt?.distance_km > 50 ? 'text-orange-400' : 'text-green-400'}`}>
+                      {receiptDetail.receipt?.distance_km 
+                        ? `${receiptDetail.receipt.distance_km.toFixed(1)} km`
+                        : 'N/A (no upload location)'}
+                    </p>
+                  </div>
+                </div>
+                {receiptDetail.receipt?.upload_address && (
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <p className="text-muted-foreground text-xs">Upload Address</p>
+                    <p className="text-sm">{receiptDetail.receipt.upload_address}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDetailDialogOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

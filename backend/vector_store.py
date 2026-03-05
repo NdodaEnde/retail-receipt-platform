@@ -1,6 +1,7 @@
 """
 Vector Store for Receipt Search using Qdrant
 Enables semantic search across receipts with grounding support
+Uses OpenAI embeddings (API-based, no heavy ML dependencies)
 """
 
 import os
@@ -9,6 +10,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import json
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +25,45 @@ except ImportError:
     QDRANT_AVAILABLE = False
     logger.warning("⚠️ qdrant-client not installed")
 
-# Try to import sentence transformers for embeddings
-try:
-    from sentence_transformers import SentenceTransformer
-    EMBEDDINGS_AVAILABLE = True
-    logger.info("✅ Sentence Transformers available")
-except ImportError:
-    EMBEDDINGS_AVAILABLE = False
-    logger.warning("⚠️ sentence-transformers not installed")
+
+class OpenAIEmbeddings:
+    """Lightweight OpenAI embeddings client"""
+    
+    def __init__(self, api_key: str = None):
+        self.api_key = api_key or os.environ.get('OPENAI_API_KEY', '')
+        self.model = "text-embedding-3-small"
+        self.dimension = 1536
+        
+    def embed(self, texts: List[str]) -> List[List[float]]:
+        """Generate embeddings using OpenAI API"""
+        if not self.api_key:
+            logger.warning("OpenAI API key not configured")
+            return [[0.0] * self.dimension for _ in texts]
+        
+        try:
+            response = httpx.post(
+                "https://api.openai.com/v1/embeddings",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": self.model,
+                    "input": texts
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                return [item['embedding'] for item in data['data']]
+            else:
+                logger.error(f"OpenAI API error: {response.text}")
+                return [[0.0] * self.dimension for _ in texts]
+                
+        except Exception as e:
+            logger.error(f"Embedding error: {e}")
+            return [[0.0] * self.dimension for _ in texts]
 
 
 class ReceiptVectorStore:
@@ -40,7 +73,7 @@ class ReceiptVectorStore:
     """
     
     COLLECTION_NAME = "receipts"
-    EMBEDDING_DIM = 384  # all-MiniLM-L6-v2 dimension
+    EMBEDDING_DIM = 1536  # OpenAI text-embedding-3-small dimension
     
     def __init__(self, persist_directory: str = "./qdrant_receipts"):
         self.persist_directory = Path(persist_directory)
@@ -56,14 +89,13 @@ class ReceiptVectorStore:
                 logger.info(f"✅ Qdrant initialized at {self.persist_directory}")
             except Exception as e:
                 logger.error(f"❌ Failed to initialize Qdrant: {e}")
-                
-        if EMBEDDINGS_AVAILABLE:
-            try:
-                # Use lightweight model for receipts
-                self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-                logger.info("✅ Embedding model loaded")
-            except Exception as e:
-                logger.error(f"❌ Failed to load embedding model: {e}")
+        
+        # Use OpenAI embeddings (API-based, lightweight)
+        self.embedding_model = OpenAIEmbeddings()
+        if self.embedding_model.api_key:
+            logger.info("✅ OpenAI Embeddings configured")
+        else:
+            logger.warning("⚠️ OpenAI API key not set, embeddings disabled")
 
     def _ensure_collection(self):
         """Create collection if it doesn't exist"""
@@ -88,24 +120,15 @@ class ReceiptVectorStore:
         if not self.embedding_model:
             return [0.0] * self.EMBEDDING_DIM
         
-        try:
-            embedding = self.embedding_model.encode(text, convert_to_numpy=True)
-            return embedding.tolist()
-        except Exception as e:
-            logger.error(f"❌ Embedding failed: {e}")
-            return [0.0] * self.EMBEDDING_DIM
+        embeddings = self.embedding_model.embed([text])
+        return embeddings[0] if embeddings else [0.0] * self.EMBEDDING_DIM
 
     def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings for a batch of texts"""
         if not self.embedding_model:
             return [[0.0] * self.EMBEDDING_DIM for _ in texts]
         
-        try:
-            embeddings = self.embedding_model.encode(texts, convert_to_numpy=True)
-            return embeddings.tolist()
-        except Exception as e:
-            logger.error(f"❌ Batch embedding failed: {e}")
-            return [[0.0] * self.EMBEDDING_DIM for _ in texts]
+        return self.embedding_model.embed(texts)
 
     def add_receipt(self, receipt_id: str, receipt_data: Dict[str, Any]) -> bool:
         """
