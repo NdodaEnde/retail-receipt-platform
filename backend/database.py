@@ -75,8 +75,9 @@ class Database:
             current = await self.customers_find_one(filter)
             if current:
                 for key, delta in inc_data.items():
-                    current_val = float(current.get(key, 0) or 0)
-                    set_data[key] = current_val + delta
+                    current_val = current.get(key, 0) or 0
+                    new_val = current_val + delta
+                    set_data[key] = int(new_val) if isinstance(delta, int) and isinstance(current_val, int) else new_val
         
         if set_data:
             query = self.client.table('customers').update(set_data)
@@ -166,8 +167,9 @@ class Database:
             current = await self.shops_find_one(filter)
             if current:
                 for key, delta in inc_data.items():
-                    current_val = float(current.get(key, 0) or 0)
-                    set_data[key] = current_val + delta
+                    current_val = current.get(key, 0) or 0
+                    new_val = current_val + delta
+                    set_data[key] = int(new_val) if isinstance(delta, int) and isinstance(current_val, int) else new_val
         
         if set_data:
             query = self.client.table('shops').update(set_data)
@@ -298,8 +300,9 @@ class Database:
             current = await self.receipts_find_one(filter)
             if current:
                 for key, delta in inc_data.items():
-                    current_val = float(current.get(key, 0) or 0)
-                    set_data[key] = current_val + delta
+                    current_val = current.get(key, 0) or 0
+                    new_val = current_val + delta
+                    set_data[key] = int(new_val) if isinstance(delta, int) and isinstance(current_val, int) else new_val
         
         if set_data:
             query = self.client.table('receipts').update(set_data)

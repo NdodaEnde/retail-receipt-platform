@@ -1,11 +1,16 @@
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load .env BEFORE importing custom modules (they read env vars at import time)
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
+
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Query
 from fastapi.responses import JSONResponse, PlainTextResponse
-from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
 import logging
-from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
 import uuid
@@ -27,9 +32,7 @@ from vector_store import get_receipt_vector_store
 from whatsapp_cloud import get_whatsapp_client, parse_webhook_message, WHATSAPP_VERIFY_TOKEN
 from geocoding import get_geocoding_service
 from database import get_database
-
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+from storage_helper import get_storage
 
 # Database (Supabase)
 db = get_database()
@@ -47,12 +50,12 @@ async def lifespan(app: FastAPI):
     logger.info("Starting scheduler for daily draws...")
     scheduler.add_job(
         run_scheduled_daily_draw,
-        CronTrigger(hour=0, minute=0),  # Run at midnight UTC
+        CronTrigger(hour=19, minute=0),  # Run at 19:00 UTC = 21:00 SAST
         id='daily_draw',
         replace_existing=True
     )
     scheduler.start()
-    logger.info("Scheduler started - daily draw at midnight UTC")
+    logger.info("Scheduler started - daily draw at 19:00 UTC (21:00 SAST)")
     logger.info("✅ Using Supabase (PostgreSQL) database")
     yield
     # Shutdown
@@ -219,13 +222,25 @@ async def process_receipt_with_landingai(image_base64: str, mime_type: str = "im
         result["error"] = str(e)
         return result
 
-async def geocode_shop_from_receipt(shop_name: str, address: str = None, postal_code: str = None) -> tuple:
+async def geocode_shop_from_receipt(shop_name: str, address: str = None, postal_code: str = None, customer_lat: float = None, customer_lon: float = None) -> tuple:
     """
     Try to geocode a shop from its name, address, and/or postal code using improved geocoding service
     Returns (latitude, longitude, display_name, geocoded_address) or (None, None, shop_name, None)
     """
     try:
         geocoding_service = get_geocoding_service()
+
+        # If we have customer location but no specific address, reverse-geocode to get area name
+        # This helps disambiguate chain stores (e.g., "Pick n Pay Sandton" vs generic "Pick n Pay")
+        if customer_lat and customer_lon and not address:
+            try:
+                area_result = await geocoding_service.reverse_geocode(customer_lat, customer_lon)
+                if area_result:
+                    address = area_result
+                    logger.info(f"Using customer area for geocoding: {address}")
+            except Exception:
+                pass
+
         result = await geocoding_service.geocode_shop(shop_name, address, postal_code=postal_code)
         
         if result:
@@ -679,7 +694,16 @@ async def process_receipt_image(request: ReceiptImageRequest):
         # Store grounding data from LandingAI
         receipt_dict['grounding'] = extracted.get('grounding', {})
         receipt_dict['chunks'] = extracted.get('chunks', [])
-        
+
+        # Upload image to Supabase Storage
+        if image_to_store:
+            storage = get_storage()
+            image_url, image_path = storage.upload_image(receipt.id, image_to_store)
+            if image_url:
+                receipt_dict['image_url'] = image_url
+                receipt_dict['image_path'] = image_path
+                logger.info(f"✅ Image uploaded to storage: {image_path}")
+
         await db.receipts_insert_one(receipt_dict.copy())
         
         # Add to vector store for semantic search
@@ -1355,7 +1379,10 @@ async def geocode_address_endpoint(address: str = None, shop_name: str = None):
 
 # --- WhatsApp Cloud API Webhook Endpoints ---
 
-# Store customer's last location temporarily (for when they send image after location)
+# In-memory state for two-step receipt flow
+# pending_receipts: receipts that have been OCR'd but awaiting location
+pending_receipts: Dict[str, Dict] = {}
+# customer_locations: pre-shared locations (if location sent before image)
 customer_locations: Dict[str, Dict] = {}
 
 @api_router.get("/whatsapp/webhook")
@@ -1422,75 +1449,151 @@ async def whatsapp_webhook(data: dict, background_tasks: BackgroundTasks):
     
     # Handle different message types
     if message_type == "image" and media_id:
-        # Process receipt image
+        # Step 1 of two-step flow: receive image → OCR → ask for location
+        await wa.send_text_message(phone_number, "📸 Receipt received! Processing with AI... Please wait.")
         background_tasks.add_task(
             process_receipt_from_whatsapp,
             phone_number, media_id, parsed.get("mime_type", "image/jpeg"), customer
         )
-        await wa.send_text_message(phone_number, "📸 Receipt received! Processing with AI... Please wait.")
-        
+
     elif message_type == "location" and location:
-        # Store location for next image upload
-        customer_locations[phone_number] = {
-            "latitude": location["latitude"],
-            "longitude": location["longitude"],
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-        await wa.send_text_message(
-            phone_number, 
-            f"📍 Location saved! ({location['latitude']:.4f}, {location['longitude']:.4f})\n\nNow send your receipt photo!"
-        )
-        
+        lat = location["latitude"]
+        lon = location["longitude"]
+
+        # Check if there's a pending receipt awaiting location (Step 2)
+        if phone_number in pending_receipts:
+            pending = pending_receipts.pop(phone_number)
+            background_tasks.add_task(
+                finalise_receipt_with_location,
+                phone_number, pending, lat, lon, customer
+            )
+        else:
+            # Location sent before image — store for later
+            customer_locations[phone_number] = {
+                "latitude": lat,
+                "longitude": lon,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            await wa.send_text_message(
+                phone_number,
+                f"📍 Location saved! Now send your receipt photo."
+            )
+
     elif message_type == "text":
         # Handle text commands
         await handle_text_command(phone_number, content.lower().strip(), wa)
-    
+
     else:
         await wa.send_text_message(phone_number, "Please send a receipt photo or type HELP for commands.")
     
     return {"status": "ok"}
 
 async def process_receipt_from_whatsapp(phone_number: str, media_id: str, mime_type: str, customer: dict):
-    """Background task to process receipt image from WhatsApp"""
+    """Step 1: Download image, run OCR, store result, then ask for location"""
     wa = get_whatsapp_client()
-    
+
     try:
         # Download the image
         image_bytes = await wa.download_media(media_id)
-        
+
         if not image_bytes:
             await wa.send_text_message(phone_number, "❌ Failed to download image. Please try again.")
             return
-        
-        # Convert to base64
+
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
-        
-        # Get stored location if available
-        stored_location = customer_locations.pop(phone_number, None)
-        latitude = stored_location["latitude"] if stored_location else None
-        longitude = stored_location["longitude"] if stored_location else None
-        
-        # Process with LandingAI
+
+        # Process with LandingAI OCR
         processor = get_receipt_processor()
         extracted = processor.process_receipt_image(image_base64, mime_type)
-        
+
         shop_name = extracted.get("shop_name")
         shop_address = extracted.get("shop_address")
         amount = extracted.get("amount", 0)
         items = extracted.get("items", [])
-        
-        # Geocode shop
+
+        # Clean OCR markup from shop name and address
+        def clean_ocr(text):
+            if not text:
+                return text
+            text = re.sub(r'<::LOGO:\s*([^,>]+)[^>]*::>', r'\1', text)
+            text = re.sub(r'<::[^>]*::>', '', text)
+            return text.strip()
+
+        shop_name = clean_ocr(shop_name)
+        shop_address = clean_ocr(shop_address)
+
+        # Don't geocode yet — defer to Step 2 where we have customer location
+        # This avoids matching a random branch for chain stores
+
+        # Store OCR result in pending_receipts
+        pending_data = {
+            "image_base64": image_base64,
+            "extracted": extracted,
+            "shop_name": shop_name,
+            "shop_address": shop_address,
+            "amount": amount,
+            "items": items,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+
+        # Check if customer already shared location before sending the image
+        stored_location = customer_locations.pop(phone_number, None)
+        if stored_location:
+            # Location was pre-shared — finalise immediately
+            await finalise_receipt_with_location(
+                phone_number, pending_data,
+                stored_location["latitude"], stored_location["longitude"],
+                customer
+            )
+        else:
+            # Store as pending and ask for location (Step 2)
+            pending_receipts[phone_number] = pending_data
+            await wa.send_location_request(
+                phone_number,
+                f"✅ Receipt from *{shop_name or 'shop'}* (R{amount:.2f}) processed!\n\n"
+                f"📍 Please share your location to complete your entry into today's draw."
+            )
+
+        logger.info(f"✅ OCR done for {phone_number}: {shop_name}, R{amount}")
+
+    except Exception as e:
+        logger.error(f"❌ Receipt processing failed: {e}")
+        await wa.send_text_message(
+            phone_number,
+            "❌ Sorry, we couldn't process your receipt. Please try again with a clearer photo."
+        )
+
+
+async def finalise_receipt_with_location(
+    phone_number: str, pending: dict,
+    latitude: float, longitude: float, customer: dict
+):
+    """Step 2: Finalise receipt with customer location, run fraud checks, save to DB"""
+    wa = get_whatsapp_client()
+
+    try:
+        shop_name = pending["shop_name"]
+        shop_address = pending["shop_address"]
+        amount = pending["amount"]
+        items = pending["items"]
+        extracted = pending["extracted"]
+        image_base64 = pending["image_base64"]
+
+        # Geocode shop — also gives us a clean display name with suburb
         shop_lat, shop_lon = None, None
+        shop_display_name = shop_name
         if shop_name:
-            shop_lat, shop_lon = await geocode_shop_from_receipt(shop_name, shop_address)
-        
-        # Calculate fraud risk
+            shop_lat, shop_lon, shop_display_name, _ = await geocode_shop_from_receipt(
+                shop_name, shop_address
+            )
+
+        # Calculate fraud risk using customer location vs shop location
         distance_km = None
         if shop_lat and shop_lon and latitude and longitude:
             distance_km = calculate_distance_km(shop_lat, shop_lon, latitude, longitude)
-        
+
         fraud_assessment = assess_fraud_risk(distance_km, amount)
-        
+
         # Create shop if needed
         shop = None
         if shop_name:
@@ -1499,11 +1602,9 @@ async def process_receipt_from_whatsapp(phone_number: str, media_id: str, mime_t
                 {"id": shop["id"]},
                 {"$inc": {"receipt_count": 1, "total_sales": amount}}
             )
-        
-        # Determine status
+
         receipt_status = "processed" if fraud_assessment["fraud_flag"] != "flagged" else "review"
-        
-        # Create receipt
+
         receipt = Receipt(
             customer_id=customer["id"],
             customer_phone=phone_number,
@@ -1525,42 +1626,51 @@ async def process_receipt_from_whatsapp(phone_number: str, media_id: str, mime_t
             fraud_reason=fraud_assessment["fraud_reason"],
             status=receipt_status
         )
-        
+
         receipt_dict = receipt.model_dump()
         receipt_dict['created_at'] = receipt_dict['created_at'].isoformat()
         receipt_dict['grounding'] = extracted.get('grounding', {})
-        
+
+        # Upload image to Supabase Storage
+        if image_base64:
+            storage = get_storage()
+            image_url, image_path = storage.upload_image(receipt.id, image_base64)
+            if image_url:
+                receipt_dict['image_url'] = image_url
+                receipt_dict['image_path'] = image_path
+                logger.info(f"✅ Image uploaded to storage: {image_path}")
+
         await db.receipts_insert_one(receipt_dict.copy())
-        
+
         # Update customer stats
         await db.customers_update_one(
             {"id": customer["id"]},
             {"$inc": {"total_receipts": 1, "total_spent": amount}}
         )
-        
+
         # Add to vector store
         try:
             vector_store = get_receipt_vector_store()
             vector_store.add_receipt(receipt.id, receipt_dict)
         except Exception as e:
             logger.warning(f"Vector store error: {e}")
-        
-        # Send confirmation
+
+        # Send confirmation with display name (includes suburb)
         await wa.send_receipt_confirmation(
-            phone_number, 
-            shop_name or "Unknown Shop", 
-            amount, 
+            phone_number,
+            shop_display_name or shop_name or "Unknown Shop",
+            amount,
             len(items),
             fraud_assessment["fraud_flag"]
         )
-        
-        logger.info(f"✅ Receipt processed for {phone_number}: {shop_name}, R{amount}")
-        
+
+        logger.info(f"✅ Receipt finalised for {phone_number}: {shop_display_name}, R{amount}")
+
     except Exception as e:
-        logger.error(f"❌ Receipt processing failed: {e}")
+        logger.error(f"❌ Receipt finalisation failed: {e}")
         await wa.send_text_message(
-            phone_number, 
-            "❌ Sorry, we couldn't process your receipt. Please try again with a clearer photo."
+            phone_number,
+            "❌ Something went wrong saving your receipt. Please try again."
         )
 
 async def handle_text_command(phone_number: str, command: str, wa):

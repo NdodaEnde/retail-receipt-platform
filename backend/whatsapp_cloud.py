@@ -101,6 +101,39 @@ class WhatsAppCloudAPI:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    async def send_location_request(self, to: str, message: str) -> Dict[str, Any]:
+        """Send a location request button via WhatsApp interactive message"""
+        to = to.replace('+', '').strip()
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "interactive",
+            "interactive": {
+                "type": "location_request_message",
+                "body": {"text": message},
+                "action": {"name": "send_location"}
+            }
+        }
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.base_url}/messages",
+                    headers=self._get_headers(),
+                    json=payload,
+                    timeout=30
+                )
+                if response.status_code == 200:
+                    logger.info(f"✅ Location request sent to {to}")
+                    return {"success": True, "response": response.json()}
+                else:
+                    logger.error(f"❌ Failed to send location request: {response.text}")
+                    return {"success": False, "error": response.text}
+        except Exception as e:
+            logger.error(f"❌ Location request error: {e}")
+            return {"success": False, "error": str(e)}
+
     async def mark_as_read(self, message_id: str) -> bool:
         """Mark a message as read"""
         payload = {
@@ -204,7 +237,7 @@ class WhatsAppCloudAPI:
             f"💰 Amount: R{amount:.2f}\n"
             f"📦 Items: {items_count}\n\n"
             f"{status_msg}\n\n"
-            f"🎰 Daily draw at midnight!"
+            f"🎰 Daily draw at 21:00 SAST!"
         )
         return await self.send_text_message(to, message)
 

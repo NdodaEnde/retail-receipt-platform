@@ -1,13 +1,14 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Receipt, Map, Trophy, BarChart3, Home, Shield } from "lucide-react";
+import { Receipt, Map, Trophy, BarChart3, Home, Shield, FileText } from "lucide-react";
 import LandingPage from "./pages/LandingPage";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import MapView from "./pages/MapView";
 import DrawsPage from "./pages/DrawsPage";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import FraudDetection from "./pages/FraudDetection";
+import AdminReceipts from "./pages/AdminReceipts";
 import UploadReceipt from "./pages/UploadReceipt";
 import "./App.css";
 
@@ -20,6 +21,7 @@ const navItems = [
   { path: "/dashboard", icon: Receipt, label: "Receipts" },
   { path: "/map", icon: Map, label: "Map" },
   { path: "/draws", icon: Trophy, label: "Draws" },
+  { path: "/admin/receipts", icon: FileText, label: "Admin" },
   { path: "/analytics", icon: BarChart3, label: "Analytics" },
   { path: "/fraud", icon: Shield, label: "Fraud" },
 ];
@@ -76,6 +78,7 @@ function AnimatedRoutes() {
           <Route path="/dashboard" element={<CustomerDashboard />} />
           <Route path="/map" element={<MapView />} />
           <Route path="/draws" element={<DrawsPage />} />
+          <Route path="/admin/receipts" element={<AdminReceipts />} />
           <Route path="/analytics" element={<AdminAnalytics />} />
           <Route path="/fraud" element={<FraudDetection />} />
         </Routes>

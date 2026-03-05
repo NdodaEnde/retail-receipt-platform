@@ -232,6 +232,43 @@ class GeocodingService:
         
         return None
     
+    async def reverse_geocode(self, lat: float, lon: float) -> Optional[str]:
+        """Reverse geocode coordinates to get suburb/area name for search disambiguation.
+        Returns a simple string like 'Douglasdale' or 'Sandton', NOT a dict."""
+        if not self.google_api_key:
+            return None
+        try:
+            params = {
+                "latlng": f"{lat},{lon}",
+                "key": self.google_api_key,
+                "result_type": "sublocality|locality"
+            }
+            async with httpx.AsyncClient() as client:
+                response = await client.get(GOOGLE_GEOCODE_URL, params=params, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("status") == "OK" and data.get("results"):
+                        # Look for suburb/locality in address components
+                        for component in data["results"][0].get("address_components", []):
+                            types = component.get("types", [])
+                            if "sublocality" in types or "sublocality_level_1" in types:
+                                area = component["long_name"]
+                                logger.info(f"Reverse geocoded ({lat},{lon}) -> {area}")
+                                return area
+                            if "locality" in types:
+                                area = component["long_name"]
+                                logger.info(f"Reverse geocoded ({lat},{lon}) -> {area}")
+                                return area
+                        # Fallback: first part of formatted address
+                        formatted = data["results"][0].get("formatted_address", "")
+                        if formatted:
+                            area = formatted.split(",")[0].strip()
+                            logger.info(f"Reverse geocoded ({lat},{lon}) -> {area} (fallback)")
+                            return area
+        except Exception as e:
+            logger.warning(f"Reverse geocode failed: {e}")
+        return None
+
     async def geocode_shop(self, shop_name: str, address: str = None, receipt_text: str = None, postal_code: str = None) -> Optional[Dict]:
         """
         Geocode a shop from available information

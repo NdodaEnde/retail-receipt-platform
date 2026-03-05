@@ -514,9 +514,9 @@ export default function CustomerDashboard() {
                     Receipt Image
                   </h3>
                   <div className="rounded-xl overflow-hidden border border-white/10 bg-white/5">
-                    {receiptDetail.receipt?.image_data ? (
-                      <img 
-                        src={`data:image/jpeg;base64,${receiptDetail.receipt.image_data}`}
+                    {(receiptDetail.receipt?.image_url || receiptDetail.receipt?.image_data) ? (
+                      <img
+                        src={receiptDetail.receipt.image_url || `data:image/jpeg;base64,${receiptDetail.receipt.image_data}`}
                         alt="Receipt"
                         className="w-full max-h-[400px] object-contain"
                         data-testid="receipt-image"

@@ -287,7 +287,10 @@ class ReceiptProcessor:
 
             # Full markdown text
             full_text = response.markdown if hasattr(response, 'markdown') else '\n'.join(all_text)
-            
+            plain_preview = re.sub(r'<[^>]+>', ' ', full_text)
+            plain_preview = re.sub(r'\s+', ' ', plain_preview).strip()
+            logger.info(f"Raw OCR text: {plain_preview[:800]}")
+
             # Parse the extracted text
             parsed = self._parse_receipt_text(full_text, chunks)
             
@@ -354,8 +357,14 @@ class ReceiptProcessor:
         if not text:
             return result
 
+        def clean_ocr_text(text):
+            """Remove OCR markup like <::LOGO: ..., description::> and HTML tags"""
+            text = re.sub(r'<::LOGO:\s*([^,>]+)[^>]*::>', r'\1', text)
+            text = re.sub(r'<::[^>]*::>', '', text)
+            text = re.sub(r'<[^>]+>', '', text)
+            return text.strip()
+
         # Check if text contains HTML table (LandingAI format)
-        # Check if text contains HTML table (LandingAI format) - look for <table with optional attributes
         if '<table' in text.lower():
             result = self._parse_html_table(text, result)
         
@@ -373,9 +382,12 @@ class ReceiptProcessor:
                 line_lower = line_context.lower()
                 
                 # Exclude if in phone number context
-                if 'tel' in line_lower or 'phone' in line_lower or 'cell' in line_lower:
+                if any(kw in line_lower for kw in ['tel', 'phone', 'cell', 'care line', 'customer care', 'call', 'helpline', 'hotline']):
                     return False
                 if re.search(r'0\d{2}\s?\d{3}\s?' + code_str, line_context):  # Part of phone number
+                    return False
+                # Exclude toll-free style numbers (0800, 0860, 0861, etc.)
+                if code >= 800 and code <= 899:
                     return False
                     
                 # Exclude if part of VAT number
@@ -427,116 +439,60 @@ class ReceiptProcessor:
         ]
         
         for line in lines[:10]:  # Check first 10 lines
-            # Remove HTML tags for matching
-            clean_line = re.sub(r'<[^>]+>', '', line).strip()
+            clean_line = clean_ocr_text(line)
             line_lower = clean_line.lower()
             for retailer in sa_retailers:
                 if retailer in line_lower:
-                    result["shop_name"] = clean_line.upper() if len(clean_line) < 50 else retailer.upper()
+                    result["shop_name"] = retailer.upper()
                     break
             if result["shop_name"]:
                 break
-        
+
         # Fallback: use first meaningful line as shop name
         if not result["shop_name"] and lines:
             for line in lines[:5]:
-                clean_line = re.sub(r'<[^>]+>', '', line).strip()
+                clean_line = clean_ocr_text(line)
                 if clean_line and len(clean_line) > 2 and not clean_line.startswith('<'):
                     result["shop_name"] = clean_line
                     break
 
         # --- Extract Address ---
-        # Look for address patterns in receipt - common SA formats
-        # Collect multiple address lines if found
-        address_keywords = ['street', 'st.', 'road', 'rd.', 'rd', 'ave', 'avenue', 
-                          'mall', 'centre', 'center', 'shop', 'store', 'cnr', 'corner',
-                          'drive', 'dr.', 'lane', 'way', 'blvd', 'boulevard', 'park',
-                          'plaza', 'square', 'complex']
-        
-        # Also look for suburb/city names that indicate an address line
-        sa_cities = ['cape town', 'johannesburg', 'durban', 'pretoria', 'bloemfontein',
-                    'port elizabeth', 'gqeberha', 'sandton', 'centurion', 'midrand',
-                    'brackenfell', 'bellville', 'soweto', 'umhlanga', 'ballito',
-                    'randburg', 'rosebank', 'fourways', 'bryanston', 'morningside',
-                    'greenside', 'parkhurst', 'melville', 'northcliff', 'linden',
-                    'constantia', 'newlands', 'claremont', 'wynberg', 'kenilworth',
-                    'tokai', 'kirstenhof', 'bergvliet', 'meadowridge', 'plumstead',
-                    'rondebosch', 'mowbray', 'observatory', 'woodstock', 'gardens',
-                    'sea point', 'green point', 'camps bay', 'clifton', 'bantry bay',
-                    'hout bay', 'llandudno', 'noordhoek', 'fish hoek', 'simons town',
-                    'muizenberg', 'kalk bay', 'st james', 'retreat', 'steenberg',
-                    'durbanville', 'kraaifontein', 'kuils river', 'blue downs',
-                    'mitchell\'s plain', 'khayelitsha', 'philippi', 'athlone', 'pinelands',
-                    'edenvale', 'bedfordview', 'germiston', 'kempton park', 'boksburg',
-                    'benoni', 'springs', 'alberton', 'roodepoort', 'krugersdorp',
-                    'george', 'knysna', 'plettenberg bay', 'mossel bay', 'stellenbosch',
-                    'paarl', 'franschhoek', 'somerset west', 'strand', 'gordons bay']
-        
-        # SA postal code to suburb mapping (for better geocoding)
-        sa_postal_codes = {
-            '7848': 'Constantia, Cape Town',
-            '7806': 'Newlands, Cape Town',
-            '7708': 'Claremont, Cape Town',
-            '7800': 'Rondebosch, Cape Town',
-            '7405': 'Wynberg, Cape Town',
-            '7945': 'Tokai, Cape Town',
-            '7441': 'Durbanville, Cape Town',
-            '7550': 'Bellville, Cape Town',
-            '7530': 'Brackenfell, Cape Town',
-            '7560': 'Kraaifontein, Cape Town',
-            '2196': 'Sandton, Johannesburg',
-            '2057': 'Rosebank, Johannesburg',
-            '2191': 'Fourways, Johannesburg',
-            '2021': 'Bryanston, Johannesburg',
-            '0157': 'Centurion, Pretoria',
-            '0181': 'Midrand, Johannesburg',
-        }
-        
-        address_parts = []
-        detected_postal_code = None
-        detected_suburb = None
-        
-        for line in lines[1:15]:
-            clean_line = re.sub(r'<[^>]+>', '', line).strip()
-            line_lower = clean_line.lower()
-            
-            # Skip if this is the shop name
-            if result.get("shop_name") and clean_line.upper() == result["shop_name"].upper():
-                continue
-            
-            # Skip phone numbers and tel lines
-            if re.match(r'^tel\s|^\d{3}\s?\d{3}\s?\d{4}|^0\d{2}\s?\d{3}\s?\d{4}', line_lower):
-                continue
-            if 'tel' in line_lower and any(c.isdigit() for c in clean_line):
-                continue
-            
-            # Check for SA postal code (4 digits)
-            postal_match = re.search(r'\b(\d{4})\b', clean_line)
-            if postal_match:
-                code = postal_match.group(1)
-                if code in sa_postal_codes:
-                    detected_postal_code = code
-                    detected_suburb = sa_postal_codes[code]
-                    logger.info(f"Detected postal code {code} -> {detected_suburb}")
-                
-            # Check for address keywords
-            if any(kw in line_lower for kw in address_keywords):
-                address_parts.append(clean_line)
-                continue
-            
-            # Check for SA city/suburb names
-            if any(city in line_lower for city in sa_cities):
-                address_parts.append(clean_line)
-                continue
-        
-        # Combine address parts
-        if address_parts:
-            result["address"] = ", ".join(address_parts[:3])  # Max 3 lines
-        
-        # If we detected a postal code but no address, use the postal code mapping
-        if detected_suburb and not result.get("address"):
-            result["address"] = detected_suburb
-            logger.info(f"Using postal code for address: {detected_suburb}")
+        # Receipt header always starts at the top: shop name, suburb, street, phone.
+        # The OCR text begins with this header regardless of format.
+        # Strategy: take the START of the plain text, cut at the first transactional
+        # keyword, strip the shop name and phone numbers. What remains is the address.
+        # Let Google Maps figure out what's a real place.
+
+        plain_text = re.sub(r'<::[^>]*::>', ' ', text)  # Strip OCR markup first
+        plain_text = re.sub(r'<[^>]+>', ' ', plain_text)  # Strip HTML tags
+        plain_text = re.sub(r'\s+', ' ', plain_text).strip()
+
+        address_text = None
+        if result.get("shop_name"):
+            # The header is at the START of the text — not where the shop name
+            # appears (it could match in the footer like "Thank you for shopping at...")
+            # Cut the text at the first transactional keyword to isolate the header
+            cut_patterns = r'(?i)\b(TAX INVOICE|VAT\s*(?:NO|:|\d)|INVOICE|CASHIER|TILL|TXN|RECEIPT NO|TABLE:|WAITER|ITEM\s|QTY\s|TOTAL|SUBTOTAL|SMART SHOPPER|LOYALTY|CUSTOMER CARE|Liquor Lic)\b'
+            cut_match = re.search(cut_patterns, plain_text)
+            header = plain_text[:cut_match.start()].strip() if cut_match else plain_text[:100]
+            logger.info(f"Address extraction — header: '{header[:150]}'")
+
+            # Remove the shop name from the header to leave just the address
+            addr = re.sub(re.escape(result["shop_name"]), '', header, flags=re.IGNORECASE).strip()
+            # Strip phone numbers (SA format: 0XX XXX XXXX)
+            addr = re.sub(r'0\d{2}[\s-]?\d{3}[\s-]?\d{4}', '', addr).strip()
+            # Strip leading/trailing punctuation and whitespace
+            addr = re.sub(r'^[\s,.\-:]+|[\s,.\-:]+$', '', addr).strip()
+            logger.info(f"Address extraction — after cleanup: '{addr}'")
+
+            if addr and len(addr) >= 3:
+                address_text = addr
+
+        if address_text:
+            result["address"] = address_text
+            logger.info(f"Extracted address: {result['address']}")
+        else:
+            logger.info(f"No address extracted from receipt header")
 
         # --- Extract Total Amount (if not found in table) ---
         if result["amount"] == 0:
@@ -646,19 +602,41 @@ class ReceiptProcessor:
             row_pattern = r'<tr>(.*?)</tr>'
             rows = re.findall(row_pattern, text, re.IGNORECASE | re.DOTALL)
             
-            skip_keywords = ['total', 'subtotal', 'vat', 'tax', 'cash', 'change', 
-                           'card', 'balance', 'rate', 'payment', 'invoice', 'description',
-                           'qty', 'item', 'price', 'value', 'tendered', 'tax%', 'tai',
+            skip_keywords = ['total', 'subtotal', 'vat', 'tax', 'cash', 'change',
+                           'card', 'balance', 'rate', 'payment', 'invoice',
+                           'tendered', 'tax%', 'tai',
                            'gratuity', 'tip', 'service', 'amount due']
-            
+
+            # Detect column order from header row (e.g., ITEM, QTY, PRICE, VALUE)
+            col_order = None  # None = default (qty, name, unit, total)
+            for row in rows:
+                cell_pattern = r'<td[^>]*>([^<]*)</td>'
+                cells = [c.strip().lower() for c in re.findall(cell_pattern, row)]
+                if len(cells) >= 3 and any(h in cells for h in ['item', 'description', 'qty', 'quantity']):
+                    # This is a header row - detect column positions
+                    col_order = {}
+                    for i, c in enumerate(cells):
+                        if c in ('item', 'description', 'product', 'name'):
+                            col_order['name'] = i
+                        elif c in ('qty', 'quantity', 'qnt'):
+                            col_order['qty'] = i
+                        elif c in ('price', 'unit price', 'unit'):
+                            col_order['unit_price'] = i
+                        elif c in ('value', 'total', 'amount', 'ext', 'extended'):
+                            col_order['total_price'] = i
+                    logger.info(f"Detected column order from header: {col_order}")
+                    break
+
             logger.info(f"Parsing HTML table with {len(rows)} rows")
-            
+
             for row in rows:
                 # Extract all cells from this row
                 cell_pattern = r'<td[^>]*>([^<]*)</td>'
                 cells = re.findall(cell_pattern, row)
                 cells = [c.strip() for c in cells]
-                
+
+                logger.info(f"Table row cells: {cells}")
+
                 if not cells:
                     continue
                 
@@ -674,7 +652,12 @@ class ReceiptProcessor:
                 
                 # Check if this is a header row or total row
                 row_text = ' '.join(cells).lower()
+                header_keywords = ['item', 'qty', 'quantity', 'description', 'product']
+                if all(any(h in c.lower() for h in header_keywords + ['price', 'value', 'amount', 'unit']) for c in cells if c):
+                    logger.info(f"Skipping header row: {row_text[:80]}")
+                    continue
                 if any(kw in row_text for kw in skip_keywords):
+                    logger.info(f"Skipping row (keyword match): {row_text[:80]}")
                     # Extract total amount if present
                     if 'total' in row_text or 'amount due' in row_text or 'tai' in row_text:
                         for cell in cells:
@@ -682,7 +665,7 @@ class ReceiptProcessor:
                             if price_match:
                                 try:
                                     amount = float(price_match.group(1).replace(',', '.'))
-                                    if amount > result["amount"] and amount > 100:  # Sanity check
+                                    if amount > result["amount"] and amount > 0:  # Accept any positive total
                                         result["amount"] = amount
                                         logger.info(f"Found total amount: R{amount}")
                                 except ValueError:
@@ -748,52 +731,55 @@ class ReceiptProcessor:
                             quantity = max(1, round(total_price / unit_price))
                         
                 elif len(cells) == 4:
-                    # Format: [qty, item_name, unit_price, total_price]
-                    # Receipt logic:
-                    # - Single items (qty=1): may only show one price column
-                    # - Multiple items (qty>1): shows unit_price AND total_price
-                    
-                    # Parse quantity from column 1 (trust the OCR value)
-                    qty_from_ocr = None
-                    if cells[0] and cells[0].strip():
+                    # Detect column mapping from header or use defaults
+                    if col_order and 'name' in col_order:
+                        # Use detected column order (e.g., ITEM, QTY, PRICE, VALUE)
+                        name_idx = col_order.get('name', 0)
+                        qty_idx = col_order.get('qty', 1)
+                        up_idx = col_order.get('unit_price', 2)
+                        tp_idx = col_order.get('total_price', 3)
+                    else:
+                        # Default: [qty, item_name, unit_price, total_price]
+                        # Auto-detect: if cells[0] can't be parsed as a number, swap to [name, qty, price, value]
                         try:
-                            qty_from_ocr = int(float(cells[0].strip()))
+                            int(float(cells[0].strip()))
+                            name_idx, qty_idx, up_idx, tp_idx = 1, 0, 2, 3
+                        except (ValueError, AttributeError):
+                            name_idx, qty_idx, up_idx, tp_idx = 0, 1, 2, 3
+
+                    item_name = cells[name_idx]
+
+                    qty_from_ocr = None
+                    if cells[qty_idx] and cells[qty_idx].strip():
+                        try:
+                            qty_from_ocr = int(float(cells[qty_idx].strip()))
                         except:
                             qty_from_ocr = None
-                    
-                    item_name = cells[1]
-                    
-                    # Extract prices from columns 3 and 4
-                    price_col3 = extract_price(cells[2])  # Usually unit price
-                    price_col4 = extract_price(cells[3])  # Usually total price
-                    
-                    if price_col3 and price_col4:
-                        # Both prices available
-                        unit_price = price_col3
-                        total_price = price_col4
-                        # Use OCR quantity if available, otherwise calculate from prices
+
+                    price_col_up = extract_price(cells[up_idx])
+                    price_col_tp = extract_price(cells[tp_idx])
+
+                    if price_col_up and price_col_tp:
+                        unit_price = price_col_up
+                        total_price = price_col_tp
                         if qty_from_ocr:
                             quantity = qty_from_ocr
                         elif unit_price > 0:
                             quantity = round(total_price / unit_price)
                         else:
                             quantity = 1
-                                
-                    elif price_col3 and not price_col4:
-                        # Only column 3 has price (unit price)
-                        unit_price = price_col3
+
+                    elif price_col_up and not price_col_tp:
+                        unit_price = price_col_up
                         quantity = qty_from_ocr if qty_from_ocr else 1
-                        # Calculate total
                         total_price = round(unit_price * quantity, 2)
-                            
-                    elif price_col4 and not price_col3:
-                        # Only column 4 has price (total for single item)
-                        total_price = price_col4
-                        unit_price = total_price  # Single item, so unit = total
+
+                    elif price_col_tp and not price_col_up:
+                        total_price = price_col_tp
+                        unit_price = total_price
                         quantity = 1
-                        
+
                     else:
-                        # No valid prices found
                         continue
                         
                 else:
