@@ -139,8 +139,9 @@ Secrets (tokens, keys) live in `backend/.env` only — never committed.
 - ✅ Two-step WhatsApp flow implemented (image → location → confirmation)
 - ✅ Multi-signal fraud detection (velocity, distance, duplicate)
 - ✅ Draw scheduler set to 21:00 SAST
-- ⏳ Render deployment pending (render.yaml ready, env vars to be set)
-- ❌ Inbound webhook not yet live on production URL (still local/Afrihost proxy)
+- ✅ Render deployment live (backend: klpit-api.onrender.com, frontend: klpit-web.onrender.com)
+- ✅ Meta WhatsApp webhook pointing to Render backend
+- ✅ Full end-to-end receipt flow verified in production (March 2026)
 - ❌ Qdrant semantic search disabled (re-enable with Qdrant Cloud later)
 
 ---

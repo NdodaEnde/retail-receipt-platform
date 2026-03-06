@@ -5,7 +5,8 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Query
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Query, Depends
+from auth import require_admin
 from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -900,11 +901,12 @@ async def get_receipt_full(receipt_id: str):
 
 @api_router.get("/receipts")
 async def list_receipts(
-    skip: int = 0, 
+    skip: int = 0,
     limit: int = 50,
     date: Optional[str] = None,  # YYYY-MM-DD
     status: Optional[str] = None,
-    fraud_flag: Optional[str] = None  # valid, review, suspicious, flagged
+    fraud_flag: Optional[str] = None,  # valid, review, suspicious, flagged
+    user: dict = Depends(require_admin),
 ):
     query = {}
     if date:
@@ -961,7 +963,7 @@ async def get_vector_store_stats():
 # --- Fraud Detection Endpoints ---
 
 @api_router.get("/fraud/flagged")
-async def get_flagged_receipts(skip: int = 0, limit: int = 50):
+async def get_flagged_receipts(skip: int = 0, limit: int = 50, user: dict = Depends(require_admin)):
     """Get all receipts flagged for review or suspicious activity"""
     query = {"fraud_flag": {"$in": ["review", "suspicious", "flagged"]}}
     
@@ -972,7 +974,7 @@ async def get_flagged_receipts(skip: int = 0, limit: int = 50):
     return {"receipts": receipts, "total": total}
 
 @api_router.get("/fraud/stats")
-async def get_fraud_stats():
+async def get_fraud_stats(user: dict = Depends(require_admin)):
     """Get fraud detection statistics"""
     total = await db.receipts_count({})
     valid = await db.receipts_count({"fraud_flag": "valid"})
@@ -990,7 +992,7 @@ async def get_fraud_stats():
     }
 
 @api_router.post("/fraud/review/{receipt_id}")
-async def review_receipt(receipt_id: str, action: str, reason: Optional[str] = None):
+async def review_receipt(receipt_id: str, action: str, reason: Optional[str] = None, user: dict = Depends(require_admin)):
     """Admin action on flagged receipt: approve, reject"""
     receipt = await db.receipts_find_one({"id": receipt_id})
     if not receipt:
@@ -1026,7 +1028,7 @@ async def review_receipt(receipt_id: str, action: str, reason: Optional[str] = N
         raise HTTPException(status_code=400, detail="Action must be 'approve' or 'reject'")
 
 @api_router.get("/fraud/thresholds")
-async def get_fraud_thresholds():
+async def get_fraud_thresholds(user: dict = Depends(require_admin)):
     """Get current fraud detection thresholds"""
     return {
         "valid_km": FRAUD_THRESHOLD_VALID,
@@ -1189,7 +1191,7 @@ async def get_map_receipts(date: Optional[str] = None):
 # --- Analytics Endpoints ---
 
 @api_router.get("/analytics/overview")
-async def get_analytics_overview():
+async def get_analytics_overview(user: dict = Depends(require_admin)):
     """Get overall platform statistics"""
     total_customers = await db.customers_count({})
     total_receipts = await db.receipts_count({})
@@ -1210,33 +1212,33 @@ async def get_analytics_overview():
     }
 
 @api_router.get("/analytics/spending-by-day")
-async def get_spending_by_day(days: int = 30):
+async def get_spending_by_day(days: int = 30, user: dict = Depends(require_admin)):
     """Get daily spending for the last N days"""
     # Use the daily_spending view
     data = await db.get_daily_spending(days)
     return {"data": [{"date": r.get("date"), "amount": r.get("total_amount", 0), "receipts": r.get("receipt_count", 0)} for r in data]}
 
 @api_router.get("/analytics/popular-shops")
-async def get_popular_shops(limit: int = 10):
+async def get_popular_shops(limit: int = 10, user: dict = Depends(require_admin)):
     """Get most popular shops by receipt count"""
     shops = await db.shops_find({}, sort=("receipt_count", -1), limit=limit)
     return {"shops": shops}
 
 @api_router.get("/analytics/top-spenders")
-async def get_top_spenders(limit: int = 10):
+async def get_top_spenders(limit: int = 10, user: dict = Depends(require_admin)):
     """Get top spending customers"""
     customers = await db.customers_find({}, sort=("total_spent", -1), limit=limit)
     return {"customers": customers}
 
 @api_router.get("/analytics/receipts-by-hour")
-async def get_receipts_by_hour():
+async def get_receipts_by_hour(user: dict = Depends(require_admin)):
     """Get receipt count by hour of day"""
     data = await db.get_hourly_distribution()
     hour_data = {int(r.get("hour", 0)): int(r.get("receipt_count", 0)) for r in data}
     return {"data": [{"hour": h, "count": hour_data.get(h, 0)} for h in range(24)]}
 
 @api_router.get("/analytics/spending-by-shop")
-async def get_spending_by_shop(limit: int = 10):
+async def get_spending_by_shop(limit: int = 10, user: dict = Depends(require_admin)):
     """Get total spending by shop"""
     shops = await db.shops_find({}, sort=("total_sales", -1), limit=limit)
     return {"data": [{"shop": s.get("name"), "total_spent": float(s.get("total_sales", 0) or 0), "receipt_count": s.get("receipt_count", 0)} for s in shops]}
@@ -1787,7 +1789,7 @@ async def test_whatsapp_connection(phone_number: str):
 # --- Demo Data Endpoint ---
 
 @api_router.post("/demo/seed")
-async def seed_demo_data():
+async def seed_demo_data(user: dict = Depends(require_admin)):
     """Seed demo data for testing"""
     # Clear existing data
     await db.customers_delete_many({})
@@ -1969,7 +1971,7 @@ async def get_scheduler_status():
     }
 
 @api_router.post("/scheduler/trigger-draw")
-async def trigger_draw_now():
+async def trigger_draw_now(user: dict = Depends(require_admin)):
     """Manually trigger the daily draw (for testing)"""
     await run_scheduled_daily_draw()
     return {"success": True, "message": "Draw triggered"}

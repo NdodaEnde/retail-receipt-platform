@@ -9,8 +9,7 @@ import {
   Receipt, MapPin, Clock, DollarSign, Store, Eye, Image,
   Package, User, Shield, ChevronLeft, ChevronRight, Filter
 } from "lucide-react";
-import axios from "axios";
-import { API } from "../App";
+import api from "../lib/api";
 
 const fraudColors = {
   valid: "bg-green-500/20 text-green-400 border-green-500/30",
@@ -43,7 +42,7 @@ export default function AdminReceipts() {
     try {
       const params = { skip: page * pageSize, limit: pageSize };
       if (filter !== "all") params.fraud_flag = filter;
-      const res = await axios.get(`${API}/receipts`, { params });
+      const res = await api.get("/receipts", { params });
       setReceipts(res.data.receipts || []);
       setTotal(res.data.total || 0);
     } catch (err) {
@@ -59,7 +58,7 @@ export default function AdminReceipts() {
     setSelectedReceipt(receipt);
     setDetailLoading(true);
     try {
-      const res = await axios.get(`${API}/receipts/${receipt.id}/full`);
+      const res = await api.get(`/receipts/${receipt.id}/full`);
       setReceiptDetail(res.data);
     } catch (err) {
       console.error("Failed to fetch receipt detail:", err);

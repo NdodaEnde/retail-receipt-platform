@@ -1,7 +1,9 @@
-import { BrowserRouter, Routes, Route, NavLink, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Receipt, Map, Trophy, BarChart3, Home, Shield, FileText } from "lucide-react";
+import { Receipt, Map, Trophy, BarChart3, Home, Shield, FileText, LogOut, Lock } from "lucide-react";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
 import CustomerDashboard from "./pages/CustomerDashboard";
 import MapView from "./pages/MapView";
@@ -10,17 +12,21 @@ import AdminAnalytics from "./pages/AdminAnalytics";
 import FraudDetection from "./pages/FraudDetection";
 import AdminReceipts from "./pages/AdminReceipts";
 import UploadReceipt from "./pages/UploadReceipt";
+import LoginPage from "./pages/LoginPage";
 import "./App.css";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
 
-const navItems = [
+const publicNavItems = [
   { path: "/", icon: Home, label: "Home" },
   { path: "/upload", icon: Receipt, label: "Upload" },
   { path: "/dashboard", icon: Receipt, label: "Receipts" },
   { path: "/map", icon: Map, label: "Map" },
   { path: "/draws", icon: Trophy, label: "Draws" },
+];
+
+const adminNavItems = [
   { path: "/admin/receipts", icon: FileText, label: "Admin" },
   { path: "/analytics", icon: BarChart3, label: "Analytics" },
   { path: "/fraud", icon: Shield, label: "Fraud" },
@@ -28,23 +34,29 @@ const navItems = [
 
 function BottomNav() {
   const location = useLocation();
-  
+  const navigate = useNavigate();
+  const { session, signOut } = useAuth();
+
+  const items = session
+    ? [...publicNavItems, ...adminNavItems]
+    : [...publicNavItems, { path: "/login", icon: Lock, label: "Login" }];
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10" data-testid="bottom-nav">
       <div className="max-w-screen-xl mx-auto px-2">
         <div className="flex justify-around items-center h-16">
-          {navItems.map((item) => {
+          {items.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
-            
+
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
                 data-testid={`nav-${item.label.toLowerCase()}`}
                 className={`flex flex-col items-center justify-center px-3 py-2 rounded-xl transition-all duration-300 ${
-                  isActive 
-                    ? "text-primary glow-primary" 
+                  isActive
+                    ? "text-primary glow-primary"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -53,6 +65,18 @@ function BottomNav() {
               </NavLink>
             );
           })}
+          {session && (
+            <button
+              onClick={async () => {
+                await signOut();
+                navigate("/");
+              }}
+              className="flex flex-col items-center justify-center px-3 py-2 rounded-xl transition-all duration-300 text-muted-foreground hover:text-destructive"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="text-xs mt-1 font-medium">Logout</span>
+            </button>
+          )}
         </div>
       </div>
     </nav>
@@ -61,7 +85,7 @@ function BottomNav() {
 
 function AnimatedRoutes() {
   const location = useLocation();
-  
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -78,9 +102,10 @@ function AnimatedRoutes() {
           <Route path="/dashboard" element={<CustomerDashboard />} />
           <Route path="/map" element={<MapView />} />
           <Route path="/draws" element={<DrawsPage />} />
-          <Route path="/admin/receipts" element={<AdminReceipts />} />
-          <Route path="/analytics" element={<AdminAnalytics />} />
-          <Route path="/fraud" element={<FraudDetection />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/admin/receipts" element={<ProtectedRoute><AdminReceipts /></ProtectedRoute>} />
+          <Route path="/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
+          <Route path="/fraud" element={<ProtectedRoute><FraudDetection /></ProtectedRoute>} />
         </Routes>
       </motion.div>
     </AnimatePresence>
@@ -91,11 +116,13 @@ function App() {
   return (
     <div className="App min-h-screen bg-background">
       <BrowserRouter>
-        <AnimatedRoutes />
-        <BottomNav />
+        <AuthProvider>
+          <AnimatedRoutes />
+          <BottomNav />
+        </AuthProvider>
       </BrowserRouter>
-      <Toaster 
-        position="top-center" 
+      <Toaster
+        position="top-center"
         toastOptions={{
           style: {
             background: 'hsl(var(--card))',

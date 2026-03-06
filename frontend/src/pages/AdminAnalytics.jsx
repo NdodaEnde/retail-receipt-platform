@@ -11,8 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart as RePieChart, Pie, Cell, AreaChart, Area
 } from "recharts";
-import axios from "axios";
-import { API } from "../App";
+import api from "../lib/api";
 
 const COLORS = ['hsl(265, 89%, 66%)', 'hsl(150, 100%, 50%)', 'hsl(300, 100%, 50%)', 'hsl(190, 100%, 50%)', 'hsl(40, 100%, 50%)'];
 
@@ -32,11 +31,11 @@ export default function AdminAnalytics() {
     setLoading(true);
     try {
       const [overviewRes, spendingRes, shopsRes, spendersRes, hoursRes] = await Promise.all([
-        axios.get(`${API}/analytics/overview`),
-        axios.get(`${API}/analytics/spending-by-day?days=14`),
-        axios.get(`${API}/analytics/popular-shops?limit=8`),
-        axios.get(`${API}/analytics/top-spenders?limit=8`),
-        axios.get(`${API}/analytics/receipts-by-hour`)
+        api.get("/analytics/overview"),
+        api.get("/analytics/spending-by-day?days=14"),
+        api.get("/analytics/popular-shops?limit=8"),
+        api.get("/analytics/top-spenders?limit=8"),
+        api.get("/analytics/receipts-by-hour")
       ]);
       
       setOverview(overviewRes.data);

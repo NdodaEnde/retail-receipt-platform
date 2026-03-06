@@ -13,9 +13,8 @@ import {
   Store, Phone, Clock, TrendingUp, Eye, Navigation,
   Receipt, Package, Image, FileText, User
 } from "lucide-react";
-import axios from "axios";
+import api from "../lib/api";
 import { toast } from "sonner";
-import { API } from "../App";
 
 export default function FraudDetection() {
   const [stats, setStats] = useState(null);
@@ -37,9 +36,9 @@ export default function FraudDetection() {
     setLoading(true);
     try {
       const [statsRes, flaggedRes, thresholdsRes] = await Promise.all([
-        axios.get(`${API}/fraud/stats`),
-        axios.get(`${API}/fraud/flagged`),
-        axios.get(`${API}/fraud/thresholds`)
+        api.get("/fraud/stats"),
+        api.get("/fraud/flagged"),
+        api.get("/fraud/thresholds")
       ]);
       setStats(statsRes.data);
       setFlaggedReceipts(flaggedRes.data.receipts);
@@ -55,7 +54,7 @@ export default function FraudDetection() {
   const fetchReceiptDetail = async (receiptId) => {
     setLoadingDetail(true);
     try {
-      const response = await axios.get(`${API}/receipts/${receiptId}/full`);
+      const response = await api.get(`/receipts/${receiptId}/full`);
       setReceiptDetail(response.data);
       setDetailDialogOpen(true);
     } catch (error) {
@@ -70,7 +69,7 @@ export default function FraudDetection() {
     if (!selectedReceipt) return;
     
     try {
-      await axios.post(`${API}/fraud/review/${selectedReceipt.id}?action=${action}&reason=${encodeURIComponent(reviewReason)}`);
+      await api.post(`/fraud/review/${selectedReceipt.id}?action=${action}&reason=${encodeURIComponent(reviewReason)}`);
       toast.success(`Receipt ${action === 'approve' ? 'approved' : 'rejected'} successfully`);
       setReviewDialogOpen(false);
       setSelectedReceipt(null);
