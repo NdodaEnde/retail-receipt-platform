@@ -694,7 +694,6 @@ async def process_receipt_image(request: ReceiptImageRequest):
         
         # Store grounding data from LandingAI
         receipt_dict['grounding'] = extracted.get('grounding', {})
-        receipt_dict['chunks'] = extracted.get('chunks', [])
 
         # Upload image to Supabase Storage
         if image_to_store:
@@ -733,7 +732,7 @@ async def process_receipt_image(request: ReceiptImageRequest):
         )
         
         # Return response (exclude image data)
-        response_receipt = {k: v for k, v in receipt_dict.items() if k not in ['image_data', '_id', 'chunks']}
+        response_receipt = {k: v for k, v in receipt_dict.items() if k not in ['image_data', '_id']}
         
         return {
             "success": True,

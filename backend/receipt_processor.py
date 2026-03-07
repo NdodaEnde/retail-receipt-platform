@@ -11,6 +11,7 @@ from datetime import datetime
 import re
 import base64
 import tempfile
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -217,49 +218,6 @@ class ReceiptProcessor:
             processing_time = (datetime.utcnow() - start_time).total_seconds()
             logger.info(f"✅ LandingAI extraction complete in {processing_time:.2f}s")
             
-            # Try to extract structured line items with schema
-            line_items_from_schema = []
-            try:
-                # Define schema for receipt line items
-                items_schema = {
-                    "line_items": {
-                        "type": "array",
-                        "description": "List of items purchased on the receipt",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "item_name": {"type": "string", "description": "Name of the item"},
-                                "quantity": {"type": "number", "description": "Number of units purchased"},
-                                "unit_price": {"type": "number", "description": "Price per single unit"},
-                                "total_price": {"type": "number", "description": "Total price for this line item"}
-                            }
-                        }
-                    },
-                    "total_amount": {"type": "number", "description": "Total amount due on the receipt"},
-                    "shop_name": {"type": "string", "description": "Name of the shop or restaurant"}
-                }
-                
-                extract_response = self.client.extract(
-                    document=Path(tmp_path),
-                    schema=items_schema,
-                    model="dpt-2-latest"
-                )
-                
-                if extract_response and hasattr(extract_response, 'data'):
-                    extracted_data = extract_response.data
-                    if 'line_items' in extracted_data:
-                        for item in extracted_data['line_items']:
-                            if item.get('item_name'):
-                                line_items_from_schema.append({
-                                    'name': item.get('item_name', ''),
-                                    'quantity': int(item.get('quantity', 1)) if item.get('quantity') else 1,
-                                    'unit_price': float(item.get('unit_price', 0)) if item.get('unit_price') else None,
-                                    'total_price': float(item.get('total_price', 0)) if item.get('total_price') else None
-                                })
-                        logger.info(f"Schema extraction found {len(line_items_from_schema)} items")
-            except Exception as e:
-                logger.warning(f"Schema extraction failed, falling back to text parsing: {e}")
-
             # Extract chunks with grounding
             chunks = []
             all_text = []
@@ -293,7 +251,67 @@ class ReceiptProcessor:
 
             # Parse the extracted text
             parsed = self._parse_receipt_text(full_text, chunks)
-            
+
+            # Schema extraction: use LandingAI extract() on the markdown text
+            # This gives structured shop_name, address, items, amount
+            line_items_from_schema = []
+            schema_shop_name = None
+            schema_shop_address = None
+            schema_total_amount = None
+            try:
+                items_schema = json.dumps({
+                    "type": "object",
+                    "properties": {
+                    "line_items": {
+                        "type": "array",
+                        "description": "List of items purchased on the receipt",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "item_name": {"type": "string", "description": "Name of the item"},
+                                "quantity": {"type": "number", "description": "Number of units purchased"},
+                                "unit_price": {"type": "number", "description": "Price per single unit"},
+                                "total_price": {"type": "number", "description": "Total price for this line item including tax"}
+                            }
+                        }
+                    },
+                    "total_amount": {"type": "number", "description": "Final total amount due on the receipt including tax"},
+                    "shop_name": {"type": "string", "description": "Name of the shop, store, or business (not slogans, version numbers, or taglines)"},
+                    "shop_address": {"type": "string", "description": "Street address or location of the shop"}
+                    }
+                })
+
+                extract_response = self.client.extract(
+                    markdown=full_text,
+                    schema=items_schema,
+                    model="extract-latest"
+                )
+
+                if extract_response and hasattr(extract_response, 'extraction'):
+                    extracted_data = extract_response.extraction
+                    logger.info(f"Schema extraction result: {json.dumps(extracted_data)[:500]}")
+                    if 'line_items' in extracted_data:
+                        for item in extracted_data['line_items']:
+                            if item.get('item_name'):
+                                line_items_from_schema.append({
+                                    'name': item.get('item_name', ''),
+                                    'quantity': int(item.get('quantity', 1)) if item.get('quantity') else 1,
+                                    'unit_price': float(item.get('unit_price', 0)) if item.get('unit_price') else None,
+                                    'total_price': float(item.get('total_price', 0)) if item.get('total_price') else None
+                                })
+                        logger.info(f"Schema extraction found {len(line_items_from_schema)} items")
+                    if extracted_data.get('shop_name'):
+                        schema_shop_name = extracted_data['shop_name']
+                        logger.info(f"Schema shop_name: {schema_shop_name}")
+                    if extracted_data.get('shop_address'):
+                        schema_shop_address = extracted_data['shop_address']
+                        logger.info(f"Schema shop_address: {schema_shop_address}")
+                    if extracted_data.get('total_amount'):
+                        schema_total_amount = float(extracted_data['total_amount'])
+                        logger.info(f"Schema total_amount: {schema_total_amount}")
+            except Exception as e:
+                logger.warning(f"Schema extraction failed: {e}")
+
             # Prefer schema-extracted items if available and better quality
             final_items = parsed.get("items", [])
             if line_items_from_schema:
@@ -313,12 +331,21 @@ class ReceiptProcessor:
                     final_items = line_items_from_schema
                     logger.info(f"Using schema-extracted items ({len(final_items)} items)")
             
+            # Schema extraction is primary, text parser is fallback
+            final_shop_name = schema_shop_name or parsed.get("shop_name")
+            final_address = schema_shop_address or parsed.get("address")
+            final_amount = schema_total_amount or parsed.get("amount", 0.0)
+
+            logger.info(f"Final shop_name: {final_shop_name} (schema: {schema_shop_name}, parsed: {parsed.get('shop_name')})")
+            logger.info(f"Final address: {final_address} (schema: {schema_shop_address}, parsed: {parsed.get('address')})")
+            logger.info(f"Final amount: {final_amount} (schema: {schema_total_amount}, parsed: {parsed.get('amount')})")
+
             result.update({
                 "success": True,
-                "shop_name": parsed.get("shop_name"),
-                "shop_address": parsed.get("address"),
+                "shop_name": final_shop_name,
+                "shop_address": final_address,
                 "postal_code": parsed.get("postal_code"),  # Include postal code for geocoding
-                "amount": parsed.get("amount", 0.0),
+                "amount": final_amount,
                 "currency": "ZAR",
                 "items": final_items,
                 "date": parsed.get("date"),
@@ -479,8 +506,16 @@ class ReceiptProcessor:
 
             # Remove the shop name from the header to leave just the address
             addr = re.sub(re.escape(result["shop_name"]), '', header, flags=re.IGNORECASE).strip()
-            # Strip phone numbers (SA format: 0XX XXX XXXX)
+            # Strip phone numbers (SA format: 0XX XXX XXXX or 011 XXX XXXX)
             addr = re.sub(r'0\d{2}[\s-]?\d{3}[\s-]?\d{4}', '', addr).strip()
+            # Strip email addresses
+            addr = re.sub(r'\S+@\S+\.\S+', '', addr).strip()
+            # Strip VAT numbers (e.g. "VAT No 4920269612")
+            addr = re.sub(r'(?i)VAT\s*(?:No\.?|:)?\s*\d+', '', addr).strip()
+            # Strip "Ver X.X" version numbers from logo text
+            addr = re.sub(r'(?i)\bVer\s+\d+(\.\d+)?\b', '', addr).strip()
+            # Strip common logo fragments
+            addr = re.sub(r'(?i)\bKeep Swimming\b', '', addr).strip()
             # Strip leading/trailing punctuation and whitespace
             addr = re.sub(r'^[\s,.\-:]+|[\s,.\-:]+$', '', addr).strip()
             logger.info(f"Address extraction — after cleanup: '{addr}'")
