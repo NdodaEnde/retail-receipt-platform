@@ -26,6 +26,7 @@ import re
 import asyncio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from zoneinfo import ZoneInfo
 
 # Import custom modules for receipt processing
 from receipt_processor import get_receipt_processor
@@ -51,7 +52,7 @@ async def lifespan(app: FastAPI):
     logger.info("Starting scheduler for daily draws...")
     scheduler.add_job(
         run_scheduled_daily_draw,
-        CronTrigger(hour=19, minute=0),  # Run at 19:00 UTC = 21:00 SAST
+        CronTrigger(hour=19, minute=0, timezone=ZoneInfo("UTC")),  # 19:00 UTC = 21:00 SAST
         id='daily_draw',
         replace_existing=True
     )
@@ -348,12 +349,13 @@ async def run_scheduled_daily_draw():
             await wa.send_winner_notification(
                 winner_receipt["customer_phone"],
                 prize_amount,
-                today
+                today,
+                total_entries=len(receipts)
             )
             logger.info(f"Winner notification sent to {winner_receipt['customer_phone']}")
         except Exception as e:
             logger.error(f"Failed to notify winner: {e}")
-        
+
     except Exception as e:
         logger.error(f"Scheduled draw error: {e}")
 
@@ -362,12 +364,19 @@ async def run_scheduled_daily_draw():
 class CustomerCreate(BaseModel):
     phone_number: str
     name: Optional[str] = None
+    first_name: Optional[str] = None
+    surname: Optional[str] = None
 
 class Customer(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     phone_number: str
     name: Optional[str] = None
+    first_name: Optional[str] = None
+    surname: Optional[str] = None
+    registration_status: str = "unregistered"
+    invited_by: Optional[str] = None
+    invited_at: Optional[datetime] = None
     total_receipts: int = 0
     total_spent: float = 0.0
     total_wins: int = 0
@@ -1124,7 +1133,8 @@ async def run_daily_draw(draw_date: Optional[str] = None):
             await wa.send_winner_notification(
                 winner_receipt["customer_phone"],
                 prize_amount,
-                draw_date
+                draw_date,
+                total_entries=len(receipts)
             )
             logger.info(f"Winner notification sent to {winner_receipt['customer_phone']}")
         except Exception as e:
@@ -1385,6 +1395,8 @@ async def geocode_address_endpoint(address: str = None, shop_name: str = None):
 pending_receipts: Dict[str, Dict] = {}
 # customer_locations: pre-shared locations (if location sent before image)
 customer_locations: Dict[str, Dict] = {}
+# pending_registrations: customers mid-registration (phone -> step)
+pending_registrations: Dict[str, str] = {}
 
 @api_router.get("/whatsapp/webhook")
 async def verify_whatsapp_webhook(request_args: dict = None):
@@ -1447,7 +1459,52 @@ async def whatsapp_webhook(data: dict, background_tasks: BackgroundTasks):
     
     # Get or create customer
     customer = await get_or_create_customer(phone_number, contact_name)
-    
+
+    # Check registration status — block unregistered users from receipts
+    reg_status = customer.get("registration_status", "unregistered")
+
+    # If mid-registration, intercept text messages for name collection
+    if phone_number in pending_registrations and message_type == "text":
+        await handle_registration_step(phone_number, content.strip(), wa)
+        return {"status": "ok"}
+
+    # If unregistered, start or prompt registration (except for location which is ok)
+    if reg_status != "registered" and phone_number not in pending_registrations:
+        if message_type == "image":
+            # Block receipt upload until registered
+            await wa.send_text_message(
+                phone_number,
+                "Welcome to *KlpIT Retail Rewards*! 🎰\n\n"
+                "Before you can submit receipts, we need to register you.\n\n"
+                "What is your *first name*?"
+            )
+            pending_registrations[phone_number] = "pending_first_name"
+            return {"status": "ok"}
+        elif message_type == "text":
+            command = content.lower().strip()
+            # Allow HELP command for unregistered users
+            if command in ["help", "hi", "hello", "start", "menu", "join"]:
+                await wa.send_text_message(
+                    phone_number,
+                    "Welcome to *KlpIT Retail Rewards*! 🎰\n\n"
+                    "Let's get you registered first.\n\n"
+                    "What is your *first name*?"
+                )
+                pending_registrations[phone_number] = "pending_first_name"
+                return {"status": "ok"}
+            else:
+                # Treat any other text as start of registration
+                await wa.send_text_message(
+                    phone_number,
+                    "Welcome to *KlpIT Retail Rewards*! 🎰\n\n"
+                    "Let's get you registered first.\n\n"
+                    "What is your *first name*?"
+                )
+                pending_registrations[phone_number] = "pending_first_name"
+                return {"status": "ok"}
+
+    # === Registered users: normal flow ===
+
     # Handle different message types
     if message_type == "image" and media_id:
         # Step 1 of two-step flow: receive image → OCR → ask for location
@@ -1674,6 +1731,54 @@ async def finalise_receipt_with_location(
             "❌ Something went wrong saving your receipt. Please try again."
         )
 
+async def handle_registration_step(phone_number: str, text: str, wa):
+    """Handle registration conversation steps (first name, surname)"""
+    step = pending_registrations.get(phone_number)
+
+    if step == "pending_first_name":
+        # Validate: non-empty, letters only, reasonable length
+        name = text.strip()
+        if not name or len(name) < 2 or len(name) > 50:
+            await wa.send_text_message(phone_number, "Please enter a valid first name (2-50 characters).")
+            return
+        # Save first name
+        await db.customers_update_one(
+            {"phone_number": phone_number},
+            {"$set": {"first_name": name, "registration_status": "pending_surname"}}
+        )
+        pending_registrations[phone_number] = "pending_surname"
+        await wa.send_text_message(
+            phone_number,
+            f"Thanks *{name}*! Now, what is your *surname*?"
+        )
+
+    elif step == "pending_surname":
+        surname = text.strip()
+        if not surname or len(surname) < 2 or len(surname) > 50:
+            await wa.send_text_message(phone_number, "Please enter a valid surname (2-50 characters).")
+            return
+        # Save surname and mark as registered
+        customer = await db.customers_find_one({"phone_number": phone_number})
+        first_name = customer.get("first_name", "")
+        await db.customers_update_one(
+            {"phone_number": phone_number},
+            {"$set": {"surname": surname, "registration_status": "registered"}}
+        )
+        pending_registrations.pop(phone_number, None)
+        await wa.send_text_message(
+            phone_number,
+            f"You're all set, *{first_name} {surname}*! 🎉\n\n"
+            f"Welcome to KlpIT Retail Rewards! 🎰\n\n"
+            f"*How it works:*\n"
+            f"1️⃣ Send us a photo of your receipt\n"
+            f"2️⃣ Share your location 📍\n"
+            f"3️⃣ Enter the daily draw automatically!\n\n"
+            f"🏆 One lucky winner daily wins back their spend!\n\n"
+            f"_Send a receipt photo to get started!_"
+        )
+        logger.info(f"Customer registered: {first_name} {surname} ({phone_number})")
+
+
 async def handle_text_command(phone_number: str, command: str, wa):
     """Handle text commands from WhatsApp"""
     
@@ -1726,7 +1831,7 @@ async def handle_text_command(phone_number: str, command: str, wa):
             today_receipts = await db.receipts_count({
                 "created_at": {"$gte": f"{today}T00:00:00", "$lte": f"{today}T23:59:59"}
             })
-            msg = f"🎰 *Today's Draw Status*\n\n🎟️ Entries so far: {today_receipts}\n⏰ Draw time: Midnight UTC\n\nSend more receipts for more chances!"
+            msg = f"🎰 *Today's Draw Status*\n\n🎟️ Entries so far: {today_receipts}\n⏰ Draw time: 21:00 SAST\n\nSend more receipts for more chances!"
             await wa.send_text_message(phone_number, msg)
             
     elif command == "balance":
@@ -1784,6 +1889,77 @@ async def test_whatsapp_connection(phone_number: str):
     wa = get_whatsapp_client()
     result = await wa.send_text_message(phone_number, "🎰 Test message from Retail Rewards SA!")
     return result
+
+# --- Customer Invite Endpoints ---
+
+@api_router.get("/admin/invite")
+async def generate_invite_link(user: dict = Depends(require_admin)):
+    """Generate a WhatsApp invite QR code and link"""
+    import qrcode
+    import io
+    import urllib.parse
+
+    phone = os.environ.get("WHATSAPP_PHONE_NUMBER_ID_DISPLAY", "27655615874")
+    prefilled = "Hi I want to join KlpIT"
+    wa_link = f"https://wa.me/{phone}?text={urllib.parse.quote(prefilled)}"
+
+    # Generate QR code as base64 PNG
+    qr = qrcode.make(wa_link)
+    buffer = io.BytesIO()
+    qr.save(buffer, format="PNG")
+    qr_base64 = base64.b64encode(buffer.getvalue()).decode()
+
+    return {
+        "link": wa_link,
+        "qr_code": f"data:image/png;base64,{qr_base64}",
+        "phone": phone,
+        "prefilled_message": prefilled
+    }
+
+
+@api_router.post("/admin/invite/{phone_number}")
+async def invite_customer(phone_number: str, user: dict = Depends(require_admin)):
+    """Pre-register a customer and generate their personal invite link"""
+    import urllib.parse
+
+    # Normalize phone (remove +, spaces, dashes)
+    phone = re.sub(r'[\s\-+]', '', phone_number)
+
+    # Check if already exists
+    customer = await db.customers_find_one({"phone_number": phone})
+    if customer:
+        return {
+            "customer_phone": phone,
+            "status": customer.get("registration_status", "unregistered"),
+            "message": "Customer already exists"
+        }
+
+    # Pre-create customer record
+    customer_obj = Customer(
+        phone_number=phone,
+        registration_status="unregistered",
+        invited_by=user.get("email", "admin"),
+        invited_at=datetime.now(timezone.utc)
+    )
+    customer_dict = customer_obj.model_dump()
+    customer_dict['created_at'] = customer_dict['created_at'].isoformat()
+    customer_dict['invited_at'] = customer_dict['invited_at'].isoformat()
+    await db.customers_insert_one(customer_dict)
+
+    wa_link = f"https://wa.me/27655615874?text={urllib.parse.quote('Hi I want to join KlpIT')}"
+    return {
+        "customer_phone": phone,
+        "link": wa_link,
+        "status": "invited"
+    }
+
+
+@api_router.get("/admin/customers")
+async def list_customers(user: dict = Depends(require_admin)):
+    """List all customers with registration status"""
+    customers = await db.customers_find({}, sort=("created_at", -1), limit=100)
+    return {"customers": customers, "total": len(customers)}
+
 
 # --- Demo Data Endpoint ---
 

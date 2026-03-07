@@ -202,15 +202,20 @@ class WhatsAppCloudAPI:
             logger.error(f"❌ Media download error: {e}")
             return None
 
-    async def send_winner_notification(self, to: str, prize_amount: float, draw_date: str) -> Dict[str, Any]:
+    async def send_winner_notification(self, to: str, prize_amount: float, draw_date: str, total_entries: int = 0) -> Dict[str, Any]:
         """Send winner notification message"""
+        entries_line = f"\n🌟 _You beat {total_entries - 1} other entries!_ 🌟\n" if total_entries > 1 else ""
         message = (
-            f"🎉🎊 *CONGRATULATIONS!* 🎊🎉\n\n"
-            f"You've WON today's Retail Rewards draw!\n\n"
-            f"💰 *Prize: R{prize_amount:.2f}*\n"
-            f"📅 Draw Date: {draw_date}\n\n"
-            f"Your purchase has been refunded! 🎁\n\n"
-            f"Keep shopping and uploading receipts for more chances to win!"
+            f"🎉🎊🥳 *CONGRATULATIONS!* 🥳🎊🎉\n\n"
+            f"🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆\n\n"
+            f"*YOU ARE TODAY'S WINNER!* 🎯\n\n"
+            f"💰💰 *Prize: R{prize_amount:.2f}* 💰💰\n"
+            f"📅 Draw Date: {draw_date}\n"
+            f"{entries_line}\n"
+            f"🎁 Your purchase has been refunded! 🎁\n\n"
+            f"Keep shopping and uploading receipts\n"
+            f"for more chances to win! 🎰🍀\n\n"
+            f"🎊🎊🎊🎊🎊🎊🎊🎊🎊🎊"
         )
         return await self.send_text_message(to, message)
 
