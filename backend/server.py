@@ -1299,12 +1299,11 @@ async def get_customer_behavior(limit: int = 50, user: dict = Depends(require_ad
 @api_router.get("/customers/{phone_number}/spending")
 async def get_customer_spending(phone_number: str):
     """Get customer's personal spend analytics — monthly breakdown, shop split, summary"""
-    # Normalize: DB stores phone with + prefix, frontend may send without
-    if not phone_number.startswith("+"):
-        phone_number = f"+{phone_number}"
-    monthly = await db.get_customer_monthly_spend(phone_number)
-    shops = await db.get_customer_shop_spend(phone_number)
-    summary = await db.get_customer_spend_summary(phone_number)
+    # Receipts table stores customer_phone without + prefix
+    phone = phone_number.lstrip("+")
+    monthly = await db.get_customer_monthly_spend(phone)
+    shops = await db.get_customer_shop_spend(phone)
+    summary = await db.get_customer_spend_summary(phone)
 
     # Compute quarterly and yearly from monthly data
     quarterly = {}
