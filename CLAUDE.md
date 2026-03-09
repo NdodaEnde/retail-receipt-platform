@@ -138,10 +138,19 @@ Secrets (tokens, keys) live in `backend/.env` only — never committed.
 - ✅ Outbound WhatsApp working (production number +27 65 561 5874)
 - ✅ Two-step WhatsApp flow implemented (image → location → confirmation)
 - ✅ Multi-signal fraud detection (velocity, distance, duplicate)
-- ✅ Draw scheduler set to 21:00 SAST
+- ✅ Draw scheduler set to 21:00 SAST (explicit UTC timezone on CronTrigger)
 - ✅ Render deployment live (backend: klpit-api.onrender.com, frontend: klpit-web.onrender.com)
 - ✅ Meta WhatsApp webhook pointing to Render backend
 - ✅ Full end-to-end receipt flow verified in production (March 2026)
+- ✅ Admin auth (Supabase Auth, email/password)
+- ✅ Customer registration flow (first_name + surname via WhatsApp)
+- ✅ QR code invite system (`/admin/invite` page)
+- ✅ Winner confetti notifications with entry count
+- ✅ Sprint 1: Write-through cache for in-memory state (`pending_state` table)
+- ✅ Sprint 1: Basket analysis dashboard (4 views, 4 endpoints, BasketAnalytics page)
+- 🔲 Sprint 2: Loyalty tiers + streaks
+- 🔲 Sprint 3: Public winners page + winner broadcast + OCR date extraction
+- 🔲 Sprint 4: Rate limiting + duplicate image hashing + referral analytics
 - ❌ Qdrant semantic search disabled (re-enable with Qdrant Cloud later)
 
 ---
@@ -199,3 +208,57 @@ Before starting work in any session:
 - Check Meta webhook delivery logs (`Meta Developer Console → Webhooks → Recent Deliveries`)
 - Check Supabase logs for DB errors (`Supabase dashboard → Logs`)
 - Don't patch symptoms — find the root cause
+
+---
+
+## Customer Registration & Invites
+
+- Customers must register (first name + surname) before submitting receipts
+- Registration state machine: `unregistered` → `pending_first_name` → `pending_surname` → `registered`
+- State persisted in `pending_state` table (write-through cache)
+- Invite via QR code: `wa.me/{phone}?text=Hi` — customer-initiated, no Meta template needed
+- Admin page: `/admin/invite` — QR display, copy link, phone invite, customer list
+
+## State Persistence (Write-Through Cache)
+
+In-memory dicts (`pending_receipts`, `customer_locations`, `pending_registrations`) are backed by the `pending_state` Supabase table. On every write, both memory and DB are updated. On cache miss (e.g., after restart), the DB is checked. Expired rows cleaned every 30 minutes via APScheduler.
+
+TTLs: pending_receipt=15min, customer_location=60min, pending_registration=30min
+
+## Analytics Architecture
+
+- **Cross-table analytics use SQL views** — `database.py` can't do JOINs
+- Views created in Supabase SQL Editor, queried as `self.client.table('view_name').select('*')`
+- Current views: `daily_spending`, `shop_performance`, `customer_summary`, `fraud_analysis`, `hourly_distribution`, `top_items`, `item_pairs`, `basket_stats`, `customer_behavior`
+- Basket analytics: `/analytics/top-items`, `/analytics/item-pairs`, `/analytics/basket-stats`, `/analytics/customer-behavior`
+
+## Data Intelligence Strategy
+
+Full roadmap: `docs/DATA_INTELLIGENCE_ROADMAP.md`
+
+**Key principles:**
+1. **Users first, analytics second** — grow the user base before building intelligence products
+2. **SQL views over application code** — keep analytics in the database
+3. **Aggregate, anonymize, comply** — POPIA compliance before any B2B data play
+4. **SA context is the competitive moat** — township economies, SASSA grant cycles, informal retail
+5. **Simple rules before ML** — rule-based segmentation covers 80% of value
+6. **Item normalization is the bottleneck** — most product-level intelligence is blocked until OCR item names are standardized
+
+**Intelligence tiers by user volume:**
+| Users | Unlocked Intelligence |
+|-------|----------------------|
+| 50+ | Behavioral archetypes, day-of-week patterns, spend density heatmap |
+| 200+ | Item categorization, churn prediction, streak analytics |
+| 500+ | SASSA grant cycle impact, suburb-level economic indicators |
+| 1000+ | B2B data API, income proxy modeling, market share estimation |
+
+## Sprint Roadmap
+
+| Sprint | Theme | Status |
+|--------|-------|--------|
+| 1 | Reliability (write-through cache) + Basket Analysis | ✅ Complete |
+| 2 | Loyalty Tiers (computed) + Streaks (3 cols on customers) + WhatsApp `tier`/`streak` commands | 🔲 Next |
+| 3 | Public Winners Page + Winner Broadcast to all participants + OCR Date Extraction | 🔲 Planned |
+| 4 | Rate Limiting (slowapi) + Duplicate Image Hashing + Referral Analytics + UptimeRobot | 🔲 Planned |
+
+**Post-Sprint:** Phase 1 today-only draw (needs OCR date), points system (needs user data), B2B data API (needs volume)

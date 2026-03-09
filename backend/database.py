@@ -537,6 +537,42 @@ class Database:
         ).limit(limit).execute()
         return self._safe_get(result, [])
 
+    # ==================== CUSTOMER SPEND ANALYTICS ====================
+
+    async def get_customer_monthly_spend(self, phone_number: str) -> List[Dict]:
+        """Get monthly spend breakdown for a customer"""
+        try:
+            result = self.client.table('customer_monthly_spend').select('*').eq(
+                'customer_phone', phone_number
+            ).order('month', desc=True).limit(24).execute()
+            return self._safe_get(result, [])
+        except Exception as e:
+            logger.error(f"get_customer_monthly_spend error: {e}")
+            return []
+
+    async def get_customer_shop_spend(self, phone_number: str) -> List[Dict]:
+        """Get spend breakdown by shop for a customer"""
+        try:
+            result = self.client.table('customer_shop_spend').select('*').eq(
+                'customer_phone', phone_number
+            ).order('total_spent', desc=True).limit(20).execute()
+            return self._safe_get(result, [])
+        except Exception as e:
+            logger.error(f"get_customer_shop_spend error: {e}")
+            return []
+
+    async def get_customer_spend_summary(self, phone_number: str) -> Optional[Dict]:
+        """Get overall spend summary for a customer"""
+        try:
+            result = self.client.table('customer_spend_summary').select('*').eq(
+                'customer_phone', phone_number
+            ).limit(1).execute()
+            data = self._safe_get(result, [])
+            return data[0] if data else None
+        except Exception as e:
+            logger.error(f"get_customer_spend_summary error: {e}")
+            return None
+
     # ==================== IMAGE STORAGE ====================
     
     async def upload_receipt_image(self, receipt_id: str, image_base64: str,

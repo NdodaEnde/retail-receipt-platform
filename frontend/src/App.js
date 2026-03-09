@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Receipt, Map, Trophy, BarChart3, Home, Shield, FileText, LogOut, Lock, UserPlus, ShoppingCart } from "lucide-react";
+import { Receipt, Map, Trophy, BarChart3, Home, Shield, FileText, LogOut, Lock, UserPlus, ShoppingCart, Wallet } from "lucide-react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
@@ -15,6 +15,7 @@ import UploadReceipt from "./pages/UploadReceipt";
 import LoginPage from "./pages/LoginPage";
 import AdminInvite from "./pages/AdminInvite";
 import BasketAnalytics from "./pages/BasketAnalytics";
+import MySpending from "./pages/MySpending";
 import "./App.css";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -23,7 +24,7 @@ export const API = `${BACKEND_URL}/api`;
 const publicNavItems = [
   { path: "/", icon: Home, label: "Home" },
   { path: "/upload", icon: Receipt, label: "Upload" },
-  { path: "/dashboard", icon: Receipt, label: "Receipts" },
+  { path: "/spending", icon: Wallet, label: "Spending" },
   { path: "/map", icon: Map, label: "Map" },
   { path: "/draws", icon: Trophy, label: "Draws" },
 ];
@@ -104,6 +105,7 @@ function AnimatedRoutes() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/upload" element={<UploadReceipt />} />
           <Route path="/dashboard" element={<CustomerDashboard />} />
+          <Route path="/spending" element={<MySpending />} />
           <Route path="/map" element={<MapView />} />
           <Route path="/draws" element={<DrawsPage />} />
           <Route path="/login" element={<LoginPage />} />

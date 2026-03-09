@@ -1294,6 +1294,49 @@ async def get_customer_behavior(limit: int = 50, user: dict = Depends(require_ad
     behavior = await db.get_customer_behavior(limit=limit)
     return {"data": behavior, "total": len(behavior)}
 
+# ============== CUSTOMER SPEND ANALYTICS (public, phone-based) ==============
+
+@api_router.get("/customers/{phone_number}/spending")
+async def get_customer_spending(phone_number: str):
+    """Get customer's personal spend analytics — monthly breakdown, shop split, summary"""
+    monthly = await db.get_customer_monthly_spend(phone_number)
+    shops = await db.get_customer_shop_spend(phone_number)
+    summary = await db.get_customer_spend_summary(phone_number)
+
+    # Compute quarterly and yearly from monthly data
+    quarterly = {}
+    yearly = {}
+    for m in monthly:
+        month_str = m.get('month', '')
+        amount = float(m.get('total_spent', 0) or 0)
+        receipt_count = int(m.get('receipt_count', 0) or 0)
+        if len(month_str) >= 7:
+            year = month_str[:4]
+            month_num = int(month_str[5:7])
+            quarter = f"{year}-Q{(month_num - 1) // 3 + 1}"
+            if quarter not in quarterly:
+                quarterly[quarter] = {"quarter": quarter, "total_spent": 0, "receipt_count": 0}
+            quarterly[quarter]["total_spent"] += amount
+            quarterly[quarter]["receipt_count"] += receipt_count
+            if year not in yearly:
+                yearly[year] = {"year": year, "total_spent": 0, "receipt_count": 0}
+            yearly[year]["total_spent"] += amount
+            yearly[year]["receipt_count"] += receipt_count
+
+    # Round values
+    for q in quarterly.values():
+        q["total_spent"] = round(q["total_spent"], 2)
+    for y in yearly.values():
+        y["total_spent"] = round(y["total_spent"], 2)
+
+    return {
+        "summary": summary or {},
+        "monthly": monthly,
+        "quarterly": sorted(quarterly.values(), key=lambda x: x["quarter"], reverse=True),
+        "yearly": sorted(yearly.values(), key=lambda x: x["year"], reverse=True),
+        "shops": shops,
+    }
+
 # ============== GEOCODING ENDPOINTS ==============
 
 @api_router.post("/geocode/shop/{shop_id}")

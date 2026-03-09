@@ -294,6 +294,61 @@ FROM customers c LEFT JOIN receipts r ON c.id = r.customer_id AND r.status != 'r
 GROUP BY c.phone_number, c.first_name, c.surname, c.total_receipts, c.total_spent;
 
 -- ============================================
+-- CUSTOMER SPEND ANALYTICS VIEWS
+-- ============================================
+
+-- Monthly spend per customer
+CREATE OR REPLACE VIEW customer_monthly_spend AS
+SELECT
+    r.customer_phone,
+    TO_CHAR(r.created_at, 'YYYY-MM') AS month,
+    COUNT(*) AS receipt_count,
+    SUM(r.amount) AS total_spent,
+    AVG(r.amount) AS avg_receipt,
+    COUNT(DISTINCT r.shop_name) AS unique_shops
+FROM receipts r
+WHERE r.status != 'rejected'
+GROUP BY r.customer_phone, TO_CHAR(r.created_at, 'YYYY-MM')
+ORDER BY r.customer_phone, month DESC;
+
+-- Spend by shop per customer
+CREATE OR REPLACE VIEW customer_shop_spend AS
+SELECT
+    r.customer_phone,
+    r.shop_name,
+    COUNT(*) AS receipt_count,
+    SUM(r.amount) AS total_spent,
+    AVG(r.amount) AS avg_receipt,
+    MAX(r.created_at) AS last_visit
+FROM receipts r
+WHERE r.status != 'rejected'
+GROUP BY r.customer_phone, r.shop_name
+ORDER BY r.customer_phone, total_spent DESC;
+
+-- Overall spend summary per customer (with period breakdowns)
+CREATE OR REPLACE VIEW customer_spend_summary AS
+SELECT
+    r.customer_phone,
+    COUNT(*) AS total_receipts,
+    SUM(r.amount) AS total_spent,
+    AVG(r.amount) AS avg_receipt,
+    MIN(r.amount) AS min_receipt,
+    MAX(r.amount) AS max_receipt,
+    COUNT(DISTINCT r.shop_name) AS unique_shops,
+    COUNT(DISTINCT DATE(r.created_at)) AS active_days,
+    MIN(r.created_at) AS first_receipt,
+    MAX(r.created_at) AS last_receipt,
+    -- Current month
+    SUM(CASE WHEN TO_CHAR(r.created_at, 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN r.amount ELSE 0 END) AS this_month_spent,
+    COUNT(CASE WHEN TO_CHAR(r.created_at, 'YYYY-MM') = TO_CHAR(NOW(), 'YYYY-MM') THEN 1 END) AS this_month_receipts,
+    -- Current year
+    SUM(CASE WHEN EXTRACT(YEAR FROM r.created_at) = EXTRACT(YEAR FROM NOW()) THEN r.amount ELSE 0 END) AS this_year_spent,
+    COUNT(CASE WHEN EXTRACT(YEAR FROM r.created_at) = EXTRACT(YEAR FROM NOW()) THEN 1 END) AS this_year_receipts
+FROM receipts r
+WHERE r.status != 'rejected'
+GROUP BY r.customer_phone;
+
+-- ============================================
 -- ROW LEVEL SECURITY (Optional - for future)
 -- ============================================
 
