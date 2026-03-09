@@ -221,42 +221,44 @@ export default function MySpending() {
             </TabsList>
 
             {/* Trends Tab */}
-            <TabsContent value="trends">
+            <TabsContent value="trends" forceMount className="data-[state=inactive]:hidden">
               <Card className="glass border-white/10">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <TrendingUp className="w-5 h-5 text-primary" />
-                    Monthly Spending
+                    Monthly Spending ({monthlyChart.length} months)
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {monthlyChart.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">No spending data yet</p>
                   ) : (
-                    <ResponsiveContainer width="100%" height={300}>
-                      <AreaChart data={monthlyChart} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="spendGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="hsl(265, 89%, 66%)" stopOpacity={0.4} />
-                            <stop offset="95%" stopColor="hsl(265, 89%, 66%)" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                        <XAxis dataKey="month" stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 11 }} />
-                        <YAxis stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 11 }}
-                          tickFormatter={(v) => `R${v}`} />
-                        <Tooltip
-                          contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
-                          formatter={(value, name) => {
-                            if (name === 'spent') return [`R${Number(value).toFixed(2)}`, 'Total Spent'];
-                            if (name === 'receipts') return [value, 'Receipts'];
-                            return [value, name];
-                          }}
-                        />
-                        <Area type="monotone" dataKey="spent" stroke="hsl(265, 89%, 66%)"
-                          fill="url(#spendGradient)" strokeWidth={2} />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                    <div style={{ width: '100%', height: 300 }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={monthlyChart} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="spendGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="hsl(265, 89%, 66%)" stopOpacity={0.4} />
+                              <stop offset="95%" stopColor="hsl(265, 89%, 66%)" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                          <XAxis dataKey="month" stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 11 }} />
+                          <YAxis stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 11 }}
+                            tickFormatter={(v) => `R${v}`} />
+                          <Tooltip
+                            contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                            formatter={(value, name) => {
+                              if (name === 'spent') return [`R${Number(value).toFixed(2)}`, 'Total Spent'];
+                              if (name === 'receipts') return [value, 'Receipts'];
+                              return [value, name];
+                            }}
+                          />
+                          <Area type="monotone" dataKey="spent" stroke="hsl(265, 89%, 66%)"
+                            fill="url(#spendGradient)" strokeWidth={2} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -286,36 +288,38 @@ export default function MySpending() {
             </TabsContent>
 
             {/* Shops Tab */}
-            <TabsContent value="shops">
+            <TabsContent value="shops" forceMount className="data-[state=inactive]:hidden">
               <div className="grid md:grid-cols-2 gap-4">
                 {/* Pie Chart */}
                 <Card className="glass border-white/10">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <PieChart className="w-5 h-5 text-primary" />
-                      Spend by Shop
+                      Spend by Shop ({shops.length} shops)
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     {pieData.length === 0 ? (
                       <p className="text-muted-foreground text-center py-8">No shop data</p>
                     ) : (
-                      <ResponsiveContainer width="100%" height={280}>
-                        <RechartsPie>
-                          <Pie data={pieData} cx="50%" cy="50%" outerRadius={100} innerRadius={50}
-                            dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                            labelLine={{ stroke: 'rgba(255,255,255,0.3)' }}
-                          >
-                            {pieData.map((_, i) => (
-                              <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
-                            formatter={(value) => [`R${Number(value).toFixed(2)}`, 'Spent']}
-                          />
-                        </RechartsPie>
-                      </ResponsiveContainer>
+                      <div style={{ width: '100%', height: 280 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RechartsPie>
+                            <Pie data={pieData} cx="50%" cy="50%" outerRadius={100} innerRadius={50}
+                              dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              labelLine={{ stroke: 'rgba(255,255,255,0.3)' }}
+                            >
+                              {pieData.map((_, i) => (
+                                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                              formatter={(value) => [`R${Number(value).toFixed(2)}`, 'Spent']}
+                            />
+                          </RechartsPie>
+                        </ResponsiveContainer>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -353,7 +357,7 @@ export default function MySpending() {
             </TabsContent>
 
             {/* Receipt Wallet Tab */}
-            <TabsContent value="receipts">
+            <TabsContent value="receipts" forceMount className="data-[state=inactive]:hidden">
               <Card className="glass border-white/10">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
