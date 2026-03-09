@@ -241,6 +241,59 @@ GROUP BY EXTRACT(HOUR FROM created_at)
 ORDER BY hour;
 
 -- ============================================
+-- PENDING STATE TABLE (write-through cache)
+-- ============================================
+CREATE TABLE pending_state (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    state_type VARCHAR(30) NOT NULL,
+    phone_number VARCHAR(20) NOT NULL,
+    data JSONB NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX idx_pending_state_type_phone ON pending_state(state_type, phone_number);
+CREATE INDEX idx_pending_state_expires ON pending_state(expires_at);
+
+-- ============================================
+-- BASKET ANALYTICS VIEWS
+-- ============================================
+
+-- Top items by frequency
+CREATE VIEW top_items AS
+SELECT UPPER(TRIM(name)) AS item_name, COUNT(*) AS frequency,
+       SUM(quantity) AS total_qty, AVG(unit_price) AS avg_price,
+       MIN(unit_price) AS min_price, MAX(unit_price) AS max_price
+FROM receipt_items ri JOIN receipts r ON ri.receipt_id = r.id
+WHERE r.status != 'rejected'
+GROUP BY UPPER(TRIM(name)) ORDER BY frequency DESC;
+
+-- Items frequently bought together
+CREATE VIEW item_pairs AS
+SELECT LEAST(UPPER(TRIM(a.name)), UPPER(TRIM(b.name))) AS item_a,
+       GREATEST(UPPER(TRIM(a.name)), UPPER(TRIM(b.name))) AS item_b,
+       COUNT(DISTINCT a.receipt_id) AS co_occurrence
+FROM receipt_items a JOIN receipt_items b ON a.receipt_id = b.receipt_id AND a.id < b.id
+JOIN receipts r ON a.receipt_id = r.id WHERE r.status != 'rejected'
+GROUP BY 1, 2 HAVING COUNT(DISTINCT a.receipt_id) >= 2 ORDER BY co_occurrence DESC;
+
+-- Basket size stats per receipt
+CREATE VIEW basket_stats AS
+SELECT r.id, r.shop_name, r.amount, r.created_at,
+       COUNT(ri.id) AS item_count, AVG(ri.unit_price) AS avg_item_price
+FROM receipts r LEFT JOIN receipt_items ri ON r.id = ri.receipt_id
+WHERE r.status != 'rejected' GROUP BY r.id, r.shop_name, r.amount, r.created_at;
+
+-- Customer shopping behavior
+CREATE VIEW customer_behavior AS
+SELECT c.phone_number, c.first_name, c.surname, c.total_receipts, c.total_spent,
+       CASE WHEN c.total_receipts > 0 THEN c.total_spent / c.total_receipts ELSE 0 END AS avg_basket,
+       COUNT(DISTINCT r.shop_name) AS unique_shops,
+       COUNT(DISTINCT DATE(r.created_at)) AS active_days
+FROM customers c LEFT JOIN receipts r ON c.id = r.customer_id AND r.status != 'rejected'
+GROUP BY c.phone_number, c.first_name, c.surname, c.total_receipts, c.total_spent;
+
+-- ============================================
 -- ROW LEVEL SECURITY (Optional - for future)
 -- ============================================
 

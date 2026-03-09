@@ -461,6 +461,82 @@ class Database:
         result = self.client.table('hourly_distribution').select('*').execute()
         return self._safe_get(result, [])
     
+    # ==================== PENDING STATE (write-through cache) ====================
+
+    async def pending_state_upsert(self, state_type: str, phone_number: str, data: dict, ttl_minutes: int = 15):
+        """Upsert a pending state record (replace if exists for same type+phone)"""
+        try:
+            expires_at = (datetime.now(timezone.utc) + __import__('datetime').timedelta(minutes=ttl_minutes)).isoformat()
+            # Delete existing first (upsert by type+phone)
+            self.client.table('pending_state').delete().eq('state_type', state_type).eq('phone_number', phone_number).execute()
+            # Insert new
+            import json as _json
+            self.client.table('pending_state').insert({
+                'id': str(uuid.uuid4()),
+                'state_type': state_type,
+                'phone_number': phone_number,
+                'data': _json.loads(_json.dumps(data, default=str)),
+                'expires_at': expires_at
+            }).execute()
+        except Exception as e:
+            logger.error(f"pending_state_upsert error: {e}")
+
+    async def pending_state_get(self, state_type: str, phone_number: str) -> Optional[Dict]:
+        """Get a pending state record (returns data JSONB or None)"""
+        try:
+            result = self.client.table('pending_state').select('data').eq(
+                'state_type', state_type
+            ).eq('phone_number', phone_number).gt(
+                'expires_at', datetime.now(timezone.utc).isoformat()
+            ).limit(1).execute()
+            data = self._safe_get(result, [])
+            return data[0]['data'] if data else None
+        except Exception as e:
+            logger.error(f"pending_state_get error: {e}")
+            return None
+
+    async def pending_state_delete(self, state_type: str, phone_number: str):
+        """Delete a pending state record"""
+        try:
+            self.client.table('pending_state').delete().eq(
+                'state_type', state_type
+            ).eq('phone_number', phone_number).execute()
+        except Exception as e:
+            logger.error(f"pending_state_delete error: {e}")
+
+    async def pending_state_cleanup(self):
+        """Delete all expired pending state records"""
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            self.client.table('pending_state').delete().lt('expires_at', now).execute()
+            logger.info("Cleaned up expired pending state records")
+        except Exception as e:
+            logger.error(f"pending_state_cleanup error: {e}")
+
+    # ==================== BASKET ANALYTICS (SQL views) ====================
+
+    async def get_top_items(self, limit: int = 20) -> List[Dict]:
+        """Get top items by frequency from top_items view"""
+        result = self.client.table('top_items').select('*').limit(limit).execute()
+        return self._safe_get(result, [])
+
+    async def get_item_pairs(self, limit: int = 20) -> List[Dict]:
+        """Get frequently bought together item pairs from item_pairs view"""
+        result = self.client.table('item_pairs').select('*').limit(limit).execute()
+        return self._safe_get(result, [])
+
+    async def get_basket_stats(self) -> List[Dict]:
+        """Get basket size stats from basket_stats view"""
+        result = self.client.table('basket_stats').select('*').limit(1000).execute()
+        return self._safe_get(result, [])
+
+    async def get_customer_behavior(self, limit: int = 50) -> List[Dict]:
+        """Get customer shopping behavior from customer_behavior view"""
+        result = self.client.table('customer_behavior').select('*').order(
+            'total_spent', desc=True
+        ).limit(limit).execute()
+        return self._safe_get(result, [])
+
     # ==================== IMAGE STORAGE ====================
     
     async def upload_receipt_image(self, receipt_id: str, image_base64: str,

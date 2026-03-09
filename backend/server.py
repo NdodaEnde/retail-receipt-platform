@@ -56,8 +56,14 @@ async def lifespan(app: FastAPI):
         id='daily_draw',
         replace_existing=True
     )
+    scheduler.add_job(
+        lambda: asyncio.ensure_future(db.pending_state_cleanup()),
+        CronTrigger(minute='*/30', timezone=ZoneInfo("UTC")),
+        id='cleanup_pending_state',
+        replace_existing=True
+    )
     scheduler.start()
-    logger.info("Scheduler started - daily draw at 19:00 UTC (21:00 SAST)")
+    logger.info("Scheduler started - daily draw at 19:00 UTC (21:00 SAST), pending state cleanup every 30 min")
     logger.info("✅ Using Supabase (PostgreSQL) database")
     yield
     # Shutdown
@@ -1252,6 +1258,42 @@ async def get_spending_by_shop(limit: int = 10, user: dict = Depends(require_adm
     shops = await db.shops_find({}, sort=("total_sales", -1), limit=limit)
     return {"data": [{"shop": s.get("name"), "total_spent": float(s.get("total_sales", 0) or 0), "receipt_count": s.get("receipt_count", 0)} for s in shops]}
 
+# ============== BASKET ANALYTICS ENDPOINTS ==============
+
+@api_router.get("/analytics/top-items")
+async def get_top_items(limit: int = 20, user: dict = Depends(require_admin)):
+    """Get top items by purchase frequency"""
+    items = await db.get_top_items(limit=limit)
+    return {"data": items, "total": len(items)}
+
+@api_router.get("/analytics/item-pairs")
+async def get_item_pairs(limit: int = 20, user: dict = Depends(require_admin)):
+    """Get frequently bought together item pairs"""
+    pairs = await db.get_item_pairs(limit=limit)
+    return {"data": pairs, "total": len(pairs)}
+
+@api_router.get("/analytics/basket-stats")
+async def get_basket_stats(user: dict = Depends(require_admin)):
+    """Get basket size statistics"""
+    baskets = await db.get_basket_stats()
+    if not baskets:
+        return {"avg_basket_size": 0, "avg_item_count": 0, "avg_item_price": 0, "total_baskets": 0}
+    avg_item_count = sum(float(b.get('item_count', 0) or 0) for b in baskets) / len(baskets)
+    avg_basket_size = sum(float(b.get('amount', 0) or 0) for b in baskets) / len(baskets)
+    avg_item_price = sum(float(b.get('avg_item_price', 0) or 0) for b in baskets if b.get('avg_item_price')) / max(1, sum(1 for b in baskets if b.get('avg_item_price')))
+    return {
+        "avg_basket_size": round(avg_basket_size, 2),
+        "avg_item_count": round(avg_item_count, 1),
+        "avg_item_price": round(avg_item_price, 2),
+        "total_baskets": len(baskets)
+    }
+
+@api_router.get("/analytics/customer-behavior")
+async def get_customer_behavior(limit: int = 50, user: dict = Depends(require_admin)):
+    """Get customer shopping behavior metrics"""
+    behavior = await db.get_customer_behavior(limit=limit)
+    return {"data": behavior, "total": len(behavior)}
+
 # ============== GEOCODING ENDPOINTS ==============
 
 @api_router.post("/geocode/shop/{shop_id}")
@@ -1390,13 +1432,66 @@ async def geocode_address_endpoint(address: str = None, shop_name: str = None):
 
 # --- WhatsApp Cloud API Webhook Endpoints ---
 
-# In-memory state for two-step receipt flow
-# pending_receipts: receipts that have been OCR'd but awaiting location
+# In-memory state for two-step receipt flow (write-through cache to Supabase)
+# In-memory dicts are hot cache; DB is durable store (survives restarts)
 pending_receipts: Dict[str, Dict] = {}
-# customer_locations: pre-shared locations (if location sent before image)
 customer_locations: Dict[str, Dict] = {}
-# pending_registrations: customers mid-registration (phone -> step)
 pending_registrations: Dict[str, str] = {}
+
+# --- Write-through cache helpers ---
+
+async def cache_set_pending_receipt(phone: str, data: dict):
+    pending_receipts[phone] = data
+    await db.pending_state_upsert("pending_receipt", phone, data, ttl_minutes=15)
+
+async def cache_get_pending_receipt(phone: str) -> Optional[dict]:
+    if phone in pending_receipts:
+        return pending_receipts[phone]
+    data = await db.pending_state_get("pending_receipt", phone)
+    if data:
+        pending_receipts[phone] = data
+    return data
+
+async def cache_pop_pending_receipt(phone: str) -> Optional[dict]:
+    data = pending_receipts.pop(phone, None)
+    if not data:
+        data = await db.pending_state_get("pending_receipt", phone)
+    await db.pending_state_delete("pending_receipt", phone)
+    return data
+
+async def cache_set_customer_location(phone: str, data: dict):
+    customer_locations[phone] = data
+    await db.pending_state_upsert("customer_location", phone, data, ttl_minutes=60)
+
+async def cache_pop_customer_location(phone: str) -> Optional[dict]:
+    data = customer_locations.pop(phone, None)
+    if not data:
+        data = await db.pending_state_get("customer_location", phone)
+    await db.pending_state_delete("customer_location", phone)
+    return data
+
+async def cache_set_pending_registration(phone: str, step: str):
+    pending_registrations[phone] = step
+    await db.pending_state_upsert("pending_registration", phone, {"step": step}, ttl_minutes=30)
+
+async def cache_get_pending_registration(phone: str) -> Optional[str]:
+    if phone in pending_registrations:
+        return pending_registrations[phone]
+    data = await db.pending_state_get("pending_registration", phone)
+    if data:
+        step = data.get("step", "")
+        pending_registrations[phone] = step
+        return step
+    return None
+
+async def cache_pop_pending_registration(phone: str):
+    pending_registrations.pop(phone, None)
+    await db.pending_state_delete("pending_registration", phone)
+
+async def cache_has_pending_registration(phone: str) -> bool:
+    if phone in pending_registrations:
+        return True
+    return await cache_get_pending_registration(phone) is not None
 
 @api_router.get("/whatsapp/webhook")
 async def verify_whatsapp_webhook(request_args: dict = None):
@@ -1464,12 +1559,12 @@ async def whatsapp_webhook(data: dict, background_tasks: BackgroundTasks):
     reg_status = customer.get("registration_status", "unregistered")
 
     # If mid-registration, intercept text messages for name collection
-    if phone_number in pending_registrations and message_type == "text":
+    if await cache_has_pending_registration(phone_number) and message_type == "text":
         await handle_registration_step(phone_number, content.strip(), wa)
         return {"status": "ok"}
 
     # If unregistered, start or prompt registration (except for location which is ok)
-    if reg_status != "registered" and phone_number not in pending_registrations:
+    if reg_status != "registered" and not await cache_has_pending_registration(phone_number):
         if message_type == "image":
             # Block receipt upload until registered
             await wa.send_text_message(
@@ -1478,7 +1573,7 @@ async def whatsapp_webhook(data: dict, background_tasks: BackgroundTasks):
                 "Before you can submit receipts, we need to register you.\n\n"
                 "What is your *first name*?"
             )
-            pending_registrations[phone_number] = "pending_first_name"
+            await cache_set_pending_registration(phone_number, "pending_first_name")
             return {"status": "ok"}
         elif message_type == "text":
             command = content.lower().strip()
@@ -1490,7 +1585,7 @@ async def whatsapp_webhook(data: dict, background_tasks: BackgroundTasks):
                     "Let's get you registered first.\n\n"
                     "What is your *first name*?"
                 )
-                pending_registrations[phone_number] = "pending_first_name"
+                await cache_set_pending_registration(phone_number, "pending_first_name")
                 return {"status": "ok"}
             else:
                 # Treat any other text as start of registration
@@ -1500,7 +1595,7 @@ async def whatsapp_webhook(data: dict, background_tasks: BackgroundTasks):
                     "Let's get you registered first.\n\n"
                     "What is your *first name*?"
                 )
-                pending_registrations[phone_number] = "pending_first_name"
+                await cache_set_pending_registration(phone_number, "pending_first_name")
                 return {"status": "ok"}
 
     # === Registered users: normal flow ===
@@ -1519,19 +1614,19 @@ async def whatsapp_webhook(data: dict, background_tasks: BackgroundTasks):
         lon = location["longitude"]
 
         # Check if there's a pending receipt awaiting location (Step 2)
-        if phone_number in pending_receipts:
-            pending = pending_receipts.pop(phone_number)
+        pending = await cache_pop_pending_receipt(phone_number)
+        if pending:
             background_tasks.add_task(
                 finalise_receipt_with_location,
                 phone_number, pending, lat, lon, customer
             )
         else:
             # Location sent before image — store for later
-            customer_locations[phone_number] = {
+            await cache_set_customer_location(phone_number, {
                 "latitude": lat,
                 "longitude": lon,
                 "timestamp": datetime.now(timezone.utc).isoformat()
-            }
+            })
             await wa.send_text_message(
                 phone_number,
                 f"📍 Location saved! Now send your receipt photo."
@@ -1595,7 +1690,7 @@ async def process_receipt_from_whatsapp(phone_number: str, media_id: str, mime_t
         }
 
         # Check if customer already shared location before sending the image
-        stored_location = customer_locations.pop(phone_number, None)
+        stored_location = await cache_pop_customer_location(phone_number)
         if stored_location:
             # Location was pre-shared — finalise immediately
             await finalise_receipt_with_location(
@@ -1605,7 +1700,7 @@ async def process_receipt_from_whatsapp(phone_number: str, media_id: str, mime_t
             )
         else:
             # Store as pending and ask for location (Step 2)
-            pending_receipts[phone_number] = pending_data
+            await cache_set_pending_receipt(phone_number, pending_data)
             await wa.send_location_request(
                 phone_number,
                 f"✅ Receipt from *{shop_name or 'shop'}* (R{amount:.2f}) processed!\n\n"
@@ -1733,7 +1828,7 @@ async def finalise_receipt_with_location(
 
 async def handle_registration_step(phone_number: str, text: str, wa):
     """Handle registration conversation steps (first name, surname)"""
-    step = pending_registrations.get(phone_number)
+    step = await cache_get_pending_registration(phone_number)
 
     if step == "pending_first_name":
         # Validate: non-empty, letters only, reasonable length
@@ -1746,7 +1841,7 @@ async def handle_registration_step(phone_number: str, text: str, wa):
             {"phone_number": phone_number},
             {"$set": {"first_name": name, "registration_status": "pending_surname"}}
         )
-        pending_registrations[phone_number] = "pending_surname"
+        await cache_set_pending_registration(phone_number, "pending_surname")
         await wa.send_text_message(
             phone_number,
             f"Thanks *{name}*! Now, what is your *surname*?"
@@ -1764,7 +1859,7 @@ async def handle_registration_step(phone_number: str, text: str, wa):
             {"phone_number": phone_number},
             {"$set": {"surname": surname, "registration_status": "registered"}}
         )
-        pending_registrations.pop(phone_number, None)
+        await cache_pop_pending_registration(phone_number)
         await wa.send_text_message(
             phone_number,
             f"You're all set, *{first_name} {surname}*! 🎉\n\n"
