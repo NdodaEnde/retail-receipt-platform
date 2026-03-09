@@ -180,7 +180,39 @@ Access tokens and API keys are in `backend/.env` only.
 
 ## Development Workflow
 
-**Rule: Task → Verify → Proceed. Never move to the next step until the current one is confirmed working.**
+### Golden Rule
+**NEVER push code that hasn't been locally verified. Task → Verify → Proceed. No exceptions.**
+
+### Feature Development Cycle
+
+| Phase | Action | Must Pass |
+|-------|--------|-----------|
+| 1. Plan | Identify files to change, SQL views needed | — |
+| 2. Backend | Add DB methods, endpoints, test with curl | `curl localhost:8000/api/...` returns correct data |
+| 3. Frontend | Build UI, connect to API | Page renders, data displays, no console errors |
+| 4. Verify | Run `/verify-feature` checklist | All checks green |
+| 5. Commit | `git add` specific files, commit | `git status` clean |
+| 6. Push | `git push` to trigger Render deploy | Render build succeeds |
+| 7. Production | Test on live URL | Feature works on klpit-web.onrender.com |
+
+**If any phase fails → fix before proceeding. Never skip verification.**
+
+### Phone Number Normalization
+
+| Source | Format | Example |
+|--------|--------|---------|
+| `customers` table | With `+` prefix | `+27769695462` |
+| `receipts` table | Without `+` prefix | `27769695462` |
+| Frontend input | User enters `076...` | Converted to `27769695462` |
+| WhatsApp API | Without `+` prefix | `27769695462` |
+
+**Every endpoint accepting a phone parameter MUST handle both formats.** Standard pattern:
+```python
+phone = phone_number.lstrip("+")  # Strip + for receipts table queries
+```
+
+### SQL View Development
+Use `/add-sql-view` command for the full workflow: SQL → migration → database.py → server.py → frontend.
 
 ### Deployment Sequence (in order)
 
@@ -196,6 +228,18 @@ Access tokens and API keys are in `backend/.env` only.
 | 8 | Render frontend deployed | Web app loads at Render URL, can reach backend |
 | 9 | Meta webhook updated | Send test message to production number → webhook logs show it arriving |
 | 10 | Full production test | Real receipt photo → real confirmation → receipt visible in admin |
+
+### Available Commands
+
+| Command | Purpose |
+|---------|---------|
+| `/sprint-status` | Show sprint progress and what's next |
+| `/verify-feature` | Mandatory pre-push verification checklist |
+| `/add-sql-view` | Full-stack SQL view creation workflow |
+| `/check-supabase` | Verify Supabase tables and row counts |
+| `/test-whatsapp` | Test WhatsApp message delivery |
+| `/deploy-render` | Render deployment walkthrough |
+| `/seed` | Seed DB with demo data for testing |
 
 ### Session Startup Checklist
 Before starting work in any session:
