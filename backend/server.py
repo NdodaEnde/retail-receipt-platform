@@ -873,14 +873,25 @@ async def upload_receipt(
     return {"success": True, "receipt": response_receipt}
 
 @api_router.get("/receipts/customer/{phone_number}")
-async def get_customer_receipts(phone_number: str, skip: int = 0, limit: int = 50):
+async def get_customer_receipts(phone_number: str, skip: int = 0, limit: int = 50, include_items: bool = False):
     receipts = await db.receipts_find(
         {"customer_phone": phone_number},
         sort=("created_at", -1),
-        skip=skip, 
+        skip=skip,
         limit=limit
     )
     total = await db.receipts_count({"customer_phone": phone_number})
+
+    if include_items and receipts:
+        for r in receipts:
+            try:
+                items_result = db.client.table('receipt_items').select(
+                    'name,quantity,total_price'
+                ).eq('receipt_id', r['id']).execute()
+                r['items'] = db._safe_get(items_result, [])
+            except Exception:
+                r['items'] = []
+
     return {"receipts": receipts, "total": total}
 
 @api_router.get("/receipts/{receipt_id}")
@@ -1337,6 +1348,29 @@ async def get_customer_spending(phone_number: str):
         "quarterly": sorted(quarterly.values(), key=lambda x: x["quarter"], reverse=True),
         "yearly": sorted(yearly.values(), key=lambda x: x["year"], reverse=True),
         "shops": shops,
+    }
+
+# ============== CUSTOMER ITEM ANALYTICS (public, phone-based) ==============
+
+@api_router.get("/customers/{phone_number}/items")
+async def get_customer_items(phone_number: str):
+    """Get customer's item-level analytics — top items, monthly item breakdown"""
+    phone = phone_number.lstrip("+")
+    top_items = await db.get_customer_top_items(phone)
+    item_monthly = await db.get_customer_item_monthly(phone)
+
+    total_unique_items = len(top_items)
+    total_item_spend = sum(float(i.get('total_spent', 0) or 0) for i in top_items)
+    total_purchases = sum(int(i.get('purchase_count', 0) or 0) for i in top_items)
+
+    return {
+        "summary": {
+            "unique_items": total_unique_items,
+            "total_item_spend": round(total_item_spend, 2),
+            "total_purchases": total_purchases,
+        },
+        "top_items": top_items,
+        "item_monthly": item_monthly,
     }
 
 # ============== GEOCODING ENDPOINTS ==============

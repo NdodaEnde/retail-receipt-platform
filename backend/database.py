@@ -573,6 +573,30 @@ class Database:
             logger.error(f"get_customer_spend_summary error: {e}")
             return None
 
+    # ==================== CUSTOMER ITEM ANALYTICS ====================
+
+    async def get_customer_top_items(self, phone_number: str, limit: int = 50) -> List[Dict]:
+        """Get top items by spend for a customer"""
+        try:
+            result = self.client.table('customer_top_items').select('*').eq(
+                'customer_phone', phone_number
+            ).order('total_spent', desc=True).limit(limit).execute()
+            return self._safe_get(result, [])
+        except Exception as e:
+            logger.error(f"get_customer_top_items error: {e}")
+            return []
+
+    async def get_customer_item_monthly(self, phone_number: str, limit: int = 500) -> List[Dict]:
+        """Get monthly item breakdown for a customer"""
+        try:
+            result = self.client.table('customer_item_monthly').select('*').eq(
+                'customer_phone', phone_number
+            ).order('month', desc=True).limit(limit).execute()
+            return self._safe_get(result, [])
+        except Exception as e:
+            logger.error(f"get_customer_item_monthly error: {e}")
+            return []
+
     # ==================== IMAGE STORAGE ====================
     
     async def upload_receipt_image(self, receipt_id: str, image_base64: str,

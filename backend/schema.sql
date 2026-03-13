@@ -349,6 +349,40 @@ WHERE r.status != 'rejected'
 GROUP BY r.customer_phone;
 
 -- ============================================
+-- CUSTOMER ITEM ANALYTICS VIEWS
+-- ============================================
+
+-- Per-customer item aggregates (top items by spend)
+CREATE OR REPLACE VIEW customer_top_items AS
+SELECT
+    r.customer_phone,
+    UPPER(TRIM(ri.name)) AS item_name,
+    COUNT(*) AS purchase_count,
+    SUM(ri.quantity) AS total_qty,
+    SUM(ri.total_price) AS total_spent,
+    AVG(ri.unit_price) AS avg_price,
+    MAX(r.created_at) AS last_purchased,
+    COUNT(DISTINCT r.shop_name) AS shops_selling
+FROM receipt_items ri
+JOIN receipts r ON ri.receipt_id = r.id
+WHERE r.status != 'rejected'
+GROUP BY r.customer_phone, UPPER(TRIM(ri.name));
+
+-- Per-customer items by month (for period filtering)
+CREATE OR REPLACE VIEW customer_item_monthly AS
+SELECT
+    r.customer_phone,
+    TO_CHAR(r.created_at, 'YYYY-MM') AS month,
+    UPPER(TRIM(ri.name)) AS item_name,
+    COUNT(*) AS purchase_count,
+    SUM(ri.quantity) AS total_qty,
+    SUM(ri.total_price) AS total_spent
+FROM receipt_items ri
+JOIN receipts r ON ri.receipt_id = r.id
+WHERE r.status != 'rejected'
+GROUP BY r.customer_phone, TO_CHAR(r.created_at, 'YYYY-MM'), UPPER(TRIM(ri.name));
+
+-- ============================================
 -- ROW LEVEL SECURITY (Optional - for future)
 -- ============================================
 
