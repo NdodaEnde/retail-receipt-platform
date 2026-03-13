@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -48,8 +48,10 @@ export default function MySpending() {
   const [searchShop, setSearchShop] = useState("");
   const [searchItem, setSearchItem] = useState("");
   const [itemPeriod, setItemPeriod] = useState("all");
+  const [itemSort, setItemSort] = useState("spent"); // "spent", "count", "name"
   const [receiptDetail, setReceiptDetail] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const itemListRef = useRef(null);
 
   const formatPhoneNumber = (num) => {
     let cleaned = num.replace(/\D/g, "");
@@ -157,8 +159,22 @@ export default function MySpending() {
     if (searchItem) {
       items = items.filter(i => i.item_name.toLowerCase().includes(searchItem.toLowerCase()));
     }
+
+    // Apply sort
+    if (itemSort === "count") {
+      items = [...items].sort((a, b) => b.purchase_count - a.purchase_count);
+    } else if (itemSort === "name") {
+      items = [...items].sort((a, b) => a.item_name.localeCompare(b.item_name));
+    }
+    // default "spent" is already sorted by total_spent desc
+
     return items;
-  }, [itemsData, itemPeriod, searchItem]);
+  }, [itemsData, itemPeriod, searchItem, itemSort]);
+
+  const scrollToItemList = (sort) => {
+    setItemSort(sort);
+    setTimeout(() => itemListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+  };
 
   const itemChartData = useMemo(() => {
     return filteredItems.slice(0, 15).map(i => ({
@@ -419,17 +435,29 @@ export default function MySpending() {
 
             {/* Items Tab */}
             <TabsContent value="items" forceMount className="data-[state=inactive]:hidden">
-              {/* Items Summary Badges */}
+              {/* Items Summary Badges — clickable to sort + scroll */}
               <div className="flex flex-wrap gap-3 mb-4">
-                <Badge variant="outline" className="text-sm px-3 py-1 border-white/20">
+                <Badge
+                  variant={itemSort === "name" ? "default" : "outline"}
+                  className={`text-sm px-3 py-1 cursor-pointer transition-colors ${itemSort === "name" ? "" : "border-white/20 hover:border-primary/50 hover:bg-primary/10"}`}
+                  onClick={() => scrollToItemList("name")}
+                >
                   <Package className="w-3.5 h-3.5 mr-1.5" />
                   {itemsSummary.unique_items || 0} unique items
                 </Badge>
-                <Badge variant="outline" className="text-sm px-3 py-1 border-white/20">
+                <Badge
+                  variant={itemSort === "count" ? "default" : "outline"}
+                  className={`text-sm px-3 py-1 cursor-pointer transition-colors ${itemSort === "count" ? "" : "border-white/20 hover:border-primary/50 hover:bg-primary/10"}`}
+                  onClick={() => scrollToItemList("count")}
+                >
                   <Hash className="w-3.5 h-3.5 mr-1.5" />
                   {itemsSummary.total_purchases || 0} purchases
                 </Badge>
-                <Badge variant="outline" className="text-sm px-3 py-1 border-white/20">
+                <Badge
+                  variant={itemSort === "spent" ? "default" : "outline"}
+                  className={`text-sm px-3 py-1 cursor-pointer transition-colors ${itemSort === "spent" ? "" : "border-white/20 hover:border-primary/50 hover:bg-primary/10"}`}
+                  onClick={() => scrollToItemList("spent")}
+                >
                   <DollarSign className="w-3.5 h-3.5 mr-1.5" />
                   R{(itemsSummary.total_item_spend || 0).toFixed(0)} item spend
                 </Badge>
@@ -519,11 +547,16 @@ export default function MySpending() {
                 </Card>
 
                 {/* Item List */}
-                <Card className="glass border-white/10">
+                <Card ref={itemListRef} className="glass border-white/10">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Package className="w-5 h-5 text-green-400" />
                       All Items ({filteredItems.length})
+                      {itemSort !== "spent" && (
+                        <span className="text-xs font-normal text-muted-foreground ml-1">
+                          sorted by {itemSort === "count" ? "purchases" : "name"}
+                        </span>
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>

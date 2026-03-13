@@ -1,10 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { ScrollArea } from "../components/ui/scroll-area";
+import { Input } from "../components/ui/input";
+import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import {
-  ShoppingCart, Package, TrendingUp, Users, DollarSign, Layers
+  ShoppingCart, Package, TrendingUp, Users, DollarSign, Layers,
+  Search, ArrowUpDown, ArrowDown, ArrowUp, List
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -14,12 +18,23 @@ import api from "../lib/api";
 
 const COLORS = ['hsl(265, 89%, 66%)', 'hsl(150, 100%, 50%)', 'hsl(300, 100%, 50%)', 'hsl(190, 100%, 50%)', 'hsl(40, 100%, 50%)'];
 
+function titleCase(str) {
+  if (!str) return '';
+  return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
 export default function BasketAnalytics() {
   const [stats, setStats] = useState({});
   const [topItems, setTopItems] = useState([]);
   const [itemPairs, setItemPairs] = useState([]);
   const [behavior, setBehavior] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // All Items tab state — lazy loaded
+  const [allItems, setAllItems] = useState(null); // null = not loaded yet
+  const [allItemsLoading, setAllItemsLoading] = useState(false);
+  const [allItemsSearch, setAllItemsSearch] = useState("");
+  const [allItemsSort, setAllItemsSort] = useState({ field: "frequency", dir: "desc" });
 
   useEffect(() => {
     fetchData();
@@ -44,6 +59,67 @@ export default function BasketAnalytics() {
       setLoading(false);
     }
   };
+
+  const fetchAllItems = useCallback(async () => {
+    if (allItems !== null) return; // Already loaded
+    setAllItemsLoading(true);
+    try {
+      const res = await api.get("/analytics/top-items?limit=500");
+      setAllItems(res.data.data || []);
+    } catch (err) {
+      console.error("Failed to fetch all items:", err);
+    } finally {
+      setAllItemsLoading(false);
+    }
+  }, [allItems]);
+
+  const handleTabChange = (value) => {
+    if (value === "all-items") {
+      fetchAllItems();
+    }
+  };
+
+  const toggleSort = (field) => {
+    setAllItemsSort(prev => ({
+      field,
+      dir: prev.field === field && prev.dir === "desc" ? "asc" : "desc",
+    }));
+  };
+
+  const SortIcon = ({ field }) => {
+    if (allItemsSort.field !== field) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-40" />;
+    return allItemsSort.dir === "desc"
+      ? <ArrowDown className="w-3 h-3 ml-1 text-primary" />
+      : <ArrowUp className="w-3 h-3 ml-1 text-primary" />;
+  };
+
+  const filteredAllItems = useMemo(() => {
+    if (!allItems) return [];
+    let items = [...allItems];
+
+    // Search filter
+    if (allItemsSearch) {
+      items = items.filter(i => i.item_name?.toLowerCase().includes(allItemsSearch.toLowerCase()));
+    }
+
+    // Sort
+    const { field, dir } = allItemsSort;
+    items.sort((a, b) => {
+      let aVal, bVal;
+      if (field === "name") {
+        aVal = a.item_name || "";
+        bVal = b.item_name || "";
+        return dir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      if (field === "frequency") { aVal = a.frequency || 0; bVal = b.frequency || 0; }
+      else if (field === "avg_price") { aVal = parseFloat(a.avg_price || 0); bVal = parseFloat(b.avg_price || 0); }
+      else if (field === "total_qty") { aVal = a.total_qty || 0; bVal = b.total_qty || 0; }
+      else if (field === "price_range") { aVal = parseFloat(a.max_price || 0) - parseFloat(a.min_price || 0); bVal = parseFloat(b.max_price || 0) - parseFloat(b.min_price || 0); }
+      return dir === "desc" ? bVal - aVal : aVal - bVal;
+    });
+
+    return items;
+  }, [allItems, allItemsSearch, allItemsSort]);
 
   const statCards = [
     { label: "Avg Basket Size", value: `R${stats.avg_basket_size || 0}`, icon: ShoppingCart, color: "text-primary" },
@@ -98,11 +174,15 @@ export default function BasketAnalytics() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="items" className="space-y-4">
+      <Tabs defaultValue="items" className="space-y-4" onValueChange={handleTabChange}>
         <TabsList className="glass border-white/10">
           <TabsTrigger value="items">Top Items</TabsTrigger>
           <TabsTrigger value="pairs">Bought Together</TabsTrigger>
           <TabsTrigger value="customers">Customer Behavior</TabsTrigger>
+          <TabsTrigger value="all-items">
+            <List className="w-3.5 h-3.5 mr-1.5" />
+            All Items
+          </TabsTrigger>
         </TabsList>
 
         {/* Top Items Tab */}
@@ -241,6 +321,116 @@ export default function BasketAnalytics() {
                       ))}
                     </div>
                   </ScrollArea>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* All Items Tab — lazy loaded */}
+        <TabsContent value="all-items">
+          <Card className="glass border-white/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary" />
+                All Items
+                {allItems && (
+                  <Badge variant="outline" className="ml-2 text-xs border-white/20">
+                    {filteredAllItems.length} of {allItems.length}
+                  </Badge>
+                )}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Browse, search, and sort every product across all receipts
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {allItemsLoading ? (
+                <div className="space-y-3">
+                  {[...Array(8)].map((_, i) => (
+                    <div key={i} className="h-14 bg-white/5 rounded animate-pulse" />
+                  ))}
+                </div>
+              ) : allItems === null ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Package className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                  <p>Click the tab to load all items</p>
+                </div>
+              ) : (
+                <>
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search items by name..."
+                      value={allItemsSearch}
+                      onChange={(e) => setAllItemsSearch(e.target.value)}
+                      className="pl-10 bg-white/5 border-white/10"
+                    />
+                  </div>
+
+                  {/* Sort buttons */}
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => toggleSort("name")}>
+                      Name <SortIcon field="name" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => toggleSort("frequency")}>
+                      Frequency <SortIcon field="frequency" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => toggleSort("total_qty")}>
+                      Qty Sold <SortIcon field="total_qty" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => toggleSort("avg_price")}>
+                      Avg Price <SortIcon field="avg_price" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => toggleSort("price_range")}>
+                      Price Range <SortIcon field="price_range" />
+                    </Button>
+                  </div>
+
+                  {/* Items list */}
+                  {filteredAllItems.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Search className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                      <p>No items match your search</p>
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-[500px]">
+                      <div className="space-y-1.5">
+                        {filteredAllItems.map((item, i) => (
+                          <div key={i} className="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5 hover:border-white/15 transition-colors">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                                <span className="text-xs font-mono text-primary font-bold">{i + 1}</span>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium truncate">{titleCase(item.item_name)}</p>
+                                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                                  <span className="text-xs text-muted-foreground">
+                                    {item.frequency}x purchased
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {item.total_qty || item.frequency} qty
+                                  </span>
+                                  {item.min_price != null && item.max_price != null && parseFloat(item.min_price) !== parseFloat(item.max_price) && (
+                                    <span className="text-xs text-muted-foreground">
+                                      R{parseFloat(item.min_price).toFixed(0)}–R{parseFloat(item.max_price).toFixed(0)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0 ml-2">
+                              <p className="font-mono font-bold text-sm text-primary">
+                                R{parseFloat(item.avg_price || 0).toFixed(2)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">avg price</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
                 </>
               )}
             </CardContent>
