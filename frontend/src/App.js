@@ -16,6 +16,7 @@ import LoginPage from "./pages/LoginPage";
 import AdminInvite from "./pages/AdminInvite";
 import BasketAnalytics from "./pages/BasketAnalytics";
 import MySpending from "./pages/MySpending";
+import MyReport from "./pages/MyReport";
 import "./App.css";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -41,6 +42,9 @@ function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { session, signOut } = useAuth();
+
+  // Hide nav on portal pages (standalone WhatsApp experience)
+  if (location.pathname.startsWith("/my/")) return null;
 
   const items = session
     ? [...publicNavItems, ...adminNavItems]
@@ -106,6 +110,7 @@ function AnimatedRoutes() {
           <Route path="/upload" element={<UploadReceipt />} />
           <Route path="/dashboard" element={<CustomerDashboard />} />
           <Route path="/spending" element={<MySpending />} />
+          <Route path="/my/:token" element={<MyReport />} />
           <Route path="/map" element={<MapView />} />
           <Route path="/draws" element={<DrawsPage />} />
           <Route path="/login" element={<LoginPage />} />

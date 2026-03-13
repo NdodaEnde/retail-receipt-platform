@@ -220,22 +220,25 @@ class WhatsAppCloudAPI:
         return await self.send_text_message(to, message)
 
     async def send_receipt_confirmation(
-        self, 
-        to: str, 
-        shop_name: str, 
-        amount: float, 
+        self,
+        to: str,
+        shop_name: str,
+        amount: float,
         items_count: int,
-        fraud_flag: str
+        fraud_flag: str,
+        portal_url: str = None
     ) -> Dict[str, Any]:
         """Send receipt processing confirmation"""
-        
+
         if fraud_flag == "valid":
             status_msg = "✅ You're entered in today's draw! Good luck!"
         elif fraud_flag == "review":
             status_msg = "⏳ Your receipt is being reviewed. We'll notify you once approved."
         else:
             status_msg = "⚠️ Your receipt needs verification. Our team will review it."
-        
+
+        portal_line = f"\n📊 Your spending report: {portal_url}" if portal_url else ""
+
         message = (
             f"📸 *Receipt Processed!*\n\n"
             f"🏪 Shop: {shop_name or 'Detected'}\n"
@@ -243,6 +246,7 @@ class WhatsAppCloudAPI:
             f"📦 Items: {items_count}\n\n"
             f"{status_msg}\n\n"
             f"🎰 Daily draw at 21:00 SAST!"
+            f"{portal_line}"
         )
         return await self.send_text_message(to, message)
 
@@ -260,7 +264,8 @@ class WhatsAppCloudAPI:
             "• RECEIPTS - View your uploads\n"
             "• WINS - Check your winnings\n"
             "• STATUS - Today's draw info\n"
-            "• BALANCE - Your total stats\n\n"
+            "• BALANCE - Your total stats\n"
+            "• REPORT - Your spending report 📊\n\n"
             "🏆 One lucky winner daily wins back their spend!\n\n"
             "_Send a receipt photo to get started!_"
         )

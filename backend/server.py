@@ -35,6 +35,7 @@ from whatsapp_cloud import get_whatsapp_client, parse_webhook_message, WHATSAPP_
 from geocoding import get_geocoding_service
 from database import get_database
 from storage_helper import get_storage
+from portal_token import generate_portal_token, validate_portal_token
 
 # Database (Supabase)
 db = get_database()
@@ -44,6 +45,24 @@ scheduler = AsyncIOScheduler()
 
 # LandingAI configuration
 LANDINGAI_API_KEY = os.environ.get('LANDINGAI_API_KEY', '')
+
+# Frontend URL (for portal links in WhatsApp messages)
+FRONTEND_URL = os.environ.get('FRONTEND_URL', '').rstrip('/')
+if not FRONTEND_URL:
+    cors = os.environ.get('CORS_ORIGINS', '')
+    for origin in cors.split(','):
+        origin = origin.strip()
+        if origin and origin != '*':
+            FRONTEND_URL = origin.rstrip('/')
+            break
+if not FRONTEND_URL:
+    FRONTEND_URL = 'https://www.klpit.co.za'
+
+
+def get_portal_url(phone: str) -> str:
+    """Generate a portal URL with signed token for a customer."""
+    token = generate_portal_token(phone, hours=24)
+    return f"{FRONTEND_URL}/my/{token}"
 
 # Lifespan context manager for startup/shutdown
 @asynccontextmanager
@@ -852,12 +871,14 @@ async def upload_receipt(
     async def send_whatsapp_confirmation():
         try:
             wa = get_whatsapp_client()
+            portal_url = get_portal_url(phone_number)
             await wa.send_receipt_confirmation(
                 phone_number,
                 parsed_data["shop_name"] or "Unknown Shop",
                 parsed_data["amount"],
                 len(parsed_data["items"]),
-                "valid"  # Web uploads are auto-approved
+                "valid",  # Web uploads are auto-approved
+                portal_url=portal_url
             )
             logger.info(f"WhatsApp confirmation sent to {phone_number}")
         except Exception as e:
@@ -1371,6 +1392,56 @@ async def get_customer_items(phone_number: str):
         },
         "top_items": top_items,
         "item_monthly": item_monthly,
+    }
+
+# ============== CUSTOMER PORTAL (token-based, no auth) ==============
+
+@api_router.get("/portal/token/{phone_number}")
+async def generate_customer_portal_token(phone_number: str):
+    """Generate a portal access token for a customer (called internally by WhatsApp handler)"""
+    phone = phone_number.lstrip("+")
+    token = generate_portal_token(phone, hours=24)
+    return {"token": token, "phone": phone}
+
+
+@api_router.get("/portal/{token}")
+async def get_portal_data(token: str):
+    """Validate token and return full customer report data — spending, items, receipts"""
+    phone = validate_portal_token(token)
+    if not phone:
+        raise HTTPException(status_code=401, detail="Invalid or expired link. Request a new one via WhatsApp.")
+
+    # Fetch all data in parallel
+    spending_task = db.client.table('customer_spend_summary').select('*').eq('customer_phone', phone).execute()
+    monthly_task = db.client.table('customer_monthly_spend').select('*').eq('customer_phone', phone).order('month', desc=True).execute()
+    shop_task = db.client.table('customer_shop_spend').select('*').eq('customer_phone', phone).order('total_spent', desc=True).execute()
+    top_items_task = db.client.table('customer_top_items').select('*').eq('customer_phone', phone).order('total_spent', desc=True).limit(50).execute()
+    receipts = await db.receipts_find({"customer_phone": phone}, sort=("created_at", -1), limit=20)
+    customer = await db.customers_find_one({"phone_number": f"+{phone}"})
+
+    # Extract results
+    summary_rows = db._safe_get(spending_task, [])
+    monthly = db._safe_get(monthly_task, [])
+    shops = db._safe_get(shop_task, [])
+    top_items = db._safe_get(top_items_task, [])
+
+    summary = summary_rows[0] if summary_rows else {}
+
+    return {
+        "phone": phone,
+        "customer": {
+            "first_name": customer.get("first_name", "") if customer else "",
+            "surname": customer.get("surname", "") if customer else "",
+            "total_receipts": customer.get("total_receipts", 0) if customer else 0,
+            "total_spent": customer.get("total_spent", 0) if customer else 0,
+            "total_wins": customer.get("total_wins", 0) if customer else 0,
+            "total_winnings": customer.get("total_winnings", 0) if customer else 0,
+        },
+        "summary": summary,
+        "monthly": monthly,
+        "shops": shops,
+        "top_items": top_items,
+        "recent_receipts": receipts[:20],
     }
 
 # ============== GEOCODING ENDPOINTS ==============
@@ -1887,13 +1958,15 @@ async def finalise_receipt_with_location(
         except Exception as e:
             logger.warning(f"Vector store error: {e}")
 
-        # Send confirmation with display name (includes suburb)
+        # Send confirmation with display name (includes suburb) + portal link
+        portal_url = get_portal_url(phone_number)
         await wa.send_receipt_confirmation(
             phone_number,
             shop_display_name or shop_name or "Unknown Shop",
             amount,
             len(items),
-            fraud_assessment["fraud_flag"]
+            fraud_assessment["fraud_flag"],
+            portal_url=portal_url
         )
 
         logger.info(f"✅ Receipt finalised for {phone_number}: {shop_display_name}, R{amount}")
@@ -2021,7 +2094,17 @@ async def handle_text_command(phone_number: str, command: str, wa):
             await wa.send_text_message(phone_number, msg)
         else:
             await wa.send_text_message(phone_number, "No stats yet. Send your first receipt to get started!")
-    
+
+    elif command == "report":
+        portal_url = get_portal_url(phone_number)
+        msg = (
+            f"📊 *Your Spending Report*\n\n"
+            f"View your full spending history, top items, shop breakdown, and receipts:\n\n"
+            f"👉 {portal_url}\n\n"
+            f"_This link is valid for 24 hours._"
+        )
+        await wa.send_text_message(phone_number, msg)
+
     else:
         await wa.send_text_message(
             phone_number, 
