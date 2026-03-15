@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
 import { ScrollArea } from "../components/ui/scroll-area";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import {
   DollarSign, TrendingUp, TrendingDown, Store, Calendar,
   BarChart3, Search, Receipt, Clock, ShoppingCart, Package,
-  Hash, Trophy, User, AlertCircle
+  Hash, Trophy, User, AlertCircle, Image, Eye, ChevronRight
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -45,6 +46,9 @@ export default function MyReport() {
   const [activeTab, setActiveTab] = useState("overview");
   const [searchItem, setSearchItem] = useState("");
   const [itemPeriod, setItemPeriod] = useState("all");
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [receiptDetail, setReceiptDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const itemListRef = useRef(null);
 
   useEffect(() => {
@@ -64,6 +68,20 @@ export default function MyReport() {
     }
     if (token) fetchPortalData();
   }, [token]);
+
+  const openReceiptDetail = async (receipt) => {
+    setSelectedReceipt(receipt);
+    setDetailLoading(true);
+    try {
+      const res = await axios.get(`${API}/portal/${token}/receipt/${receipt.id}`);
+      setReceiptDetail(res.data);
+    } catch (err) {
+      console.error("Failed to fetch receipt detail:", err);
+      setReceiptDetail(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   // Derived data
   const customer = data?.customer || {};
@@ -542,7 +560,11 @@ export default function MyReport() {
                     </div>
                   ) : (
                     receipts.map((r) => (
-                      <div key={r.id} className="p-3 bg-black/20 rounded-lg border border-white/5">
+                      <div
+                        key={r.id}
+                        onClick={() => openReceiptDetail(r)}
+                        className="p-3 bg-black/20 rounded-lg border border-white/5 cursor-pointer hover:bg-white/5 hover:border-white/10 transition-all"
+                      >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -558,11 +580,14 @@ export default function MyReport() {
                               </p>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-mono font-bold text-primary">R{parseFloat(r.amount || 0).toFixed(2)}</p>
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-white/10">
-                              {r.status === "won" ? "Winner!" : r.status === "processed" ? "Valid" : r.status}
-                            </Badge>
+                          <div className="flex items-center gap-2">
+                            <div className="text-right">
+                              <p className="font-mono font-bold text-primary">R{parseFloat(r.amount || 0).toFixed(2)}</p>
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-white/10">
+                                {r.status === "won" ? "Winner!" : r.status === "processed" ? "Valid" : r.status}
+                              </Badge>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                           </div>
                         </div>
                       </div>
@@ -572,6 +597,108 @@ export default function MyReport() {
               </ScrollArea>
             </CardContent>
           </Card>
+
+          {/* Receipt Detail Dialog */}
+          <Dialog open={!!selectedReceipt} onOpenChange={(open) => { if (!open) { setSelectedReceipt(null); setReceiptDetail(null); } }}>
+            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto glass border-white/10">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Store className="w-5 h-5 text-primary" />
+                  {selectedReceipt?.shop_name || "Receipt Detail"}
+                </DialogTitle>
+              </DialogHeader>
+
+              {detailLoading ? (
+                <div className="p-8 text-center">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-muted-foreground">Loading receipt...</p>
+                </div>
+              ) : receiptDetail ? (
+                <div className="space-y-4">
+                  {/* Summary bar */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                      <div className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="w-3 h-3" /> Amount</div>
+                      <div className="font-semibold mt-1 text-sm text-green-400">R{parseFloat(receiptDetail.receipt?.amount || 0).toFixed(2)}</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                      <div className="text-xs text-muted-foreground flex items-center gap-1"><Package className="w-3 h-3" /> Items</div>
+                      <div className="font-semibold mt-1 text-sm">{(receiptDetail.receipt?.items || []).length}</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                      <div className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" /> Date</div>
+                      <div className="font-semibold mt-1 text-sm">
+                        {receiptDetail.receipt?.created_at
+                          ? new Date(receiptDetail.receipt.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
+                          : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Image + Items side by side */}
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Receipt Image */}
+                    <div>
+                      <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
+                        <Image className="w-4 h-4 text-primary" /> Receipt Image
+                      </h3>
+                      <div className="rounded-xl overflow-hidden border border-white/10 bg-white/5">
+                        {receiptDetail.receipt?.image_url ? (
+                          <img
+                            src={receiptDetail.receipt.image_url}
+                            alt="Receipt"
+                            className="w-full max-h-[400px] object-contain"
+                          />
+                        ) : (
+                          <div className="p-8 text-center text-muted-foreground">
+                            <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                            <p>No image available</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Items */}
+                    <div>
+                      <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
+                        <Package className="w-4 h-4 text-primary" />
+                        Items ({(receiptDetail.receipt?.items || []).length})
+                      </h3>
+                      <ScrollArea className="h-[400px] rounded-xl border border-white/10 bg-white/5">
+                        <div className="p-3 space-y-2">
+                          {(receiptDetail.receipt?.items || []).length > 0 ? (
+                            <>
+                              {receiptDetail.receipt.items.map((item, i) => (
+                                <div key={i} className="flex justify-between items-center py-2 px-3 rounded-lg bg-white/5 text-sm">
+                                  <div className="flex-1 min-w-0">
+                                    <span className="truncate block">{titleCase(item.name || `Item ${i + 1}`)}</span>
+                                    {item.quantity > 1 && (
+                                      <span className="text-xs text-muted-foreground">x{item.quantity}</span>
+                                    )}
+                                  </div>
+                                  <span className="font-mono text-green-400 shrink-0 ml-2">
+                                    R{parseFloat(item.total_price || item.price || 0).toFixed(2)}
+                                  </span>
+                                </div>
+                              ))}
+                              <div className="flex justify-between items-center py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 font-semibold text-sm">
+                                <span>Total</span>
+                                <span className="text-green-400">R{parseFloat(receiptDetail.receipt.amount || 0).toFixed(2)}</span>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="p-4 text-center text-muted-foreground">No items extracted</div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-8 text-center text-muted-foreground">Failed to load receipt details</div>
+              )}
+            </DialogContent>
+          </Dialog>
         </motion.div>
       )}
 

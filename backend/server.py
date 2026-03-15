@@ -1444,6 +1444,39 @@ async def get_portal_data(token: str):
         "recent_receipts": receipts[:20],
     }
 
+
+@api_router.get("/portal/{token}/receipt/{receipt_id}")
+async def get_portal_receipt_detail(token: str, receipt_id: str):
+    """Get full receipt detail (image + items) — token-validated, scoped to customer"""
+    phone = validate_portal_token(token)
+    if not phone:
+        raise HTTPException(status_code=401, detail="Invalid or expired link.")
+
+    receipt = await db.receipts_find_one({"id": receipt_id})
+    if not receipt or receipt.get("customer_phone") != phone:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+
+    # Fetch items for this receipt
+    try:
+        items_result = db.client.table('receipt_items').select(
+            'name,quantity,unit_price,total_price'
+        ).eq('receipt_id', receipt_id).execute()
+        items = db._safe_get(items_result, [])
+    except Exception:
+        items = []
+
+    return {
+        "receipt": {
+            "id": receipt.get("id"),
+            "shop_name": receipt.get("shop_name"),
+            "amount": receipt.get("amount"),
+            "created_at": receipt.get("created_at"),
+            "status": receipt.get("status"),
+            "image_url": receipt.get("image_url"),
+            "items": items,
+        }
+    }
+
 # ============== GEOCODING ENDPOINTS ==============
 
 @api_router.post("/geocode/shop/{shop_id}")
