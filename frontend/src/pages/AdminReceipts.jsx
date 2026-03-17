@@ -242,7 +242,7 @@ export default function AdminReceipts() {
                   </h3>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div><span className="text-muted-foreground">Phone:</span> {formatPhone(receiptDetail.receipt?.customer_phone)}</div>
-                    <div><span className="text-muted-foreground">Name:</span> {receiptDetail.customer?.name || "Unknown"}</div>
+                    <div><span className="text-muted-foreground">Name:</span> {receiptDetail.customer?.first_name ? `${receiptDetail.customer.first_name} ${receiptDetail.customer.surname || ''}`.trim() : (receiptDetail.customer?.name || "Unknown")}</div>
                     <div><span className="text-muted-foreground">Total Receipts:</span> {receiptDetail.customer?.total_receipts || 0}</div>
                     <div><span className="text-muted-foreground">Total Spent:</span> R{(receiptDetail.customer?.total_spent || 0).toFixed(2)}</div>
                   </div>

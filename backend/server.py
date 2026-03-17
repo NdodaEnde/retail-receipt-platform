@@ -929,10 +929,13 @@ async def get_receipt_full(receipt_id: str):
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
     
-    # Get customer info
-    customer = await db.customers_find_one(
-        {"phone_number": receipt.get("customer_phone")}
-    )
+    # Get customer info (handle +/no-+ phone format mismatch)
+    customer_phone = receipt.get("customer_phone", "")
+    customer = await db.customers_find_one({"phone_number": customer_phone})
+    if not customer and not customer_phone.startswith("+"):
+        customer = await db.customers_find_one({"phone_number": f"+{customer_phone}"})
+    if not customer and customer_phone.startswith("+"):
+        customer = await db.customers_find_one({"phone_number": customer_phone.lstrip("+")})
     
     # Get shop info
     shop = await db.shops_find_one(
@@ -1676,6 +1679,20 @@ async def cache_has_pending_registration(phone: str) -> bool:
         return True
     return await cache_get_pending_registration(phone) is not None
 
+# Pre-registration media: receipt image sent before registration completes
+pending_media: Dict[str, Dict] = {}
+
+async def cache_set_pending_media(phone: str, data: dict):
+    pending_media[phone] = data
+    await db.pending_state_upsert("pending_media", phone, data, ttl_minutes=30)
+
+async def cache_pop_pending_media(phone: str) -> Optional[dict]:
+    data = pending_media.pop(phone, None)
+    if not data:
+        data = await db.pending_state_get("pending_media", phone)
+    await db.pending_state_delete("pending_media", phone)
+    return data
+
 @api_router.get("/whatsapp/webhook")
 async def verify_whatsapp_webhook(request_args: dict = None):
     """
@@ -1741,19 +1758,55 @@ async def whatsapp_webhook(data: dict, background_tasks: BackgroundTasks):
     # Check registration status — block unregistered users from receipts
     reg_status = customer.get("registration_status", "unregistered")
 
-    # If mid-registration, intercept text messages for name collection
-    if await cache_has_pending_registration(phone_number) and message_type == "text":
-        await handle_registration_step(phone_number, content.strip(), wa)
-        return {"status": "ok"}
+    # If mid-registration, intercept messages for name collection
+    if await cache_has_pending_registration(phone_number):
+        if message_type == "text":
+            await handle_registration_step(phone_number, content.strip(), wa)
+            return {"status": "ok"}
+        elif message_type == "image" and media_id:
+            # Save/update the pending media and remind them to finish registration
+            await cache_set_pending_media(phone_number, {
+                "media_id": media_id,
+                "mime_type": parsed.get("mime_type", "image/jpeg"),
+            })
+            step = await cache_get_pending_registration(phone_number)
+            if step == "pending_first_name":
+                await wa.send_text_message(phone_number, "📸 Got your receipt! We'll process it once you're registered.\n\nWhat is your *first name*?")
+            else:
+                await wa.send_text_message(phone_number, "📸 Got your receipt! We'll process it once you're registered.\n\nWhat is your *surname*?")
+            return {"status": "ok"}
 
-    # If unregistered, start or prompt registration (except for location which is ok)
+    # If unregistered or stuck mid-registration (cache expired), start or resume registration
     if reg_status != "registered" and not await cache_has_pending_registration(phone_number):
+        # Determine where to resume: check DB registration_status
+        if reg_status == "pending_surname":
+            # Cache expired but they already gave first name — resume at surname step
+            await cache_set_pending_registration(phone_number, "pending_surname")
+            if message_type == "image" and media_id:
+                await cache_set_pending_media(phone_number, {
+                    "media_id": media_id,
+                    "mime_type": parsed.get("mime_type", "image/jpeg"),
+                })
+            first_name = customer.get("first_name", "")
+            await wa.send_text_message(
+                phone_number,
+                f"Welcome back{', *' + first_name + '*' if first_name else ''}! "
+                f"We still need your *surname* to complete registration."
+            )
+            return {"status": "ok"}
+
         if message_type == "image":
-            # Block receipt upload until registered
+            # Save the media for processing after registration completes
+            if media_id:
+                await cache_set_pending_media(phone_number, {
+                    "media_id": media_id,
+                    "mime_type": parsed.get("mime_type", "image/jpeg"),
+                })
+                logger.info(f"Saved pre-registration media for {phone_number}: {media_id}")
             await wa.send_text_message(
                 phone_number,
                 "Welcome to *KlpIT Retail Rewards*! 🎰\n\n"
-                "Before you can submit receipts, we need to register you.\n\n"
+                "Before we can process your receipt, we need to register you.\n\n"
                 "What is your *first name*?"
             )
             await cache_set_pending_registration(phone_number, "pending_first_name")
@@ -2045,18 +2098,37 @@ async def handle_registration_step(phone_number: str, text: str, wa):
             {"$set": {"surname": surname, "registration_status": "registered"}}
         )
         await cache_pop_pending_registration(phone_number)
-        await wa.send_text_message(
-            phone_number,
-            f"You're all set, *{first_name} {surname}*! 🎉\n\n"
-            f"Welcome to KlpIT Retail Rewards! 🎰\n\n"
-            f"*How it works:*\n"
-            f"1️⃣ Send us a photo of your receipt\n"
-            f"2️⃣ Share your location 📍\n"
-            f"3️⃣ Enter the daily draw automatically!\n\n"
-            f"🏆 One lucky winner daily wins back their spend!\n\n"
-            f"_Send a receipt photo to get started!_"
-        )
         logger.info(f"Customer registered: {first_name} {surname} ({phone_number})")
+
+        # Check if there's a receipt image that was sent before registration
+        saved_media = await cache_pop_pending_media(phone_number)
+        if saved_media:
+            # Re-fetch customer (now registered with name)
+            customer = await db.customers_find_one({"phone_number": phone_number})
+            await wa.send_text_message(
+                phone_number,
+                f"You're all set, *{first_name} {surname}*! 🎉\n\n"
+                f"Now processing the receipt you sent earlier... 📸"
+            )
+            # Process the saved receipt image
+            await process_receipt_from_whatsapp(
+                phone_number,
+                saved_media["media_id"],
+                saved_media.get("mime_type", "image/jpeg"),
+                customer
+            )
+        else:
+            await wa.send_text_message(
+                phone_number,
+                f"You're all set, *{first_name} {surname}*! 🎉\n\n"
+                f"Welcome to KlpIT Retail Rewards! 🎰\n\n"
+                f"*How it works:*\n"
+                f"1️⃣ Send us a photo of your receipt\n"
+                f"2️⃣ Share your location 📍\n"
+                f"3️⃣ Enter the daily draw automatically!\n\n"
+                f"🏆 One lucky winner daily wins back their spend!\n\n"
+                f"_Send a receipt photo to get started!_"
+            )
 
 
 async def handle_text_command(phone_number: str, command: str, wa):
