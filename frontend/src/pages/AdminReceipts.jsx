@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
+import ZoomableImage from "../components/ZoomableImage";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -257,7 +258,7 @@ export default function AdminReceipts() {
                     </h3>
                     <div className="rounded-xl overflow-hidden border border-white/10 bg-white/5">
                       {(receiptDetail.receipt?.image_url || receiptDetail.receipt?.image_data) ? (
-                        <img
+                        <ZoomableImage
                           src={receiptDetail.receipt.image_url || `data:image/jpeg;base64,${receiptDetail.receipt.image_data}`}
                           alt="Receipt"
                           className="w-full max-h-[400px] object-contain"

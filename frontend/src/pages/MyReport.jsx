@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import ZoomableImage from "../components/ZoomableImage";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
@@ -644,7 +645,7 @@ export default function MyReport() {
                       </h3>
                       <div className="rounded-xl overflow-hidden border border-white/10 bg-white/5">
                         {receiptDetail.receipt?.image_url ? (
-                          <img
+                          <ZoomableImage
                             src={receiptDetail.receipt.image_url}
                             alt="Receipt"
                             className="w-full max-h-[400px] object-contain"
