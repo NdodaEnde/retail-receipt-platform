@@ -967,13 +967,12 @@ async def get_receipt_full(receipt_id: str):
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
     
-    # Get customer info (handle +/no-+ phone format mismatch)
-    customer_phone = receipt.get("customer_phone", "")
-    customer = await db.customers_find_one({"phone_number": customer_phone})
-    if not customer and not customer_phone.startswith("+"):
-        customer = await db.customers_find_one({"phone_number": f"+{customer_phone}"})
-    if not customer and customer_phone.startswith("+"):
-        customer = await db.customers_find_one({"phone_number": customer_phone.lstrip("+")})
+    # receipts store phone WITHOUT +; customers may be stored with or without +
+    # Try both formats to handle mixed data
+    raw_phone = receipt.get("customer_phone", "").lstrip("+")
+    customer = await db.customers_find_one({"phone_number": f"+{raw_phone}"})
+    if not customer:
+        customer = await db.customers_find_one({"phone_number": raw_phone})
     
     # Get shop info
     shop = await db.shops_find_one(
@@ -2156,13 +2155,13 @@ async def handle_registration_step(phone_number: str, text: str, wa):
                 f"You're all set, *{first_name} {surname}*! 🎉\n\n"
                 f"Now processing the receipt you sent earlier... 📸"
             )
-            # Process the saved receipt image
-            await process_receipt_from_whatsapp(
+            # Process in background so the webhook doesn't timeout during OCR
+            asyncio.create_task(process_receipt_from_whatsapp(
                 phone_number,
                 saved_media["media_id"],
                 saved_media.get("mime_type", "image/jpeg"),
                 customer
-            )
+            ))
         else:
             await wa.send_text_message(
                 phone_number,
