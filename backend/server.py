@@ -105,6 +105,36 @@ geolocator = Nominatim(user_agent="retail_rewards_app")
 
 import math
 
+def parse_receipt_date(raw_date: Optional[str]) -> Optional[str]:
+    """
+    Parse a raw OCR date string into YYYY-MM-DD format.
+    Returns None if parsing fails — caller should treat None as 'date unknown'.
+    Handles common SA receipt formats:
+      15/03/2026, 15-03-2026, 2026/03/15, 2026-03-15,
+      15 Mar 2026, 15 March 2026, 15/03/26
+    """
+    if not raw_date:
+        return None
+    raw = raw_date.strip()
+    formats = [
+        "%d/%m/%Y", "%d-%m-%Y", "%d/%m/%y", "%d-%m-%y",
+        "%Y/%m/%d", "%Y-%m-%d",
+        "%d %b %Y", "%d %B %Y",
+        "%d %b %y", "%d %B %y",
+    ]
+    for fmt in formats:
+        try:
+            parsed = datetime.strptime(raw, fmt)
+            # Sanity check: receipt date must be within last 30 days and not in the future
+            today = datetime.now(timezone.utc).date()
+            receipt_day = parsed.date()
+            if receipt_day <= today and (today - receipt_day).days <= 30:
+                return receipt_day.isoformat()
+        except ValueError:
+            continue
+    return None
+
+
 def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
     Calculate distance between two GPS coordinates using Haversine formula
@@ -319,20 +349,25 @@ async def run_scheduled_daily_draw():
             logger.info(f"Draw already completed for {today}")
             return
         
-        # Get all receipts for today
+        # Get eligible receipts: uploaded today, valid fraud flag, not already won,
+        # AND receipt_date is either today or null (unknown — benefit of the doubt)
         start = f"{today}T00:00:00"
         end = f"{today}T23:59:59"
-        
-        receipts = await db.receipts_find({
-            "created_at": {"$gte": start, "$lte": end},
-            "status": {"$ne": "won"},
-            "fraud_flag": "valid"
-        }, limit=10000)
-        
+
+        result = db.client.table('receipts').select('*') \
+            .gte('created_at', start) \
+            .lte('created_at', end) \
+            .neq('status', 'won') \
+            .eq('fraud_flag', 'valid') \
+            .or_(f'receipt_date.is.null,receipt_date.eq.{today}') \
+            .limit(10000) \
+            .execute()
+        receipts = db._safe_get(result, [])
+
         if not receipts:
             logger.info(f"No receipts for draw on {today}")
             return
-        
+
         # Random selection
         winner_receipt = random.choice(receipts)
         prize_amount = winner_receipt["amount"]
@@ -698,6 +733,8 @@ async def process_receipt_image(request: ReceiptImageRequest):
             receipt_status = "review"  # Flagged receipts need manual review before entering draw
         
         # Create receipt record with fraud data
+        receipt_date_parsed = parse_receipt_date(extracted.get("date"))
+
         receipt = Receipt(
             customer_id=customer["id"],
             customer_phone=request.phone_number,
@@ -718,9 +755,10 @@ async def process_receipt_image(request: ReceiptImageRequest):
             fraud_flag=fraud_assessment["fraud_flag"],
             fraud_score=fraud_assessment["fraud_score"],
             fraud_reason=fraud_assessment["fraud_reason"],
-            status=receipt_status
+            status=receipt_status,
+            receipt_date=datetime.fromisoformat(receipt_date_parsed) if receipt_date_parsed else None
         )
-        
+
         receipt_dict = receipt.model_dump()
         receipt_dict['created_at'] = receipt_dict['created_at'].isoformat()
         if receipt_dict.get('receipt_date'):
@@ -1119,19 +1157,24 @@ async def run_daily_draw(draw_date: Optional[str] = None):
     if existing_draw:
         return {"success": False, "message": "Draw already completed for this date", "draw": existing_draw}
     
-    # Get all receipts for this date
+    # Get eligible receipts: uploaded on draw_date, valid fraud flag, not already won,
+    # AND receipt_date is either draw_date or null (unknown — benefit of the doubt)
     start = f"{draw_date}T00:00:00"
     end = f"{draw_date}T23:59:59"
-    
-    receipts = await db.receipts_find({
-        "created_at": {"$gte": start, "$lte": end},
-        "status": {"$ne": "won"},
-        "fraud_flag": "valid"
-    }, limit=10000)
-    
+
+    result = db.client.table('receipts').select('*') \
+        .gte('created_at', start) \
+        .lte('created_at', end) \
+        .neq('status', 'won') \
+        .eq('fraud_flag', 'valid') \
+        .or_(f'receipt_date.is.null,receipt_date.eq.{draw_date}') \
+        .limit(10000) \
+        .execute()
+    receipts = db._safe_get(result, [])
+
     if not receipts:
         return {"success": False, "message": "No eligible receipts for this date"}
-    
+
     # Random selection - one receipt wins
     winner_receipt = random.choice(receipts)
     prize_amount = float(winner_receipt.get("amount", 0) or 0)
@@ -1994,6 +2037,8 @@ async def finalise_receipt_with_location(
 
         receipt_status = "processed" if fraud_assessment["fraud_flag"] != "flagged" else "review"
 
+        receipt_date_parsed = parse_receipt_date(extracted.get("date"))
+
         receipt = Receipt(
             customer_id=customer["id"],
             customer_phone=phone_number,
@@ -2013,7 +2058,8 @@ async def finalise_receipt_with_location(
             fraud_flag=fraud_assessment["fraud_flag"],
             fraud_score=fraud_assessment["fraud_score"],
             fraud_reason=fraud_assessment["fraud_reason"],
-            status=receipt_status
+            status=receipt_status,
+            receipt_date=datetime.fromisoformat(receipt_date_parsed) if receipt_date_parsed else None
         )
 
         receipt_dict = receipt.model_dump()

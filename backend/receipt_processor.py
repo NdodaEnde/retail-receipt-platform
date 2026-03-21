@@ -605,21 +605,45 @@ class ReceiptProcessor:
                         continue
 
         # --- Extract Date ---
+        # SA receipts commonly print: 15/03/2026, 15-03-2026, 2026/03/15,
+        # 15 Mar 2026, 15 March 2026, 15/03/26, or with time: 15/03/2026 14:32
         date_patterns = [
-            r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})',
-            r'(\d{4}[/-]\d{1,2}[/-]\d{1,2})',
-            r'(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{2,4})'
+            r'(\d{1,2}[/-]\d{1,2}[/-]\d{4})',          # 15/03/2026 or 15-03-2026
+            r'(\d{4}[/-]\d{1,2}[/-]\d{1,2})',           # 2026/03/15 or 2026-03-15
+            r'(\d{1,2}[/-]\d{1,2}[/-]\d{2})(?!\d)',     # 15/03/26 (2-digit year, not part of longer number)
+            r'(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{2,4})',  # 15 Mar 2026
+            r'(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})',
         ]
-        
+
+        # Keywords that commonly appear before or on the same line as the date
+        date_keywords = ('date', 'datum', 'tyd', 'time', 'dt:', 'date:', 'tax invoice', 'vat invoice')
+
         for line in lines:
             clean_line = re.sub(r'<[^>]+>', '', line).strip()
+            # Prioritise lines that mention date-related keywords
+            line_lower = clean_line.lower()
+            is_date_line = any(kw in line_lower for kw in date_keywords)
             for pattern in date_patterns:
                 match = re.search(pattern, clean_line, re.IGNORECASE)
                 if match:
-                    result["date"] = match.group(1)
-                    break
-            if result["date"]:
+                    # Accept immediately if it's a labelled date line; otherwise keep looking
+                    if is_date_line or not result["date"]:
+                        result["date"] = match.group(1)
+                    if is_date_line:
+                        break
+            if result["date"] and is_date_line:
                 break
+        # Fall back: accept the first match found even without a keyword label
+        if not result["date"]:
+            for line in lines:
+                clean_line = re.sub(r'<[^>]+>', '', line).strip()
+                for pattern in date_patterns:
+                    match = re.search(pattern, clean_line, re.IGNORECASE)
+                    if match:
+                        result["date"] = match.group(1)
+                        break
+                if result["date"]:
+                    break
 
         return result
 
