@@ -605,12 +605,15 @@ class ReceiptProcessor:
                         continue
 
         # --- Extract Date ---
-        # SA receipts commonly print: 15/03/2026, 15-03-2026, 2026/03/15,
-        # 15 Mar 2026, 15 March 2026, 15/03/26, or with time: 15/03/2026 14:32
+        # SA receipts commonly print many date formats:
+        #   15/03/2026, 15-03-2026, 15.03.26, 2026/03/15,
+        #   15 Mar 2026, Mar 13/26, 15/03/26, 2026-03-15
         date_patterns = [
             r'(\d{1,2}[/-]\d{1,2}[/-]\d{4})',          # 15/03/2026 or 15-03-2026
             r'(\d{4}[/-]\d{1,2}[/-]\d{1,2})',           # 2026/03/15 or 2026-03-15
+            r'(\d{1,2}\.\d{1,2}\.\d{2,4})',             # 19.03.26 or 19.03.2026 (dot separator)
             r'(\d{1,2}[/-]\d{1,2}[/-]\d{2})(?!\d)',     # 15/03/26 (2-digit year, not part of longer number)
+            r'((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2}[/-]\d{2,4})',  # Mar 13/26 or Mar 13/2026
             r'(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{2,4})',  # 15 Mar 2026
             r'(\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4})',
         ]

@@ -111,11 +111,21 @@ def parse_receipt_date(raw_date: Optional[str]) -> Optional[str]:
     Returns None if parsing fails — caller should treat None as 'date unknown'.
     Handles common SA receipt formats:
       15/03/2026, 15-03-2026, 2026/03/15, 2026-03-15,
-      15 Mar 2026, 15 March 2026, 15/03/26
+      15 Mar 2026, 15 March 2026, 15/03/26,
+      19.03.26, 19.03.2026, Mar 13/26, Mar 13/2026
     """
     if not raw_date:
         return None
     raw = raw_date.strip()
+    # Normalise dot separators to slashes: 19.03.26 → 19/03/26
+    normalised = re.sub(r'(\d{1,2})\.(\d{1,2})\.(\d{2,4})', r'\1/\2/\3', raw)
+    # Normalise "Mar 13/26" → "13 Mar 26" (month-first with slash)
+    month_first = re.match(
+        r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2})[/-](\d{2,4})',
+        normalised, re.IGNORECASE
+    )
+    if month_first:
+        normalised = f"{month_first.group(2)} {month_first.group(1)} {month_first.group(3)}"
     formats = [
         "%d/%m/%Y", "%d-%m-%Y", "%d/%m/%y", "%d-%m-%y",
         "%Y/%m/%d", "%Y-%m-%d",
@@ -124,11 +134,10 @@ def parse_receipt_date(raw_date: Optional[str]) -> Optional[str]:
     ]
     for fmt in formats:
         try:
-            parsed = datetime.strptime(raw, fmt)
-            # Sanity check: receipt date must be within last 30 days and not in the future
+            parsed = datetime.strptime(normalised, fmt)
             today = datetime.now(timezone.utc).date()
             receipt_day = parsed.date()
-            if receipt_day <= today and (today - receipt_day).days <= 30:
+            if receipt_day <= today and (today - receipt_day).days <= 365:
                 return receipt_day.isoformat()
         except ValueError:
             continue
