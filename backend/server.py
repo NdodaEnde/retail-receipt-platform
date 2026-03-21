@@ -967,12 +967,13 @@ async def get_receipt_full(receipt_id: str):
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
     
-    # receipts store phone WITHOUT +; customers may be stored with or without +
-    # Try both formats to handle mixed data
+    # Receipts store phone without +; customers may exist with or without +
+    # Try bare phone first (WhatsApp-created, has registration data),
+    # then +phone fallback (seed data or admin-created)
     raw_phone = receipt.get("customer_phone", "").lstrip("+")
-    customer = await db.customers_find_one({"phone_number": f"+{raw_phone}"})
+    customer = await db.customers_find_one({"phone_number": raw_phone})
     if not customer:
-        customer = await db.customers_find_one({"phone_number": raw_phone})
+        customer = await db.customers_find_one({"phone_number": f"+{raw_phone}"})
     
     # Get shop info
     shop = await db.shops_find_one(
