@@ -135,6 +135,19 @@ def parse_receipt_date(raw_date: Optional[str]) -> Optional[str]:
     return None
 
 
+def check_draw_eligibility(receipt_date_str: Optional[str]) -> bool:
+    """
+    Determine if a receipt is eligible for the daily draw.
+    - receipt_date matches today → True (date confirmed, same day)
+    - receipt_date is None → True (OCR couldn't extract date, benefit of doubt)
+    - receipt_date is a different day → False (stale receipt)
+    """
+    if not receipt_date_str:
+        return True  # Can't read date — benefit of the doubt
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return receipt_date_str == today
+
+
 def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
     Calculate distance between two GPS coordinates using Haversine formula
@@ -350,7 +363,7 @@ async def run_scheduled_daily_draw():
             return
         
         # Get eligible receipts: uploaded today, valid fraud flag, not already won,
-        # AND receipt_date is either today or null (unknown — benefit of the doubt)
+        # Only draw-eligible receipts: uploaded today, valid, not won, draw_eligible=true
         start = f"{today}T00:00:00"
         end = f"{today}T23:59:59"
 
@@ -359,7 +372,7 @@ async def run_scheduled_daily_draw():
             .lte('created_at', end) \
             .neq('status', 'won') \
             .eq('fraud_flag', 'valid') \
-            .or_(f'receipt_date.is.null,receipt_date.eq.{today}') \
+            .eq('draw_eligible', True) \
             .limit(10000) \
             .execute()
         receipts = db._safe_get(result, [])
@@ -483,6 +496,9 @@ class Receipt(BaseModel):
     status: str = "pending"  # pending, processed, won, rejected
     processing_error: Optional[str] = None
     receipt_date: Optional[datetime] = None
+    # Draw eligibility: True if receipt_date matches upload date OR date unknown
+    # False only when receipt_date is confirmed to be a different day
+    draw_eligible: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # Fraud detection thresholds (in km)
@@ -756,13 +772,15 @@ async def process_receipt_image(request: ReceiptImageRequest):
             fraud_score=fraud_assessment["fraud_score"],
             fraud_reason=fraud_assessment["fraud_reason"],
             status=receipt_status,
-            receipt_date=datetime.fromisoformat(receipt_date_parsed) if receipt_date_parsed else None
+            receipt_date=datetime.fromisoformat(receipt_date_parsed) if receipt_date_parsed else None,
+            draw_eligible=check_draw_eligibility(receipt_date_parsed)
         )
 
         receipt_dict = receipt.model_dump()
         receipt_dict['created_at'] = receipt_dict['created_at'].isoformat()
         if receipt_dict.get('receipt_date'):
             receipt_dict['receipt_date'] = receipt_dict['receipt_date'].isoformat()
+        logger.info(f"Receipt date: {receipt_date_parsed}, draw_eligible: {receipt_dict['draw_eligible']}")
         
         # Store grounding data from LandingAI
         receipt_dict['grounding'] = extracted.get('grounding', {})
@@ -1167,7 +1185,7 @@ async def run_daily_draw(draw_date: Optional[str] = None):
         .lte('created_at', end) \
         .neq('status', 'won') \
         .eq('fraud_flag', 'valid') \
-        .or_(f'receipt_date.is.null,receipt_date.eq.{draw_date}') \
+        .eq('draw_eligible', True) \
         .limit(10000) \
         .execute()
     receipts = db._safe_get(result, [])
@@ -2059,12 +2077,14 @@ async def finalise_receipt_with_location(
             fraud_score=fraud_assessment["fraud_score"],
             fraud_reason=fraud_assessment["fraud_reason"],
             status=receipt_status,
-            receipt_date=datetime.fromisoformat(receipt_date_parsed) if receipt_date_parsed else None
+            receipt_date=datetime.fromisoformat(receipt_date_parsed) if receipt_date_parsed else None,
+            draw_eligible=check_draw_eligibility(receipt_date_parsed)
         )
 
         receipt_dict = receipt.model_dump()
         receipt_dict['created_at'] = receipt_dict['created_at'].isoformat()
         receipt_dict['grounding'] = extracted.get('grounding', {})
+        logger.info(f"Receipt date: {receipt_date_parsed}, draw_eligible: {receipt_dict['draw_eligible']}")
 
         # Upload image to Supabase Storage
         if image_base64:

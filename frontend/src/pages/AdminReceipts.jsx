@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/
 import { ScrollArea } from "../components/ui/scroll-area";
 import {
   Receipt, MapPin, Clock, DollarSign, Store, Eye, Image,
-  Package, User, Shield, ChevronLeft, ChevronRight, Filter
+  Package, User, Shield, ChevronLeft, ChevronRight, Filter,
+  CalendarCheck, CalendarX, HelpCircle, Trophy
 } from "lucide-react";
 import api from "../lib/api";
 
@@ -26,6 +27,38 @@ const statusColors = {
   won: "bg-violet-500/20 text-violet-400",
   rejected: "bg-red-500/20 text-red-400",
 };
+
+function DrawEligibilityBadge({ receipt }) {
+  const drawEligible = receipt.draw_eligible;
+  const receiptDate = receipt.receipt_date;
+  const uploadDate = receipt.created_at?.slice(0, 10);
+
+  if (drawEligible === false) {
+    // Confirmed stale — receipt date doesn't match upload date
+    return (
+      <span className="flex items-center gap-1 text-red-400" title={`Receipt date: ${receiptDate?.slice(0,10) || '?'}, Upload: ${uploadDate}`}>
+        <CalendarX className="w-3.5 h-3.5" />
+        <span className="text-[10px]">Stale</span>
+      </span>
+    );
+  }
+  if (receiptDate) {
+    // Date extracted and matches upload date
+    return (
+      <span className="flex items-center gap-1 text-green-400" title={`Receipt date: ${receiptDate.slice(0,10)}`}>
+        <CalendarCheck className="w-3.5 h-3.5" />
+        <span className="text-[10px]">Match</span>
+      </span>
+    );
+  }
+  // No date extracted — benefit of doubt
+  return (
+    <span className="flex items-center gap-1 text-muted-foreground" title="OCR could not extract receipt date">
+      <HelpCircle className="w-3.5 h-3.5" />
+      <span className="text-[10px]">No date</span>
+    </span>
+  );
+}
 
 export default function AdminReceipts() {
   const [receipts, setReceipts] = useState([]);
@@ -132,6 +165,7 @@ export default function AdminReceipts() {
                       <th className="p-3">Distance</th>
                       <th className="p-3">Fraud</th>
                       <th className="p-3">Status</th>
+                      <th className="p-3">Draw</th>
                       <th className="p-3">Image</th>
                       <th className="p-3"></th>
                     </tr>
@@ -161,6 +195,9 @@ export default function AdminReceipts() {
                           <Badge className={`text-xs ${statusColors[r.status] || ""}`}>
                             {r.status || "N/A"}
                           </Badge>
+                        </td>
+                        <td className="p-3">
+                          <DrawEligibilityBadge receipt={r} />
                         </td>
                         <td className="p-3">
                           {r.has_image ? (
@@ -395,6 +432,35 @@ export default function AdminReceipts() {
                     </div>
                   </div>
                 )}
+
+                {/* Draw Eligibility */}
+                <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                  <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
+                    <Trophy className="w-4 h-4 text-primary" /> Draw Eligibility
+                  </h3>
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Receipt Date:</span>{" "}
+                      <span className="font-mono">
+                        {receiptDetail.receipt?.receipt_date
+                          ? new Date(receiptDetail.receipt.receipt_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
+                          : "Not extracted"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Upload Date:</span>{" "}
+                      <span className="font-mono">
+                        {receiptDetail.receipt?.created_at
+                          ? new Date(receiptDetail.receipt.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
+                          : "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Draw:</span>{" "}
+                      <DrawEligibilityBadge receipt={receiptDetail.receipt || {}} />
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : null}
           </DialogContent>

@@ -93,6 +93,9 @@ CREATE TABLE receipts (
     
     -- Metadata
     receipt_date DATE,
+    -- Draw eligibility: true if receipt_date matches upload date or date unknown
+    -- false only when receipt_date is confirmed to be a different day (stale receipt)
+    draw_eligible BOOLEAN DEFAULT TRUE,
     grounding JSONB,  -- OCR grounding data
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -105,6 +108,7 @@ CREATE INDEX idx_receipts_status ON receipts(status);
 CREATE INDEX idx_receipts_fraud_flag ON receipts(fraud_flag);
 CREATE INDEX idx_receipts_created ON receipts(created_at DESC);
 CREATE INDEX idx_receipts_date ON receipts(receipt_date DESC);
+CREATE INDEX idx_receipts_draw_eligible ON receipts(draw_eligible);
 CREATE INDEX idx_receipts_amount ON receipts(amount DESC);
 
 -- ============================================
