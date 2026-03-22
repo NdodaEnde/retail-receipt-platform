@@ -1754,7 +1754,7 @@ pending_media: Dict[str, Dict] = {}
 
 async def cache_set_pending_media(phone: str, data: dict):
     pending_media[phone] = data
-    await db.pending_state_upsert("pending_media", phone, data, ttl_minutes=30)
+    await db.pending_state_upsert("pending_media", phone, data, ttl_minutes=60)
 
 async def cache_pop_pending_media(phone: str) -> Optional[dict]:
     data = pending_media.pop(phone, None)
@@ -2092,6 +2092,8 @@ async def finalise_receipt_with_location(
 
         receipt_dict = receipt.model_dump()
         receipt_dict['created_at'] = receipt_dict['created_at'].isoformat()
+        if receipt_dict.get('receipt_date'):
+            receipt_dict['receipt_date'] = receipt_dict['receipt_date'].isoformat()
         receipt_dict['grounding'] = extracted.get('grounding', {})
         logger.info(f"Receipt date: {receipt_date_parsed}, draw_eligible: {receipt_dict['draw_eligible']}")
 
@@ -2170,7 +2172,7 @@ async def handle_registration_step(phone_number: str, text: str, wa):
         first_name = customer.get("first_name", "")
         await db.customers_update_one(
             {"phone_number": phone_number},
-            {"$set": {"surname": surname, "registration_status": "registered"}}
+            {"$set": {"surname": surname, "name": f"{first_name} {surname}".strip(), "registration_status": "registered"}}
         )
         await cache_pop_pending_registration(phone_number)
         logger.info(f"Customer registered: {first_name} {surname} ({phone_number})")
