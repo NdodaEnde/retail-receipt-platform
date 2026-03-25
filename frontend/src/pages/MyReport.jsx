@@ -64,6 +64,8 @@ export default function MyReport() {
   const [receiptDetail, setReceiptDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [selectedShop, setSelectedShop] = useState(null);
+  const [shopReceiptsData, setShopReceiptsData] = useState([]);
+  const [shopReceiptsLoading, setShopReceiptsLoading] = useState(false);
   const itemListRef = useRef(null);
 
   useEffect(() => {
@@ -162,10 +164,21 @@ export default function MyReport() {
     })).reverse();
   }, [filteredItems]);
 
-  const shopReceipts = useMemo(() => {
-    if (!selectedShop) return [];
-    return receipts.filter(r => r.shop_name === selectedShop);
-  }, [selectedShop, receipts]);
+  const fetchShopReceipts = async (shopName) => {
+    setSelectedShop(shopName);
+    setShopReceiptsLoading(true);
+    try {
+      const res = await axios.get(`${API}/portal/${token}/shop-receipts`, {
+        params: { shop: shopName }
+      });
+      setShopReceiptsData(res.data.receipts || []);
+    } catch (err) {
+      console.error("Failed to fetch shop receipts:", err);
+      setShopReceiptsData([]);
+    } finally {
+      setShopReceiptsLoading(false);
+    }
+  };
 
   const greeting = customer.first_name ? `Hi ${titleCase(customer.first_name)}` : "Your Spending Report";
 
@@ -400,7 +413,7 @@ export default function MyReport() {
                         <Pie data={pieData} cx="50%" cy="50%" outerRadius={100} innerRadius={50}
                           dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                           labelLine={{ stroke: 'rgba(255,255,255,0.3)' }}
-                          onClick={(data) => { if (data?.name && data.name !== 'Other') setSelectedShop(data.name); }}
+                          onClick={(data) => { if (data?.name && data.name !== 'Other') fetchShopReceipts(data.name); }}
                           className="cursor-pointer"
                         >
                           {pieData.map((_, i) => (
@@ -431,7 +444,7 @@ export default function MyReport() {
                     {shops.map((shop, i) => (
                       <div
                         key={i}
-                        onClick={() => setSelectedShop(shop.shop_name)}
+                        onClick={() => fetchShopReceipts(shop.shop_name)}
                         className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all hover:bg-white/5 ${
                           selectedShop === shop.shop_name
                             ? 'bg-primary/10 border-primary/30'
@@ -467,20 +480,24 @@ export default function MyReport() {
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Receipt className="w-5 h-5 text-primary" />
-                      {selectedShop} — Receipts ({shopReceipts.length})
+                      {selectedShop} — Receipts {!shopReceiptsLoading && `(${shopReceiptsData.length})`}
                     </CardTitle>
-                    <button onClick={() => setSelectedShop(null)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    <button onClick={() => { setSelectedShop(null); setShopReceiptsData([]); }} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                       Clear
                     </button>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {shopReceipts.length === 0 ? (
-                    <p className="text-center py-6 text-muted-foreground text-sm">No receipts found for this shop in your recent history</p>
+                  {shopReceiptsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : shopReceiptsData.length === 0 ? (
+                    <p className="text-center py-6 text-muted-foreground text-sm">No receipts found for this shop</p>
                   ) : (
                     <ScrollArea className="h-[300px]">
                       <div className="space-y-2">
-                        {shopReceipts.map((r) => (
+                        {shopReceiptsData.map((r) => (
                           <div
                             key={r.id}
                             onClick={() => openReceiptDetail(r)}

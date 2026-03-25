@@ -1550,6 +1550,23 @@ async def get_portal_receipt_detail(token: str, receipt_id: str):
         }
     }
 
+
+@api_router.get("/portal/{token}/shop-receipts")
+async def get_portal_shop_receipts(token: str, shop: str = "", limit: int = 50):
+    """Get all receipts for a specific shop — token-validated, scoped to customer"""
+    phone = validate_portal_token(token)
+    if not phone:
+        raise HTTPException(status_code=401, detail="Invalid or expired link.")
+    if not shop:
+        raise HTTPException(status_code=400, detail="shop parameter required")
+
+    all_receipts = await db.receipts_find(
+        {"customer_phone": phone, "shop_name": shop},
+        sort=("created_at", -1),
+        limit=limit
+    )
+    return {"receipts": all_receipts, "shop": shop}
+
 # ============== GEOCODING ENDPOINTS ==============
 
 @api_router.post("/geocode/shop/{shop_id}")
