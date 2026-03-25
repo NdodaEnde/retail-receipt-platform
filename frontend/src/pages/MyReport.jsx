@@ -8,9 +8,9 @@ import { Input } from "../components/ui/input";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import {
-  DollarSign, TrendingUp, TrendingDown, Store, Calendar,
+  TrendingUp, Store, Calendar,
   BarChart3, Search, Receipt, Clock, ShoppingCart, Package,
-  Hash, Trophy, User, AlertCircle, Image, Eye, ChevronRight
+  Hash, Trophy, User, AlertCircle, Image, ChevronRight
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -38,6 +38,19 @@ function titleCase(str) {
   return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 }
 
+function formatRand(amount, decimals = 0) {
+  return Number(amount).toLocaleString('en-ZA', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+function RandIcon({ className }) {
+  return (
+    <span className={`inline-flex items-center justify-center font-bold font-mono ${className}`}>R</span>
+  );
+}
+
 export default function MyReport() {
   const { token } = useParams();
   const navigate = useNavigate();
@@ -50,6 +63,7 @@ export default function MyReport() {
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [receiptDetail, setReceiptDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [selectedShop, setSelectedShop] = useState(null);
   const itemListRef = useRef(null);
 
   useEffect(() => {
@@ -148,6 +162,11 @@ export default function MyReport() {
     })).reverse();
   }, [filteredItems]);
 
+  const shopReceipts = useMemo(() => {
+    if (!selectedShop) return [];
+    return receipts.filter(r => r.shop_name === selectedShop);
+  }, [selectedShop, receipts]);
+
   const greeting = customer.first_name ? `Hi ${titleCase(customer.first_name)}` : "Your Spending Report";
 
   // Loading state
@@ -220,15 +239,15 @@ export default function MyReport() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="glass border-white/10">
             <CardContent className="p-4">
-              <DollarSign className="w-5 h-5 text-primary mb-1" />
-              <p className="font-mono text-2xl font-bold">R{totalSpent.toFixed(0)}</p>
+              <RandIcon className="w-5 h-5 text-primary mb-1" />
+              <p className="font-mono text-2xl font-bold">R{formatRand(totalSpent)}</p>
               <p className="text-xs text-muted-foreground">All-Time Spend</p>
             </CardContent>
           </Card>
           <Card className="glass border-white/10">
             <CardContent className="p-4">
               <Calendar className="w-5 h-5 text-green-400 mb-1" />
-              <p className="font-mono text-2xl font-bold">R{thisMonthSpent.toFixed(0)}</p>
+              <p className="font-mono text-2xl font-bold">R{formatRand(thisMonthSpent)}</p>
               <p className="text-xs text-muted-foreground">This Month</p>
             </CardContent>
           </Card>
@@ -242,7 +261,7 @@ export default function MyReport() {
           <Card className="glass border-white/10">
             <CardContent className="p-4">
               <Trophy className="w-5 h-5 text-yellow-400 mb-1" />
-              <p className="font-mono text-2xl font-bold">R{parseFloat(customer.total_winnings || 0).toFixed(0)}</p>
+              <p className="font-mono text-2xl font-bold">R{formatRand(parseFloat(customer.total_winnings || 0))}</p>
               <p className="text-xs text-muted-foreground">{customer.total_wins || 0} Wins</p>
             </CardContent>
           </Card>
@@ -260,13 +279,13 @@ export default function MyReport() {
           {topItems.length} unique items
         </Badge>
         <Badge variant="outline" className="text-sm px-3 py-1 border-white/20">
-          <DollarSign className="w-3.5 h-3.5 mr-1.5" />
-          Avg R{avgReceipt.toFixed(0)}/receipt
+          <RandIcon className="w-3.5 h-3.5 mr-1.5" />
+          Avg R{formatRand(avgReceipt)}/receipt
         </Badge>
         {thisYearSpent > 0 && (
           <Badge variant="outline" className="text-sm px-3 py-1 border-white/20">
             <TrendingUp className="w-3.5 h-3.5 mr-1.5" />
-            R{thisYearSpent.toFixed(0)} this year
+            R{formatRand(thisYearSpent)} this year
           </Badge>
         )}
       </div>
@@ -315,11 +334,11 @@ export default function MyReport() {
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                       <XAxis dataKey="month" stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 11 }} />
                       <YAxis stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 11 }}
-                        tickFormatter={(v) => `R${v}`} />
+                        tickFormatter={(v) => `R${formatRand(v)}`} />
                       <Tooltip
                         contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
                         formatter={(value, name) => {
-                          if (name === 'spent') return [`R${Number(value).toFixed(2)}`, 'Total Spent'];
+                          if (name === 'spent') return [`R${formatRand(value, 2)}`, 'Total Spent'];
                           return [value, name];
                         }}
                       />
@@ -349,7 +368,7 @@ export default function MyReport() {
                         <div className="w-2.5 h-2.5 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
                         <span className="text-sm">{shop.shop_name}</span>
                       </div>
-                      <span className="font-mono text-sm font-bold">R{parseFloat(shop.total_spent || 0).toFixed(0)}</span>
+                      <span className="font-mono text-sm font-bold">R{formatRand(parseFloat(shop.total_spent || 0))}</span>
                     </div>
                   ))}
                 </div>
@@ -361,68 +380,133 @@ export default function MyReport() {
 
       {/* Shops Tab */}
       {activeTab === "shops" && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid md:grid-cols-2 gap-4">
-          <Card className="glass border-white/10">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <BarChart3 className="w-5 h-5 text-primary" />
-                Spend by Shop
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {pieData.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No shop data</p>
-              ) : (
-                <div style={{ width: '100%', height: 280 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPie>
-                      <Pie data={pieData} cx="50%" cy="50%" outerRadius={100} innerRadius={50}
-                        dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        labelLine={{ stroke: 'rgba(255,255,255,0.3)' }}
-                      >
-                        {pieData.map((_, i) => (
-                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
-                        formatter={(value) => [`R${Number(value).toFixed(2)}`, 'Spent']}
-                      />
-                    </RechartsPie>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <Card className="glass border-white/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  Spend by Shop
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Tap a segment to see receipts</p>
+              </CardHeader>
+              <CardContent>
+                {pieData.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">No shop data</p>
+                ) : (
+                  <div style={{ width: '100%', height: 280 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPie>
+                        <Pie data={pieData} cx="50%" cy="50%" outerRadius={100} innerRadius={50}
+                          dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          labelLine={{ stroke: 'rgba(255,255,255,0.3)' }}
+                          onClick={(data) => { if (data?.name && data.name !== 'Other') setSelectedShop(data.name); }}
+                          className="cursor-pointer"
+                        >
+                          {pieData.map((_, i) => (
+                            <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                          formatter={(value) => [`R${formatRand(value, 2)}`, 'Spent']}
+                        />
+                      </RechartsPie>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          <Card className="glass border-white/10">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Store className="w-5 h-5 text-green-400" />
-                All Shops ({shops.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[300px]">
-                <div className="space-y-2">
-                  {shops.map((shop, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-3 h-3 rounded-full shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{shop.shop_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {shop.receipt_count} visits &middot; avg R{parseFloat(shop.avg_receipt || 0).toFixed(0)}
-                          </p>
+            <Card className="glass border-white/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Store className="w-5 h-5 text-green-400" />
+                  All Shops ({shops.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-2">
+                    {shops.map((shop, i) => (
+                      <div
+                        key={i}
+                        onClick={() => setSelectedShop(shop.shop_name)}
+                        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all hover:bg-white/5 ${
+                          selectedShop === shop.shop_name
+                            ? 'bg-primary/10 border-primary/30'
+                            : 'bg-black/20 border-white/5'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="w-3 h-3 rounded-full shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{shop.shop_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {shop.receipt_count} visits &middot; avg R{formatRand(parseFloat(shop.avg_receipt || 0))}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-mono font-bold text-sm">R{formatRand(parseFloat(shop.total_spent || 0))}</p>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                         </div>
                       </div>
-                      <p className="font-mono font-bold text-sm">R{parseFloat(shop.total_spent || 0).toFixed(0)}</p>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Shop Receipts Drill-Down */}
+          {selectedShop && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="glass border-white/10">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Receipt className="w-5 h-5 text-primary" />
+                      {selectedShop} — Receipts ({shopReceipts.length})
+                    </CardTitle>
+                    <button onClick={() => setSelectedShop(null)} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      Clear
+                    </button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {shopReceipts.length === 0 ? (
+                    <p className="text-center py-6 text-muted-foreground text-sm">No receipts found for this shop in your recent history</p>
+                  ) : (
+                    <ScrollArea className="h-[300px]">
+                      <div className="space-y-2">
+                        {shopReceipts.map((r) => (
+                          <div
+                            key={r.id}
+                            onClick={() => openReceiptDetail(r)}
+                            className="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5 cursor-pointer hover:bg-white/5 transition-all"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium">
+                                {new Date(r.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </p>
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-white/10 mt-1">
+                                {r.status === "won" ? "Winner!" : r.status === "processed" ? "Valid" : r.status}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-mono font-bold text-primary">R{formatRand(parseFloat(r.amount || 0), 2)}</p>
+                              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
         </motion.div>
       )}
 
@@ -440,8 +524,8 @@ export default function MyReport() {
               {topItems.reduce((s, i) => s + parseInt(i.purchase_count || 0, 10), 0)} purchases
             </Badge>
             <Badge variant="outline" className="text-sm px-3 py-1 border-white/20">
-              <DollarSign className="w-3.5 h-3.5 mr-1.5" />
-              R{topItems.reduce((s, i) => s + parseFloat(i.total_spent || 0), 0).toFixed(0)} item spend
+              <RandIcon className="w-3.5 h-3.5 mr-1.5" />
+              R{formatRand(topItems.reduce((s, i) => s + parseFloat(i.total_spent || 0), 0))} item spend
             </Badge>
           </div>
 
@@ -477,12 +561,12 @@ export default function MyReport() {
                       <BarChart data={itemChartData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
                         <XAxis type="number" stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 10 }}
-                          tickFormatter={(v) => `R${v}`} />
+                          tickFormatter={(v) => `R${formatRand(v)}`} />
                         <YAxis type="category" dataKey="name" width={120} stroke="rgba(255,255,255,0.5)"
                           tick={{ fontSize: 10 }} />
                         <Tooltip
                           contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
-                          formatter={(value) => [`R${Number(value).toFixed(2)}`, 'Total Spent']}
+                          formatter={(value) => [`R${formatRand(value, 2)}`, 'Total Spent']}
                         />
                         <Bar dataKey="spent" radius={[0, 4, 4, 0]}>
                           {itemChartData.map((_, i) => (
@@ -520,14 +604,14 @@ export default function MyReport() {
                               <p className="text-sm font-medium truncate">{titleCase(item.item_name)}</p>
                               <div className="flex flex-wrap gap-x-3 mt-1">
                                 <span className="text-xs text-muted-foreground">{item.purchase_count}x</span>
-                                <span className="text-xs text-muted-foreground">avg R{item.avg_price.toFixed(2)}</span>
+                                <span className="text-xs text-muted-foreground">avg R{formatRand(item.avg_price, 2)}</span>
                                 {item.shops_selling > 0 && (
                                   <span className="text-xs text-muted-foreground">{item.shops_selling} shop{item.shops_selling !== 1 ? 's' : ''}</span>
                                 )}
                               </div>
                             </div>
                             <p className="font-mono font-bold text-sm text-primary shrink-0">
-                              R{item.total_spent.toFixed(0)}
+                              R{formatRand(item.total_spent)}
                             </p>
                           </div>
                         </div>
@@ -583,7 +667,7 @@ export default function MyReport() {
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="text-right">
-                              <p className="font-mono font-bold text-primary">R{parseFloat(r.amount || 0).toFixed(2)}</p>
+                              <p className="font-mono font-bold text-primary">R{formatRand(parseFloat(r.amount || 0), 2)}</p>
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-white/10">
                                 {r.status === "won" ? "Winner!" : r.status === "processed" ? "Valid" : r.status}
                               </Badge>
@@ -619,8 +703,8 @@ export default function MyReport() {
                   {/* Summary bar */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                      <div className="text-xs text-muted-foreground flex items-center gap-1"><DollarSign className="w-3 h-3" /> Amount</div>
-                      <div className="font-semibold mt-1 text-sm text-green-400">R{parseFloat(receiptDetail.receipt?.amount || 0).toFixed(2)}</div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-1"><RandIcon className="w-3 h-3" /> Amount</div>
+                      <div className="font-semibold mt-1 text-sm text-green-400">R{formatRand(parseFloat(receiptDetail.receipt?.amount || 0), 2)}</div>
                     </div>
                     <div className="p-3 rounded-lg bg-white/5 border border-white/10">
                       <div className="text-xs text-muted-foreground flex items-center gap-1"><Package className="w-3 h-3" /> Items</div>
@@ -678,13 +762,13 @@ export default function MyReport() {
                                     )}
                                   </div>
                                   <span className="font-mono text-green-400 shrink-0 ml-2">
-                                    R{parseFloat(item.total_price || item.price || 0).toFixed(2)}
+                                    R{formatRand(parseFloat(item.total_price || item.price || 0), 2)}
                                   </span>
                                 </div>
                               ))}
                               <div className="flex justify-between items-center py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 font-semibold text-sm">
                                 <span>Total</span>
-                                <span className="text-green-400">R{parseFloat(receiptDetail.receipt.amount || 0).toFixed(2)}</span>
+                                <span className="text-green-400">R{formatRand(parseFloat(receiptDetail.receipt.amount || 0), 2)}</span>
                               </div>
                             </>
                           ) : (
