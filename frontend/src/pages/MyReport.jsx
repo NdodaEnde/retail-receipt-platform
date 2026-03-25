@@ -700,109 +700,110 @@ export default function MyReport() {
             </CardContent>
           </Card>
 
-          {/* Receipt Detail Dialog */}
-          <Dialog open={!!selectedReceipt} onOpenChange={(open) => { if (!open) { setSelectedReceipt(null); setReceiptDetail(null); } }}>
-            <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto glass border-white/10">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Store className="w-5 h-5 text-primary" />
-                  {selectedReceipt?.shop_name || "Receipt Detail"}
-                </DialogTitle>
-              </DialogHeader>
-
-              {detailLoading ? (
-                <div className="p-8 text-center">
-                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                  <p className="text-muted-foreground">Loading receipt...</p>
-                </div>
-              ) : receiptDetail ? (
-                <div className="space-y-4">
-                  {/* Summary bar */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                      <div className="text-xs text-muted-foreground flex items-center gap-1"><RandIcon className="w-3 h-3" /> Amount</div>
-                      <div className="font-semibold mt-1 text-sm text-green-400">R{formatRand(parseFloat(receiptDetail.receipt?.amount || 0), 2)}</div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                      <div className="text-xs text-muted-foreground flex items-center gap-1"><Package className="w-3 h-3" /> Items</div>
-                      <div className="font-semibold mt-1 text-sm">{(receiptDetail.receipt?.items || []).length}</div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                      <div className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" /> Date</div>
-                      <div className="font-semibold mt-1 text-sm">
-                        {receiptDetail.receipt?.created_at
-                          ? new Date(receiptDetail.receipt.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
-                          : 'N/A'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Image + Items side by side */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {/* Receipt Image */}
-                    <div>
-                      <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
-                        <Image className="w-4 h-4 text-primary" /> Receipt Image
-                      </h3>
-                      <div className="rounded-xl overflow-hidden border border-white/10 bg-white/5">
-                        {receiptDetail.receipt?.image_url ? (
-                          <ZoomableImage
-                            src={receiptDetail.receipt.image_url}
-                            alt="Receipt"
-                            className="w-full max-h-[400px] object-contain"
-                          />
-                        ) : (
-                          <div className="p-8 text-center text-muted-foreground">
-                            <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                            <p>No image available</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Items */}
-                    <div>
-                      <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
-                        <Package className="w-4 h-4 text-primary" />
-                        Items ({(receiptDetail.receipt?.items || []).length})
-                      </h3>
-                      <ScrollArea className="h-[400px] rounded-xl border border-white/10 bg-white/5">
-                        <div className="p-3 space-y-2">
-                          {(receiptDetail.receipt?.items || []).length > 0 ? (
-                            <>
-                              {receiptDetail.receipt.items.map((item, i) => (
-                                <div key={i} className="flex justify-between items-center py-2 px-3 rounded-lg bg-white/5 text-sm">
-                                  <div className="flex-1 min-w-0">
-                                    <span className="truncate block">{titleCase(item.name || `Item ${i + 1}`)}</span>
-                                    {item.quantity > 1 && (
-                                      <span className="text-xs text-muted-foreground">x{item.quantity}</span>
-                                    )}
-                                  </div>
-                                  <span className="font-mono text-green-400 shrink-0 ml-2">
-                                    R{formatRand(parseFloat(item.total_price || item.price || 0), 2)}
-                                  </span>
-                                </div>
-                              ))}
-                              <div className="flex justify-between items-center py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 font-semibold text-sm">
-                                <span>Total</span>
-                                <span className="text-green-400">R{formatRand(parseFloat(receiptDetail.receipt.amount || 0), 2)}</span>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="p-4 text-center text-muted-foreground">No items extracted</div>
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-8 text-center text-muted-foreground">Failed to load receipt details</div>
-              )}
-            </DialogContent>
-          </Dialog>
         </motion.div>
       )}
+
+      {/* Receipt Detail Dialog (shared across all tabs) */}
+      <Dialog open={!!selectedReceipt} onOpenChange={(open) => { if (!open) { setSelectedReceipt(null); setReceiptDetail(null); } }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto glass border-white/10">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Store className="w-5 h-5 text-primary" />
+              {selectedReceipt?.shop_name || "Receipt Detail"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {detailLoading ? (
+            <div className="p-8 text-center">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-muted-foreground">Loading receipt...</p>
+            </div>
+          ) : receiptDetail ? (
+            <div className="space-y-4">
+              {/* Summary bar */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                  <div className="text-xs text-muted-foreground flex items-center gap-1"><RandIcon className="w-3 h-3" /> Amount</div>
+                  <div className="font-semibold mt-1 text-sm text-green-400">R{formatRand(parseFloat(receiptDetail.receipt?.amount || 0), 2)}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                  <div className="text-xs text-muted-foreground flex items-center gap-1"><Package className="w-3 h-3" /> Items</div>
+                  <div className="font-semibold mt-1 text-sm">{(receiptDetail.receipt?.items || []).length}</div>
+                </div>
+                <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                  <div className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" /> Date</div>
+                  <div className="font-semibold mt-1 text-sm">
+                    {receiptDetail.receipt?.created_at
+                      ? new Date(receiptDetail.receipt.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
+                      : 'N/A'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Image + Items side by side */}
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* Receipt Image */}
+                <div>
+                  <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
+                    <Image className="w-4 h-4 text-primary" /> Receipt Image
+                  </h3>
+                  <div className="rounded-xl overflow-hidden border border-white/10 bg-white/5">
+                    {receiptDetail.receipt?.image_url ? (
+                      <ZoomableImage
+                        src={receiptDetail.receipt.image_url}
+                        alt="Receipt"
+                        className="w-full max-h-[400px] object-contain"
+                      />
+                    ) : (
+                      <div className="p-8 text-center text-muted-foreground">
+                        <Image className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                        <p>No image available</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Items */}
+                <div>
+                  <h3 className="text-sm font-semibold flex items-center gap-2 mb-2">
+                    <Package className="w-4 h-4 text-primary" />
+                    Items ({(receiptDetail.receipt?.items || []).length})
+                  </h3>
+                  <ScrollArea className="h-[400px] rounded-xl border border-white/10 bg-white/5">
+                    <div className="p-3 space-y-2">
+                      {(receiptDetail.receipt?.items || []).length > 0 ? (
+                        <>
+                          {receiptDetail.receipt.items.map((item, i) => (
+                            <div key={i} className="flex justify-between items-center py-2 px-3 rounded-lg bg-white/5 text-sm">
+                              <div className="flex-1 min-w-0">
+                                <span className="truncate block">{titleCase(item.name || `Item ${i + 1}`)}</span>
+                                {item.quantity > 1 && (
+                                  <span className="text-xs text-muted-foreground">x{item.quantity}</span>
+                                )}
+                              </div>
+                              <span className="font-mono text-green-400 shrink-0 ml-2">
+                                R{formatRand(parseFloat(item.total_price || item.price || 0), 2)}
+                              </span>
+                            </div>
+                          ))}
+                          <div className="flex justify-between items-center py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 font-semibold text-sm">
+                            <span>Total</span>
+                            <span className="text-green-400">R{formatRand(parseFloat(receiptDetail.receipt.amount || 0), 2)}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="p-4 text-center text-muted-foreground">No items extracted</div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-8 text-center text-muted-foreground">Failed to load receipt details</div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Footer */}
       <div className="text-center pt-4 pb-2">
