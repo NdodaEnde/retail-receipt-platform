@@ -258,6 +258,7 @@ class ReceiptProcessor:
             schema_shop_name = None
             schema_shop_address = None
             schema_total_amount = None
+            schema_postal_code = None
             try:
                 items_schema = json.dumps({
                     "type": "object",
@@ -277,7 +278,8 @@ class ReceiptProcessor:
                     },
                     "total_amount": {"type": "number", "description": "Final total amount due on the receipt including tax"},
                     "shop_name": {"type": "string", "description": "Name of the shop, store, or business (not slogans, version numbers, or taglines)"},
-                    "shop_address": {"type": "string", "description": "Street address or location of the shop"}
+                    "shop_address": {"type": "string", "description": "Street address or location of the shop"},
+                    "postal_code": {"type": "string", "description": "South African 4-digit postal/area code belonging to the shop's address (e.g. 2188). Must be the address postcode, NOT a phone number, VAT number, till/batch/terminal number, card number, or transaction reference."}
                     }
                 })
 
@@ -309,6 +311,9 @@ class ReceiptProcessor:
                     if extracted_data.get('total_amount'):
                         schema_total_amount = float(extracted_data['total_amount'])
                         logger.info(f"Schema total_amount: {schema_total_amount}")
+                    if extracted_data.get('postal_code'):
+                        schema_postal_code = str(extracted_data['postal_code']).strip()
+                        logger.info(f"Schema postal_code: {schema_postal_code}")
             except Exception as e:
                 logger.warning(f"Schema extraction failed: {e}")
 
@@ -336,6 +341,30 @@ class ReceiptProcessor:
             final_address = schema_shop_address or parsed.get("address")
             final_amount = schema_total_amount or parsed.get("amount", 0.0)
 
+            # Postal code: prefer the LLM's understanding (it reads context, so it
+            # tells an area code apart from a phone/till/batch number far better than
+            # regex). Fall back to the rule-based scan. Only trust a clean 4-digit value.
+            final_postal_code = parsed.get("postal_code")
+            if schema_postal_code and re.fullmatch(r"\d{4}", schema_postal_code):
+                final_postal_code = schema_postal_code
+                logger.info(f"Using schema postal_code: {final_postal_code}")
+
+            # Fix line-wrapped shop names: extract() sometimes splits a name that
+            # wraps across two header lines, putting the tail word into shop_address
+            # (e.g. name "Meat World Jackal" + address "Creek" => "Meat World Jackal Creek").
+            # Only merge when the receipt literally prints "<name> <word>" contiguously,
+            # so we don't absorb real street addresses (which have digits / multiple words).
+            if final_shop_name and final_address:
+                addr_token = final_address.strip()
+                if re.fullmatch(r"[A-Za-z]{2,15}", addr_token):
+                    header_plain = re.sub(r'<[^>]+>', ' ', full_text)
+                    header_plain = re.sub(r'\s+', ' ', header_plain)
+                    if re.search(re.escape(final_shop_name) + r'\s+' + re.escape(addr_token),
+                                 header_plain, re.IGNORECASE):
+                        final_shop_name = f"{final_shop_name} {addr_token}"
+                        final_address = None
+                        logger.info(f"Merged line-wrapped shop name: '{final_shop_name}'")
+
             logger.info(f"Final shop_name: {final_shop_name} (schema: {schema_shop_name}, parsed: {parsed.get('shop_name')})")
             logger.info(f"Final address: {final_address} (schema: {schema_shop_address}, parsed: {parsed.get('address')})")
             logger.info(f"Final amount: {final_amount} (schema: {schema_total_amount}, parsed: {parsed.get('amount')})")
@@ -344,7 +373,7 @@ class ReceiptProcessor:
                 "success": True,
                 "shop_name": final_shop_name,
                 "shop_address": final_address,
-                "postal_code": parsed.get("postal_code"),  # Include postal code for geocoding
+                "postal_code": final_postal_code,  # LLM-extracted (preferred) or regex fallback
                 "amount": final_amount,
                 "currency": "ZAR",
                 "items": final_items,
@@ -407,7 +436,18 @@ class ReceiptProcessor:
             try:
                 code = int(code_str)
                 line_lower = line_context.lower()
-                
+
+                # Exclude card-slip / transaction fields (batch, terminal, auth, ref, etc.)
+                # These 4-digit IDs are commonly misread as postal codes on card receipts.
+                # Match as whole words only, so short tokens like 'stan'/'mid' don't
+                # falsely fire inside suburb names (con-stan-tia, mid-rand).
+                if re.search(
+                    r'\b(batch|terminal|auth|ref|pin|card|merchant|trans|response|'
+                    r'retrieval|budget|transaction|invoice|till|rrn|stan|mid|tid|seq|aid)\b',
+                    line_lower
+                ):
+                    return False
+
                 # Exclude if in phone number context
                 if any(kw in line_lower for kw in ['tel', 'phone', 'cell', 'care line', 'customer care', 'call', 'helpline', 'hotline']):
                     return False

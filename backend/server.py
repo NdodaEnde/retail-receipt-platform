@@ -1998,6 +1998,25 @@ async def process_receipt_from_whatsapp(phone_number: str, media_id: str, mime_t
         shop_name = clean_ocr(shop_name)
         shop_address = clean_ocr(shop_address)
 
+        # Guard: if OCR produced no usable data, don't save a junk R0.00 receipt.
+        # Happens if LandingAI is misconfigured / out of credits, or the photo is unreadable.
+        try:
+            amount_val = float(amount) if amount else 0.0
+        except (TypeError, ValueError):
+            amount_val = 0.0
+        if not extracted.get("success") or amount_val <= 0:
+            logger.warning(
+                f"⚠️ OCR produced no usable data for {phone_number} "
+                f"(shop={shop_name!r}, amount={amount!r}, error={extracted.get('error')!r})"
+            )
+            await wa.send_text_message(
+                phone_number,
+                "❌ We couldn't read the total on that receipt.\n\n"
+                "Please resend a clear, well-lit photo of the *full* receipt, "
+                "including the total amount."
+            )
+            return
+
         # Don't geocode yet — defer to Step 2 where we have customer location
         # This avoids matching a random branch for chain stores
 
@@ -2060,7 +2079,8 @@ async def finalise_receipt_with_location(
         shop_display_name = shop_name
         if shop_name:
             shop_lat, shop_lon, shop_display_name, _ = await geocode_shop_from_receipt(
-                shop_name, shop_address
+                shop_name, shop_address,
+                postal_code=extracted.get("postal_code")
             )
 
         # Calculate fraud risk using customer location vs shop location
