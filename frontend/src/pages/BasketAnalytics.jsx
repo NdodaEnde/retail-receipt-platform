@@ -8,7 +8,7 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
   ShoppingCart, Package, TrendingUp, Users, DollarSign, Layers,
-  Search, ArrowUpDown, ArrowDown, ArrowUp, List
+  Search, ArrowUpDown, ArrowDown, ArrowUp, List, Tag
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -28,6 +28,7 @@ export default function BasketAnalytics() {
   const [topItems, setTopItems] = useState([]);
   const [itemPairs, setItemPairs] = useState([]);
   const [behavior, setBehavior] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // All Items tab state — lazy loaded
@@ -43,16 +44,18 @@ export default function BasketAnalytics() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [statsRes, itemsRes, pairsRes, behaviorRes] = await Promise.all([
+      const [statsRes, itemsRes, pairsRes, behaviorRes, categoriesRes] = await Promise.all([
         api.get("/analytics/basket-stats"),
         api.get("/analytics/top-items?limit=20"),
         api.get("/analytics/item-pairs?limit=20"),
         api.get("/analytics/customer-behavior?limit=50"),
+        api.get("/analytics/category-spend"),
       ]);
       setStats(statsRes.data);
       setTopItems(itemsRes.data.data || []);
       setItemPairs(pairsRes.data.data || []);
       setBehavior(behaviorRes.data.data || []);
+      setCategories(categoriesRes.data.data || []);
     } catch (err) {
       console.error("Failed to fetch basket analytics:", err);
     } finally {
@@ -177,6 +180,10 @@ export default function BasketAnalytics() {
       <Tabs defaultValue="items" className="space-y-4" onValueChange={handleTabChange}>
         <TabsList className="glass border-white/10">
           <TabsTrigger value="items">Top Items</TabsTrigger>
+          <TabsTrigger value="categories">
+            <Tag className="w-3.5 h-3.5 mr-1.5" />
+            Categories
+          </TabsTrigger>
           <TabsTrigger value="pairs">Bought Together</TabsTrigger>
           <TabsTrigger value="customers">Customer Behavior</TabsTrigger>
           <TabsTrigger value="all-items">
@@ -214,6 +221,65 @@ export default function BasketAnalytics() {
                     <Bar dataKey="frequency" fill="hsl(265, 89%, 66%)" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Categories Tab */}
+        <TabsContent value="categories">
+          <Card className="glass border-white/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Tag className="w-5 h-5 text-primary" />
+                Spend by Category
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Product categories from item normalization &middot; subtotals, VAT &amp; bags excluded
+              </p>
+            </CardHeader>
+            <CardContent>
+              {categories.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No category data yet. Upload more receipts to see the breakdown.</p>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={360}>
+                    <BarChart data={categories} layout="vertical" margin={{ left: 130 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                      <XAxis type="number" stroke="rgba(255,255,255,0.5)" tickFormatter={(v) => `R${(v / 1000).toFixed(0)}k`} />
+                      <YAxis type="category" dataKey="category" width={120} tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 11 }} />
+                      <Tooltip
+                        contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                        formatter={(value) => [`R${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Spend']}
+                      />
+                      <Bar dataKey="total_spent" radius={[0, 4, 4, 0]}>
+                        {categories.map((_, i) => (
+                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+
+                  <div className="mt-4 space-y-2">
+                    {categories.map((c, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{c.category}</p>
+                            <p className="text-xs text-muted-foreground">{c.line_count} lines &middot; {c.total_qty} units</p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0 ml-2">
+                          <p className="font-mono font-bold text-sm text-primary">
+                            R{Number(c.total_spent).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{c.pct}% of spend</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

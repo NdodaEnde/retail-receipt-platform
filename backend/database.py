@@ -551,6 +551,11 @@ class Database:
         ).limit(limit).execute()
         return self._safe_get(result, [])
 
+    async def get_category_spend(self) -> List[Dict]:
+        """Get per-category-per-month spend from category_spend view (non-products excluded)"""
+        result = self.client.table('category_spend').select('*').limit(1000).execute()
+        return self._safe_get(result, [])
+
     # ==================== CUSTOMER SPEND ANALYTICS ====================
 
     async def get_customer_monthly_spend(self, phone_number: str) -> List[Dict]:

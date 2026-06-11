@@ -1399,6 +1399,24 @@ async def get_customer_behavior(limit: int = 50, user: dict = Depends(require_ad
     behavior = await db.get_customer_behavior(limit=limit)
     return {"data": behavior, "total": len(behavior)}
 
+@api_router.get("/analytics/category-spend")
+async def get_category_spend(user: dict = Depends(require_admin)):
+    """Spend by product category (rules-first normalization; non-products excluded)"""
+    rows = await db.get_category_spend()
+    agg = {}
+    for r in rows:
+        cat = r.get('category') or 'Other'
+        a = agg.setdefault(cat, {"category": cat, "line_count": 0, "total_qty": 0, "total_spent": 0.0})
+        a["line_count"] += int(r.get('line_count', 0) or 0)
+        a["total_qty"] += int(r.get('total_qty', 0) or 0)
+        a["total_spent"] += float(r.get('total_spent', 0) or 0)
+    cats = sorted(agg.values(), key=lambda x: -x["total_spent"])
+    total = sum(c["total_spent"] for c in cats)
+    for c in cats:
+        c["pct"] = round(100 * c["total_spent"] / total, 1) if total else 0
+        c["total_spent"] = round(c["total_spent"], 2)
+    return {"data": cats, "total_spent": round(total, 2)}
+
 # ============== CUSTOMER SPEND ANALYTICS (public, phone-based) ==============
 
 @api_router.get("/customers/{phone_number}/spending")
