@@ -1,27 +1,30 @@
 # KlpIT Ontology — Function Catalogue (the intelligence layer).
 # Versioned computed logic bound to objects/aggregates. Many already exist as
-# SQL views (backend/schema.sql) — this declares them with sensitivity + phase.
+# SQL views (backend/schema.sql); this declares them with sensitivity + phase
+# + how they're implemented today.
 #
 # Fields:
-#   bound_to       object api_names and/or aggregates (market, suburb)
-#   computes       what it produces
-#   reads          object.property inputs (validated; drives the POPIA report)
-#   output_class   sensitivity of what it emits (O|P|F|X)
-#   exposure       internal | external   (external REQUIRES output_class X)
-#   min_users      the user-volume tier it unlocks (from CLAUDE.md intelligence tiers)
-#   phase          sprint/programme phase it goes live in
-#   emits/invokes  object it creates / action it may fire
+#   bound_to        object api_names and/or aggregates (market, suburb)
+#   computes        what it produces
+#   reads           object.property inputs (validated; drives the POPIA report)
+#   output_class    sensitivity of what it emits (O|P|F|X)
+#   exposure        internal | external   (external REQUIRES output_class X)
+#   implemented_by  view:<name> (a real SQL view) | app (server.py code) | planned
+#   min_users       user-volume tier it unlocks (from CLAUDE.md intelligence tiers)
+#   phase           sprint/programme phase it goes live in
+#   emits/invokes   object it creates / action it may fire
 schema_version: "0.1"
 
 functions:
 
-  # ── Phase 1 — already live ────────────────────────────────────────────────
+  # ── Phase 1 — live ────────────────────────────────────────────────────────
   fraudScore:
     bound_to: [receipt]
     computes: "Multi-signal fraud risk (distance + velocity + duplicate) -> flag/score"
     reads: [receipt.distance_km, receipt.amount, receipt.shop_latitude, receipt.shop_longitude]
     output_class: O
     exposure: internal
+    implemented_by: app
     invokes: [flagFraud]
     min_users: 0
     phase: 1
@@ -32,25 +35,48 @@ functions:
     reads: [receipt.receipt_date, receipt.created_at]
     output_class: O
     exposure: internal
+    implemented_by: app
     min_users: 0
     phase: 1
 
-  dailySpending:                  # existing view: daily_spending
+  dailySpending:
     bound_to: [market]
     computes: "Total/avg spend and receipt counts per day"
     reads: [receipt.amount, receipt.created_at]
     output_class: X
     exposure: external
+    implemented_by: view:daily_spending
     min_users: 0
     phase: 1
 
-  # ── Phase 2 — loyalty (Sprint 2) ─────────────────────────────────────────
+  hourlyDistribution:
+    bound_to: [market]
+    computes: "Receipt volume by hour-of-day (anonymized shopping rhythm)"
+    reads: [receipt.created_at]
+    output_class: X
+    exposure: external
+    implemented_by: view:hourly_distribution
+    min_users: 0
+    phase: 1
+
+  customerSummary:
+    bound_to: [customer]
+    computes: "Per-customer receipt count, total + avg spend"
+    reads: [customer.total_receipts, customer.total_spent]
+    output_class: F
+    exposure: internal
+    implemented_by: view:customer_summary
+    min_users: 0
+    phase: 1
+
+  # ── Phase 2 — loyalty (Sprint 2, next) + shop analytics ──────────────────
   customerTier:
     bound_to: [customer]
     computes: "Bronze/Silver/Gold/Platinum from total_receipts"
     reads: [customer.total_receipts]
     output_class: O
     exposure: internal
+    implemented_by: planned
     min_users: 50
     phase: 2
 
@@ -60,15 +86,27 @@ functions:
     reads: [customer.total_receipts, receipt.receipt_date]
     output_class: O
     exposure: internal
+    implemented_by: planned
     min_users: 50
     phase: 2
 
-  shopPerformance:                # existing view: shop_performance (reads F -> stays internal)
+  shopPerformance:
     bound_to: [shop]
     computes: "Per-shop revenue, avg transaction, receipt count"
     reads: [shop.total_sales, receipt.amount]
     output_class: F
     exposure: internal
+    implemented_by: view:shop_performance
+    min_users: 50
+    phase: 2
+
+  topItems:
+    bound_to: [market]
+    computes: "Most-purchased raw item names + qty/price stats (pre-normalization)"
+    reads: [receipt_item.name, receipt_item.quantity, receipt_item.unit_price]
+    output_class: O
+    exposure: internal            # raw OCR names — not exposable until normalized
+    implemented_by: view:top_items
     min_users: 50
     phase: 2
 
@@ -79,6 +117,7 @@ functions:
     reads: [customer.total_receipts, receipt.created_at]
     output_class: O
     exposure: internal
+    implemented_by: view:customer_behavior
     min_users: 200
     phase: 3
 
@@ -88,16 +127,18 @@ functions:
     reads: [receipt_item.name, receipt_item.unit_price]
     output_class: O
     exposure: internal
+    implemented_by: planned
     emits: product
     min_users: 200
     phase: 3
 
-  basketAffinity:                 # existing view: item_pairs — exposable ONLY on canonical category
+  basketAffinity:                 # exposable ONLY on canonical category, not raw names
     bound_to: [market]
-    computes: "Co-purchase affinity between product categories (not raw names)"
+    computes: "Co-purchase affinity between product categories"
     reads: [product.category]
     output_class: X
     exposure: external
+    implemented_by: view:item_pairs
     min_users: 200
     phase: 3
 
@@ -105,9 +146,10 @@ functions:
   suburbSpendIndex:
     bound_to: [suburb]
     computes: "Anonymized suburb-level spend density (aggregated; no per-receipt detail)"
-    reads: [shop.latitude, shop.longitude, receipt.amount]   # reads F input -> aggregation must anonymize
+    reads: [shop.latitude, shop.longitude, receipt.amount]
     output_class: X
     exposure: external
+    implemented_by: planned
     min_users: 500
     phase: 4
 
@@ -117,6 +159,7 @@ functions:
     reads: [receipt.amount, receipt.created_at]
     output_class: X
     exposure: external
+    implemented_by: planned
     min_users: 500
     phase: 4
 
@@ -126,5 +169,6 @@ functions:
     reads: [product.category, shop.name]
     output_class: X
     exposure: external
+    implemented_by: planned
     min_users: 1000
     phase: 4

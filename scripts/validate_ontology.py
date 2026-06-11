@@ -14,6 +14,7 @@ anonymization being correct.
 Exit 0 = ontology valid. Exit 1 = at least one violation.
 """
 from __future__ import annotations
+import re
 import sys
 from pathlib import Path
 
@@ -25,6 +26,16 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parent.parent
 ONT = ROOT / "ontology"
+SCHEMA = ROOT / "backend" / "schema.sql"
+
+
+def schema_views() -> set[str]:
+    """Parse CREATE VIEW names from backend/schema.sql (so implemented_by:view:X is real)."""
+    if not SCHEMA.exists():
+        return set()
+    text = SCHEMA.read_text()
+    return set(re.findall(r"create\s+(?:or\s+replace\s+)?view\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+                          text, re.IGNORECASE))
 
 # Non-action sources a link may legitimately be derived from.
 NON_ACTION_DERIVATIONS = {"model_pipeline", "schedule", "dispatch"}
@@ -56,6 +67,7 @@ def main() -> int:
     aggregates = set(meta.get("aggregates", []))
     allowed_writes = set(meta["allowed_action_write_targets"])
     ext_ok_classes = set(meta["external_exposure_allowed_output_classes"])
+    views = schema_views()
 
     # property sensitivity lookup: {object: {prop: class}}
     prop_class: dict[str, dict[str, str]] = {}
@@ -132,6 +144,15 @@ def main() -> int:
             check(fn.get("output_class") in ext_ok_classes,
                   f"[POPIA] function {fname}: exposure:external but output_class "
                   f"'{fn.get('output_class')}' is not externally allowed {sorted(ext_ok_classes)}")
+        # Build status: implemented_by must be app | planned | view:<existing view>
+        impl = fn.get("implemented_by", "planned")
+        if impl.startswith("view:"):
+            vname = impl.split(":", 1)[1]
+            check(vname in views,
+                  f"[build] function {fname}: implemented_by view '{vname}' not found in backend/schema.sql")
+        else:
+            check(impl in ("app", "planned"),
+                  f"[build] function {fname}: implemented_by '{impl}' must be app | planned | view:<name>")
 
     # ── Report ───────────────────────────────────────────────────────────────
     def sens_of(read: str) -> str | None:
@@ -158,6 +179,23 @@ def main() -> int:
                 aggregation_dependent.append((fname, sorted(touches_pf)))
         elif touches_pf:
             locked.append((fname, sorted(touches_pf)))
+
+    # build status: live (SQL view), live (app code), planned
+    live_view, live_app, planned = [], [], []
+    for fname, fn in functions.items():
+        impl = fn.get("implemented_by", "planned")
+        if impl.startswith("view:"):
+            live_view.append(f"{fname}->{impl.split(':',1)[1]}")
+        elif impl == "app":
+            live_app.append(fname)
+        else:
+            planned.append(f"{fname} (phase {fn.get('phase')}, {fn.get('min_users')}+ users)")
+    print(f"\n  Build status: {len(live_view)} SQL views · {len(live_app)} app-code · {len(planned)} planned")
+    print(f"     live (view): {', '.join(live_view) or '(none)'}")
+    print(f"     live (app):  {', '.join(live_app) or '(none)'}")
+    print("     planned:")
+    for p in planned:
+        print(f"       • {p}")
 
     print(f"\n  ✅ Externally exposable (B2B/public safe): {', '.join(external) or '(none)'}")
     print("\n  🔒 Internal-only because they read Personal/Financial data:")
