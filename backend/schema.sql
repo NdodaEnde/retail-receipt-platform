@@ -121,11 +121,15 @@ CREATE TABLE receipt_items (
     quantity INTEGER DEFAULT 1,
     unit_price DECIMAL(10, 2),
     total_price DECIMAL(10, 2),
+    canonical_name VARCHAR(500),   -- rules-first normalized label (item_normalizer.py)
+    category VARCHAR(40),          -- retail category (Dairy & Eggs, Meat & Poultry, ...)
+    brand VARCHAR(60),             -- detected brand, if any
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX idx_receipt_items_receipt ON receipt_items(receipt_id);
 CREATE INDEX idx_receipt_items_name ON receipt_items(name);
+CREATE INDEX idx_receipt_items_category ON receipt_items(category);
 CREATE INDEX idx_receipt_items_price ON receipt_items(total_price DESC);
 
 -- ============================================
@@ -385,6 +389,21 @@ FROM receipt_items ri
 JOIN receipts r ON ri.receipt_id = r.id
 WHERE r.status != 'rejected'
 GROUP BY r.customer_phone, TO_CHAR(r.created_at, 'YYYY-MM'), UPPER(TRIM(ri.name));
+
+-- Category-level spend (rules-first item normalization -> ontology categorySpend)
+-- Anonymized, aggregate-only: safe for external/B2B exposure.
+CREATE OR REPLACE VIEW category_spend AS
+SELECT
+    COALESCE(ri.category, 'Other') AS category,
+    TO_CHAR(r.created_at, 'YYYY-MM') AS month,
+    COUNT(*) AS line_count,
+    SUM(ri.quantity) AS total_qty,
+    SUM(ri.total_price) AS total_spent,
+    AVG(ri.unit_price) AS avg_unit_price
+FROM receipt_items ri
+JOIN receipts r ON ri.receipt_id = r.id
+WHERE r.status != 'rejected'
+GROUP BY COALESCE(ri.category, 'Other'), TO_CHAR(r.created_at, 'YYYY-MM');
 
 -- ============================================
 -- ROW LEVEL SECURITY (Optional - for future)

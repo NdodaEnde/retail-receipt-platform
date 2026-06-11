@@ -121,15 +121,24 @@ functions:
     min_users: 200
     phase: 3
 
-  itemNormalization:              # resolves the item-normalization bottleneck
+  itemNormalization:              # resolves the item-normalization bottleneck (LIVE, rules-first)
     bound_to: [receipt_item]
-    computes: "Map raw OCR item name -> canonical product + category"
+    computes: "Map raw OCR item name -> canonical_name + canonical_key + category + brand"
     reads: [receipt_item.name, receipt_item.unit_price]
     output_class: O
     exposure: internal
-    implemented_by: planned
-    emits: product
-    min_users: 200
+    implemented_by: app           # backend/item_normalizer.py, applied at item insert
+    min_users: 0
+    phase: 3
+
+  categorySpend:                  # unlocked by itemNormalization
+    bound_to: [market]
+    computes: "Spend / qty / avg unit price per retail category per month"
+    reads: [receipt_item.category, receipt_item.total_price, receipt_item.quantity, receipt_item.unit_price]
+    output_class: X
+    exposure: external
+    implemented_by: view:category_spend
+    min_users: 50
     phase: 3
 
   basketAffinity:                 # exposable ONLY on canonical category, not raw names

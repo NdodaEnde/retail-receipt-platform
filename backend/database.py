@@ -10,6 +10,7 @@ import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 from supabase import create_client, Client
+from item_normalizer import normalize_item
 
 logger = logging.getLogger(__name__)
 
@@ -277,16 +278,29 @@ class Database:
         if items:
             items_data = []
             for item in items:
+                raw = item.get('name', '')
+                norm = normalize_item(raw)  # rules-first, never raises
                 items_data.append({
                     'id': str(uuid.uuid4()),
                     'receipt_id': receipt['id'],
-                    'name': item.get('name', ''),
+                    'name': raw,
                     'quantity': item.get('quantity', 1),
                     'unit_price': item.get('unit_price'),
-                    'total_price': item.get('total_price') or item.get('price')
+                    'total_price': item.get('total_price') or item.get('price'),
+                    'canonical_name': norm['canonical_name'],
+                    'category': norm['category'],
+                    'brand': norm['brand'],
                 })
             if items_data:
-                self.client.table('receipt_items').insert(items_data).execute()
+                try:
+                    self.client.table('receipt_items').insert(items_data).execute()
+                except Exception as e:
+                    # New columns may not exist yet (migration not applied) — degrade
+                    # gracefully to base fields so receipt saving never breaks.
+                    logger.warning(f"receipt_items insert with normalization failed ({e}); retrying base fields")
+                    base_cols = ('id', 'receipt_id', 'name', 'quantity', 'unit_price', 'total_price')
+                    base = [{k: d[k] for k in base_cols} for d in items_data]
+                    self.client.table('receipt_items').insert(base).execute()
         
         receipt['items'] = items
         return receipt

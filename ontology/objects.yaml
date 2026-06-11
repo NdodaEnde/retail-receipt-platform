@@ -74,9 +74,12 @@ objects:
       - { name: receipt,     type: "link->receipt", source: Supabase, sensitivity: O }
       - { name: name,        type: string,   source: LandingAI_ADE, sensitivity: O }  # raw OCR name (un-normalized)
       - { name: quantity,    type: number,   source: LandingAI_ADE, sensitivity: O }
-      - { name: unit_price,  type: currency, source: LandingAI_ADE, sensitivity: O }
-      - { name: total_price, type: currency, source: LandingAI_ADE, sensitivity: O }
-      - { name: product,     type: "link->product", source: function, sensitivity: O }  # normalization target
+      - { name: unit_price,     type: currency, source: LandingAI_ADE, sensitivity: O }
+      - { name: total_price,    type: currency, source: LandingAI_ADE, sensitivity: O }
+      - { name: canonical_name, type: string,   source: function, sensitivity: O }  # itemNormalization
+      - { name: category,       type: enum,     source: function, sensitivity: O }  # itemNormalization
+      - { name: brand,          type: string,   source: function, sensitivity: O }  # itemNormalization
+      - { name: product,        type: "link->product", source: function, sensitivity: O }  # future canonical registry
 
   shop:                           # backend/schema.sql shops
     uid_prefix: KLP-SH
