@@ -3,7 +3,37 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from item_normalizer import normalize_item, categorize, detect_brand, UNCATEGORIZED
+from item_normalizer import (
+    normalize_item, categorize, detect_brand, is_non_item, UNCATEGORIZED, NON_PRODUCT,
+)
+
+
+def test_non_items_excluded():
+    for noise in ["Groceries", "Household", "Personal Care", "ROUNDING",
+                  "15.0%", "CARRIER BAG 24L", "ption (partially visible text)",
+                  "SUBTOTAL", "VAT"]:
+        assert is_non_item(noise), f"{noise!r} should be a non-item"
+        assert categorize(noise) == NON_PRODUCT
+    r = normalize_item("Groceries")
+    assert r["category"] == NON_PRODUCT and r["canonical_key"] is None
+
+
+def test_dining_category():
+    for n in ["Cappuccino", "Americano Espresso", "Sirloin Tagliata",
+              "Grilled Baby Squid Main", "Margherita Pizza"]:
+        assert categorize(n) == "Dining & Takeaways", f"{n} -> {categorize(n)}"
+
+
+def test_newly_added_grocery_terms():
+    assert categorize("RITEBRAND INSTANT OATS 750G") == "Staples & Grocery"
+    assert categorize("RITEBRAND TEABAGS 100 PACK") == "Beverages"
+    assert categorize("Min Still Lrg 1lt") == "Beverages"
+
+
+def test_real_groceries_not_flagged_as_non_item():
+    # a real product whose name merely contains 'tax'-like letters must stay a product
+    assert not is_non_item("Tastic Rice 2kg")
+    assert categorize("Tastic Rice 2kg") == "Staples & Grocery"
 
 
 def test_milk_variants_collapse_to_one_canonical():

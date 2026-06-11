@@ -403,6 +403,7 @@ SELECT
 FROM receipt_items ri
 JOIN receipts r ON ri.receipt_id = r.id
 WHERE r.status != 'rejected'
+  AND COALESCE(ri.category, 'Other') <> 'Non-product'   -- exclude subtotals/headers/VAT/bags
 GROUP BY COALESCE(ri.category, 'Other'), TO_CHAR(r.created_at, 'YYYY-MM');
 
 -- ============================================

@@ -50,6 +50,15 @@ CATEGORY_RULES: list[tuple[str, list[str]]] = [
         "airtime", "data", "voucher", "recharge", "vodacom", "mtn", "cell c",
         "telkom", "blu voucher",
     ]),
+    ("Dining & Takeaways", [
+        # unambiguous prepared-food / cafe terms (this platform ingests restaurant
+        # receipts). Generic 'coffee'/'tea'/'grilled'/'steak' are intentionally
+        # excluded here so grocery items aren't miscategorised.
+        "cappuccino", "espresso", "americano", "latte", "macchiato", "mocha",
+        "flat white", "milkshake", "smoothie", "tagliata", "calamari", "squid",
+        "sushi", "sashimi", "pizza", "burger", "risotto", "schnitzel", "nachos",
+        "tapas", "padano", "broccolini", "tramezzini", "sirloin", "ribeye",
+    ]),
     ("Meat & Poultry", [
         "chicken", "beef", "mince", "polony", "vienna", "viennas", "russian",
         "russians", "wors", "boerewors", "sausage", "steak", "chop", "chops",
@@ -72,8 +81,9 @@ CATEGORY_RULES: list[tuple[str, list[str]]] = [
     ]),
     ("Beverages", [
         "juice", "cold drink", "cooldrink", "coke", "coca cola", "fanta",
-        "sprite", "stoney", "soda", "water", "tea", "coffee", "rooibos",
-        "energy drink", "oros", "cordial", "mageu", "maheu", "iced tea",
+        "sprite", "stoney", "soda", "water", "tea", "teabags", "tea bags",
+        "coffee", "rooibos", "energy drink", "oros", "cordial", "mageu",
+        "maheu", "iced tea", "still water", "still", "sparkling", "mineral",
     ]),
     ("Snacks & Sweets", [
         "chips", "crisps", "nik naks", "niknaks", "simba", "lays", "doritos",
@@ -97,9 +107,38 @@ CATEGORY_RULES: list[tuple[str, list[str]]] = [
         "rice", "tastic", "samp", "flour", "sugar", "salt", "oil", "cooking oil",
         "pasta", "macaroni", "spaghetti", "beans", "baked beans", "soup",
         "sauce", "tomato sauce", "spice", "stock", "koo", "all gold",
-        "lucky star", "knorr", "maggi", "rajah", "aromat",
+        "lucky star", "knorr", "maggi", "rajah", "aromat", "oats", "instant oats",
+        "cereal", "weetbix", "pronutro", "mealiemeal", "vinegar", "jam",
     ]),
 ]
+
+# ── Non-product rows: subtotals, department headers, VAT/rounding lines, bags,
+#    and LandingAI OCR-description fragments. These are NOT products and must be
+#    EXCLUDED from category analytics, not lumped into 'Other'.
+NON_ITEM_EXACT = {
+    "groceries", "household", "personal care", "general merchandise",
+    "perishables", "non perishables", "departments", "department",
+    "subtotal", "sub total", "total", "balance", "balance due", "change",
+    "tender", "tendered", "rounding", "round off", "vat", "tax", "cash",
+    "card", "discount", "savings",
+}
+NON_ITEM_PATTERNS = [
+    re.compile(r"\((?:part|partial|text|visible|word|background|dark|blurred|cut)", re.IGNORECASE),
+    re.compile(r"^\s*\d+([.,]\d+)?\s*%\s*$"),                       # "15.0%"
+    re.compile(r"\b(carrier|checkout|plastic|shopping)\s+bag\b", re.IGNORECASE),
+    re.compile(r"\b(rounding|round\s*off)\b", re.IGNORECASE),
+    re.compile(r"^\s*[-=*.]+\s*$"),                                  # separator rows
+]
+
+
+def is_non_item(raw_name: str) -> bool:
+    """True if the row is a subtotal/header/VAT/bag/OCR-fragment, not a product."""
+    if not raw_name or not raw_name.strip():
+        return True
+    low = re.sub(r"\s+", " ", raw_name.strip().lower())
+    if low in NON_ITEM_EXACT:
+        return True
+    return any(p.search(raw_name) for p in NON_ITEM_PATTERNS)
 
 # ── Brand detection (whole-word) ─────────────────────────────────────────────
 BRANDS = [
@@ -169,10 +208,15 @@ def _canonical_key(prepped: str) -> str:
     return " ".join(sorted(set(tokens)))
 
 
+NON_PRODUCT = "Non-product"
+
+
 def categorize(name: str) -> str:
     """Return the retail category for an item name (rules-first, word-boundary)."""
     if not name:
         return UNCATEGORIZED
+    if is_non_item(name):
+        return NON_PRODUCT
     hay = _prep(name) or name
     for category, patterns in _CATEGORY_PATTERNS:
         if any(p.search(hay) for p in patterns):
@@ -200,13 +244,18 @@ def normalize_item(raw_name: str) -> dict:
     Never raises — callers may use it inline without guarding.
     """
     try:
+        category = categorize(raw_name)
+        if category == NON_PRODUCT:
+            # not a product — don't give it a grouping key or brand
+            return {"raw_name": raw_name, "canonical_name": None,
+                    "canonical_key": None, "category": NON_PRODUCT, "brand": None}
         cleaned = _prep(raw_name)
         canonical = cleaned.title() if cleaned else (raw_name or "").strip().title()
         return {
             "raw_name": raw_name,
             "canonical_name": canonical or None,
             "canonical_key": _canonical_key(cleaned) or None,
-            "category": categorize(raw_name),
+            "category": category,
             "brand": detect_brand(raw_name),
         }
     except Exception:
