@@ -181,3 +181,46 @@ functions:
     implemented_by: planned
     min_users: 1000
     phase: 4
+
+  # ── Geographic behavioural intelligence (site-selection B2B product) ──────
+  # All aggregate to suburb-level with k-anonymity before exposure; the gate
+  # keeps output_class X even though several read Personal location (P).
+  travelForPurpose:
+    bound_to: [suburb]
+    computes: "Avg trip distance by category — do people travel further to dine than to buy groceries?"
+    reads: [receipt_item.category, receipt.distance_km, receipt.shop_latitude, receipt.shop_longitude, customer.last_latitude, customer.last_longitude]
+    output_class: X
+    exposure: external
+    implemented_by: planned
+    min_users: 500
+    phase: 4
+
+  categoryDemandBySuburb:
+    bound_to: [suburb]
+    computes: "Category spend / qty per suburb — what is consumed most in each area"
+    reads: [receipt_item.category, receipt_item.total_price, receipt.shop_latitude, receipt.shop_longitude]
+    output_class: X
+    exposure: external
+    implemented_by: planned
+    min_users: 500
+    phase: 4
+
+  suburbWalletShare:
+    bound_to: [suburb]
+    computes: "Cross-retailer share of wallet per suburb — who is winning the basket here"
+    reads: [shop.name, receipt.amount, receipt.shop_latitude, receipt.shop_longitude]
+    output_class: X
+    exposure: external
+    implemented_by: planned
+    min_users: 500
+    phase: 4
+
+  retailLeakage:                  # the synthesis -> site-opportunity score
+    bound_to: [suburb]
+    computes: "Out-of-suburb spend by category (demand leaking elsewhere) -> ranked site-opportunity / new-store score"
+    reads: [receipt_item.category, receipt.amount, receipt.shop_latitude, receipt.shop_longitude, customer.last_latitude, customer.last_longitude]
+    output_class: X
+    exposure: external
+    implemented_by: planned
+    min_users: 1000
+    phase: 4
