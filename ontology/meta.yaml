@@ -1,0 +1,64 @@
+# KlpIT Ontology — meta / reference data
+# Adapted from the claude-framework ontology spine (Tshwane EIMS) to the
+# retail receipt lottery platform. Declared, not coded: the ontology lives in
+# ontology/*.yaml and scripts/validate_ontology.py proves it is consistent and
+# that the POPIA exposure rule holds.
+schema_version: "0.1"
+
+# ── Identity spine — UID domains. Every object's uid_prefix must start with one
+#    of these (validator enforces "one identity spine").
+uid_domains:
+  KLP-CU: { domain: "Customers", covers: "Registered WhatsApp customers" }
+  KLP-RC: { domain: "Receipts",  covers: "Receipts and their line items" }
+  KLP-SH: { domain: "Shops",     covers: "Retail shops / merchants" }
+  KLP-DR: { domain: "Draws",     covers: "Daily lottery draws and winners" }
+  KLP-PR: { domain: "Products",  covers: "Canonical, normalized products" }
+
+# ── Source systems and how data enters the ontology.
+source_systems:
+  WhatsApp_Cloud: { mode: "webhook+api",  frequency: "real_time", direction: "read+write_back" }
+  LandingAI_ADE:  { mode: "batch_api",    frequency: "per_receipt", direction: "read_only" }
+  Google_Maps:    { mode: "batch_api",    frequency: "per_new_shop", direction: "read_only" }
+  Supabase:       { mode: "native",       frequency: "real_time", direction: "ontology_owned" }
+  APScheduler:    { mode: "native",       frequency: "daily_21h_sast", direction: "ontology_owned" }
+  model_registry: { mode: "native",       frequency: "on_train", direction: "read_only" }
+
+# ── §9.1 Sensitivity classes. Every object property MUST carry one of these.
+#    This is the POPIA spine: P/F may never be exposed externally; only X may.
+sensitivity_classes:
+  O: "Operational — internal operational data"
+  P: "Personal (POPIA) — personal information (phone, name, precise location, receipt image)"
+  F: "Financial — commercially sensitive (per-customer/per-shop money)"
+  X: "Public — approved for external exposure (anonymized / aggregated)"
+
+# ── Roles. Every action's `roles` must be a subset of these.
+roles:
+  - Customer        # the WhatsApp end-user
+  - Admin           # portal admin (review, draws)
+  - System          # scheduler / automated pipelines
+  - Analyst         # B2B / data consumer — may ONLY read exposure:external functions
+
+# ── Aggregate scopes a function may bind to (in addition to object types).
+aggregates:
+  - market          # whole-platform aggregate (all receipts/customers)
+  - suburb          # geographic aggregate (SA-context intelligence)
+
+# ── The ONLY systems an action may write to. Anything else violates
+#    "actions are the only write path".
+allowed_action_write_targets:
+  - "Supabase native"
+  - "Supabase Storage"
+  - "WhatsApp API"
+  - "notification services"
+
+# ── Hard rules — things no action / function may ever do.
+forbidden_writes:
+  - "exposing P (personal) or F (financial) properties to external consumers"
+  - "modifying a completed draw's winner"
+  - "writing OCR raw_text or receipt images to analytics/exposable surfaces"
+
+# ── POPIA exposure gate. A function with exposure:external MUST declare
+#    output_class X. The validator also reports any external function whose
+#    inputs read P/F (i.e. it depends on anonymization/aggregation being correct).
+external_exposure_allowed_output_classes:
+  - X

@@ -296,6 +296,24 @@ Full roadmap: `docs/DATA_INTELLIGENCE_ROADMAP.md`
 | 500+ | SASSA grant cycle impact, suburb-level economic indicators |
 | 1000+ | B2B data API, income proxy modeling, market share estimation |
 
+## Ontology Layer (Intelligence + POPIA Governance)
+
+A declarative ontology models the platform as Objects / Links / Actions / Functions
+with O/P/F/X sensitivity classes on every property. Lives in `ontology/*.yaml`.
+
+- **Run**: `./scripts/verify-ontology.sh` — parses, validates consistency, prints
+  the sensitivity/exposure report, and **fails the build** if a function marked
+  `exposure: external` would emit Personal (`P`) or Financial (`F`) data.
+- **POPIA gate**: only `output_class: X` may be externally exposed — the enforced
+  form of "aggregate, anonymize, comply before any B2B data play".
+- **Functions = the intelligence roadmap**: each insight is declared with
+  `min_users` + `phase` (mirrors the intelligence-tier table above). Most already
+  exist as SQL views; the ontology adds sensitivity + release phase.
+- **When adding a column/view**: add the property to `objects.yaml` with a
+  sensitivity class (validator fails on untagged) and declare new insights in
+  `functions.yaml`, then re-run the verifier.
+- `product` object is **planned** — the home for the item-normalization bottleneck.
+
 ## Sprint Roadmap
 
 | Sprint | Theme | Status |

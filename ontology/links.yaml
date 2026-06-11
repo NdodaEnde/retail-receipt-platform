@@ -1,0 +1,13 @@
+# KlpIT Ontology — Link Type Catalogue.
+# from/to reference object api_names. derived_from names the action / source /
+# pipeline that establishes the link.
+# (Populated for the core graph; extend as the model grows.)
+schema_version: "0.1"
+
+links:
+  submitted_by:  { from: receipt,      to: customer, cardinality: "N:1", derived_from: submitReceipt }
+  purchased_at:  { from: receipt,      to: shop,     cardinality: "N:1", derived_from: finaliseReceiptWithLocation }
+  contains:      { from: receipt,      to: receipt_item, cardinality: "1:N", derived_from: submitReceipt }
+  normalizes_to: { from: receipt_item, to: product,  cardinality: "N:1", derived_from: model_pipeline }
+  entered_in:    { from: receipt,      to: draw,     cardinality: "N:1", derived_from: runDraw }
+  won_by:        { from: draw,         to: customer, cardinality: "1:1", derived_from: runDraw }

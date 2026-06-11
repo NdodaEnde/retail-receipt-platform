@@ -1,0 +1,47 @@
+# KlpIT Ontology — Action Type Catalogue. The ONLY write path.
+# Each action: roles permitted, writes_to (must be an allowed_action_write_target),
+# creates/updates (object api_names), optional auto_invokes / invokes_function.
+# (Mapped to existing backend/server.py endpoints; audit + role-gating are the
+#  future hardening this pillar is here to anchor.)
+schema_version: "0.1"
+
+actions:
+
+  registerCustomer:
+    roles: [Customer, System]
+    writes_to: ["Supabase native", "WhatsApp API"]
+    creates: [customer]
+    effect: "First WhatsApp contact -> collect first_name + surname -> registered"
+
+  submitReceipt:
+    roles: [Customer]
+    writes_to: ["Supabase native", "Supabase Storage"]
+    creates: [receipt, receipt_item]
+    effect: "Receipt image -> OCR -> pending receipt + line items; awaits location"
+
+  finaliseReceiptWithLocation:
+    roles: [Customer, System]
+    writes_to: ["Supabase native", "WhatsApp API"]
+    creates: [shop]
+    updates: [receipt]
+    invokes_function: [fraudScore]
+    effect: "Location -> geocode shop -> fraud check -> finalise receipt + confirm"
+
+  reviewReceipt:
+    roles: [Admin]
+    writes_to: ["Supabase native"]
+    updates: [receipt]
+    effect: "Admin approves / rejects a flagged receipt"
+
+  runDraw:
+    roles: [System, Admin]
+    writes_to: ["Supabase native", "WhatsApp API"]
+    creates: [draw]
+    updates: [receipt, customer]
+    effect: "21:00 SAST — pick winner from eligible receipts, notify participants"
+
+  flagFraud:
+    roles: [System]
+    writes_to: ["Supabase native"]
+    updates: [receipt]
+    effect: "Sets fraud_flag/score/reason from multi-signal assessment"

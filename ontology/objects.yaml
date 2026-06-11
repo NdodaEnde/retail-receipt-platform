@@ -1,0 +1,126 @@
+# KlpIT Ontology — Object Type Catalogue.
+# Grounded in backend/schema.sql (customers, shops, receipts, receipt_items, draws).
+# Fields per object:
+#   uid_prefix        must begin with a declared UID domain
+#   systems_of_record one or more declared source systems
+#   created_by        action | model | sync
+#   actionable        may an action create/write it?
+#   properties[]      name / type / source / sensitivity (O|P|F|X)
+schema_version: "0.1"
+
+objects:
+
+  customer:                       # backend/schema.sql customers
+    uid_prefix: KLP-CU
+    pk_format: "KLP-CU-<uuid>"
+    systems_of_record: [Supabase, WhatsApp_Cloud]
+    sync_mode: native
+    created_by: action            # registerCustomer (first WhatsApp message)
+    actionable: true
+    properties:
+      - { name: customer_uid,        type: string,   source: Supabase,      sensitivity: O }
+      - { name: phone_number,        type: string,   source: WhatsApp_Cloud, sensitivity: P }
+      - { name: first_name,          type: string,   source: WhatsApp_Cloud, sensitivity: P }
+      - { name: surname,             type: string,   source: WhatsApp_Cloud, sensitivity: P }
+      - { name: registration_status, type: enum,     source: Supabase,      sensitivity: O }
+      - { name: total_receipts,      type: number,   source: Supabase,      sensitivity: O }
+      - { name: total_wins,          type: number,   source: Supabase,      sensitivity: O }
+      - { name: total_spent,         type: currency, source: Supabase,      sensitivity: F }
+      - { name: total_winnings,      type: currency, source: Supabase,      sensitivity: F }
+      - { name: last_latitude,       type: geo,      source: WhatsApp_Cloud, sensitivity: P }
+      - { name: last_longitude,      type: geo,      source: WhatsApp_Cloud, sensitivity: P }
+      - { name: tier,                type: enum,     source: function,      sensitivity: O }  # Sprint 2 (derived)
+      - { name: current_streak,      type: number,   source: function,      sensitivity: O }  # Sprint 2 (derived)
+      - { name: created_at,          type: datetime, source: Supabase,      sensitivity: O }
+
+  receipt:                        # backend/schema.sql receipts — centre of gravity
+    uid_prefix: KLP-RC
+    pk_format: "KLP-RC-<uuid>"
+    systems_of_record: [Supabase, LandingAI_ADE]
+    sync_mode: native
+    created_by: action            # submitReceipt
+    actionable: true
+    properties:
+      - { name: receipt_uid,    type: string,   source: Supabase,      sensitivity: O }
+      - { name: customer,       type: "link->customer", source: Supabase, sensitivity: O }
+      - { name: shop,           type: "link->shop",     source: Supabase, sensitivity: O }
+      - { name: amount,         type: currency, source: LandingAI_ADE, sensitivity: F }
+      - { name: currency,       type: string,   source: Supabase,      sensitivity: O }
+      - { name: image_url,      type: string,   source: Supabase,      sensitivity: P }  # image can show card no / name
+      - { name: raw_text,       type: text,     source: LandingAI_ADE, sensitivity: P }  # OCR text can contain PII
+      - { name: upload_latitude,  type: geo,    source: WhatsApp_Cloud, sensitivity: P }
+      - { name: upload_longitude, type: geo,    source: WhatsApp_Cloud, sensitivity: P }
+      - { name: shop_latitude,  type: geo,      source: Google_Maps,   sensitivity: O }
+      - { name: shop_longitude, type: geo,      source: Google_Maps,   sensitivity: O }
+      - { name: shop_address,   type: string,   source: LandingAI_ADE, sensitivity: O }
+      - { name: postal_code,    type: string,   source: LandingAI_ADE, sensitivity: O }
+      - { name: distance_km,    type: number,   source: function,      sensitivity: O }
+      - { name: fraud_flag,     type: enum,     source: function,      sensitivity: O }
+      - { name: fraud_score,    type: number,   source: function,      sensitivity: O }
+      - { name: status,         type: enum,     source: Supabase,      sensitivity: O }
+      - { name: receipt_date,   type: date,     source: LandingAI_ADE, sensitivity: O }
+      - { name: draw_eligible,  type: boolean,  source: function,      sensitivity: O }
+      - { name: created_at,     type: datetime, source: Supabase,      sensitivity: O }
+
+  receipt_item:                   # backend/schema.sql receipt_items
+    uid_prefix: KLP-RC-IT
+    pk_format: "KLP-RC-IT-<uuid>"
+    systems_of_record: [Supabase, LandingAI_ADE]
+    sync_mode: native
+    created_by: action            # submitReceipt creates items
+    actionable: false             # mirror of OCR output, not directly edited
+    properties:
+      - { name: item_uid,    type: string,   source: Supabase,      sensitivity: O }
+      - { name: receipt,     type: "link->receipt", source: Supabase, sensitivity: O }
+      - { name: name,        type: string,   source: LandingAI_ADE, sensitivity: O }  # raw OCR name (un-normalized)
+      - { name: quantity,    type: number,   source: LandingAI_ADE, sensitivity: O }
+      - { name: unit_price,  type: currency, source: LandingAI_ADE, sensitivity: O }
+      - { name: total_price, type: currency, source: LandingAI_ADE, sensitivity: O }
+      - { name: product,     type: "link->product", source: function, sensitivity: O }  # normalization target
+
+  shop:                           # backend/schema.sql shops
+    uid_prefix: KLP-SH
+    pk_format: "KLP-SH-<uuid>"
+    systems_of_record: [Supabase, Google_Maps]
+    sync_mode: native
+    created_by: action            # finaliseReceiptWithLocation -> get_or_create_shop
+    actionable: true
+    properties:
+      - { name: shop_uid,           type: string,   source: Supabase,    sensitivity: O }
+      - { name: name,               type: string,   source: LandingAI_ADE, sensitivity: X }  # shown on public map
+      - { name: address,            type: string,   source: Google_Maps, sensitivity: O }
+      - { name: latitude,           type: geo,      source: Google_Maps, sensitivity: X }  # shop pin is public
+      - { name: longitude,          type: geo,      source: Google_Maps, sensitivity: X }
+      - { name: geocode_confidence, type: enum,     source: Google_Maps, sensitivity: O }
+      - { name: receipt_count,      type: number,   source: Supabase,    sensitivity: O }
+      - { name: total_sales,        type: currency, source: function,    sensitivity: F }  # shop revenue — commercially sensitive
+
+  draw:                           # backend/schema.sql draws
+    uid_prefix: KLP-DR
+    pk_format: "KLP-DR-<uuid>"
+    systems_of_record: [Supabase]
+    sync_mode: native
+    created_by: action            # runDraw (APScheduler 21:00 SAST)
+    actionable: true
+    properties:
+      - { name: draw_uid,            type: string,   source: Supabase, sensitivity: O }
+      - { name: draw_date,           type: date,     source: Supabase, sensitivity: X }  # public winners page
+      - { name: total_receipts,      type: number,   source: Supabase, sensitivity: O }
+      - { name: total_amount,        type: currency, source: function, sensitivity: F }
+      - { name: prize_amount,        type: currency, source: function, sensitivity: X }  # shown publicly
+      - { name: winner_customer,     type: "link->customer", source: Supabase, sensitivity: P }
+      - { name: winner_phone_masked, type: string,   source: function, sensitivity: X }  # +27 7XX XXX X462
+      - { name: status,              type: enum,     source: Supabase, sensitivity: O }
+
+  product:                        # PLANNED — canonical item (resolves the item-normalization bottleneck)
+    uid_prefix: KLP-PR
+    pk_format: "KLP-PR-<uuid>"
+    systems_of_record: [Supabase]
+    sync_mode: native
+    created_by: model             # emitted by itemNormalization
+    actionable: false
+    properties:
+      - { name: product_uid,    type: string, source: Supabase, sensitivity: O }
+      - { name: canonical_name, type: string, source: model,    sensitivity: O }
+      - { name: category,       type: enum,   source: model,    sensitivity: X }  # category-level is exposable
+      - { name: brand,          type: string, source: model,    sensitivity: O }
