@@ -33,6 +33,8 @@ from receipt_processor import get_receipt_processor
 from vector_store import get_receipt_vector_store
 from whatsapp_cloud import get_whatsapp_client, parse_webhook_message, WHATSAPP_VERIFY_TOKEN
 from geocoding import get_geocoding_service, precision_rank, is_sa_centroid, SA_LOCATIONS
+from extraction_verifier import sanitize_shop_name
+from shop_resolver import resolve_shop, display_name_from_ocr_address
 from database import get_database
 from storage_helper import get_storage
 from portal_token import generate_portal_token, validate_portal_token
@@ -323,50 +325,25 @@ async def process_receipt_with_landingai(image_base64: str, mime_type: str = "im
         return result
 
 async def geocode_shop_from_receipt(shop_name: str, address: str = None, postal_code: str = None,
-                                    customer_lat: float = None, customer_lon: float = None) -> tuple:
+                                    customer_lat: float = None, customer_lon: float = None,
+                                    phone: str = None, address_lines: list = None,
+                                    suburb: str = None) -> tuple:
     """
-    Resolve a shop from its name, receipt address and/or postal code; falls back to a
-    Places search biased around the customer (see geocoding.geocode_shop).
-
-    Returns (latitude, longitude, display_name, geocoded_address, precision).
+    Resolve a shop from the slip's verified fields (see shop_resolver.resolve_shop).
+    Returns (latitude, longitude, display_name, formatted_address, precision).
     On failure: (None, None, <name + OCR suburb if any>, None, "none").
     """
     try:
-        geocoding_service = get_geocoding_service()
-        result = await geocoding_service.geocode_shop(
-            shop_name, address, postal_code=postal_code,
-            customer_lat=customer_lat, customer_lon=customer_lon
+        res = await resolve_shop(
+            shop_name, address=address, address_lines=address_lines, postal_code=postal_code,
+            phone=phone, suburb=suburb, customer_lat=customer_lat, customer_lon=customer_lon,
         )
-
-        if result:
-            lat = result["latitude"]
-            lon = result["longitude"]
-            formatted = result.get("formatted_address", "")
-            precision = result.get("precision") or "rooftop"
-
-            # Extract suburb/area from formatted address for display name
-            display_name = shop_name
-            if formatted:
-                # Format: "Street, Suburb, City, PostCode, South Africa"
-                parts = [p.strip() for p in formatted.split(",")]
-                if len(parts) >= 3:
-                    for part in parts[1:4]:
-                        if part.isdigit() or "south africa" in part.lower() or len(part) <= 3:
-                            continue
-                        if any(x in part.lower() for x in [' st', ' rd', ' ave', ' dr', ' blvd', ' ln', ' cres', 'street', 'road', 'avenue', 'drive', 'boulevard', 'lane', 'crescent']):
-                            continue
-                        suburb = part.strip()
-                        if suburb and suburb.lower() not in shop_name.lower():
-                            display_name = f"{shop_name} {suburb}"
-                        break
-
-            logger.info(f"Geocoded {shop_name}: {lat}, {lon} [{precision}] -> Display: {display_name}")
-            return (lat, lon, display_name, formatted, precision)
-
-        logger.warning(f"Could not geocode shop: {shop_name}, {address}")
+        if res:
+            logger.info(f"Resolved {shop_name}: {res.latitude}, {res.longitude} [{res.precision}] "
+                        f"via {res.source} -> {res.display_name} | " + "; ".join(res.evidence))
+            return (res.latitude, res.longitude, res.display_name, res.formatted_address, res.precision)
     except Exception as e:
-        logger.error(f"Geocoding error: {e}")
-
+        logger.error(f"Shop resolution error: {e}")
     return (None, None, display_name_from_ocr_address(shop_name, address), None, "none")
 
 # ============== SCHEDULED DRAW FUNCTION ==============
@@ -555,46 +532,6 @@ async def get_or_create_customer(phone_number: str, name: Optional[str] = None) 
         customer['created_at'] = customer['created_at'].isoformat()
         customer = await db.customers_insert_one(customer)
     return customer
-
-# OCR sometimes returns a transactional word as the "shop name" (e.g. a card slip
-# whose first line is "Purchase"). These are never shops.
-NON_SHOP_NAMES = {
-    "purchase", "total", "subtotal", "tax invoice", "invoice", "receipt", "cash",
-    "card", "eft", "change", "vat", "sale", "payment", "approved", "transaction",
-    "customer copy", "merchant copy", "till slip", "unknown", "unknown shop",
-    "customer receipt", "tax receipt", "slip", "thank you",
-}
-
-def sanitize_shop_name(shop_name: Optional[str]) -> Optional[str]:
-    """Drop non-shop 'names' so we store no shop rather than a bogus one."""
-    if not shop_name:
-        return None
-    # Strip any LandingAI markup that slipped through ("<::LOGO: PICK N PAY")
-    shop_name = re.sub(r"<::[A-Z]+:\s*", "", re.sub(r"<::[^>]*::>", "", shop_name)).strip(" >:")
-    if not shop_name:
-        return None
-    cleaned = re.sub(r"[^a-z0-9 ]", "", shop_name.lower()).strip()
-    # No letters at all (e.g. "18:01", "0000") cannot be a shop name
-    if not cleaned or cleaned in NON_SHOP_NAMES or not re.search(r"[a-z]", cleaned):
-        logger.warning(f"Discarding non-shop name from OCR: {shop_name!r}")
-        return None
-    return shop_name
-
-def display_name_from_ocr_address(shop_name: str, shop_address: Optional[str]) -> str:
-    """
-    When geocoding fails, still give the customer a location in the confirmation
-    ("Chicken Licken, Sloane Square") using the address text OCR read off the slip.
-    """
-    if not shop_address or re.search(r"www\.|https?:|\.co\b|\.com\b|@", shop_address.lower()):
-        return shop_name
-    lowered = shop_address.lower()
-    for suburb in SA_LOCATIONS:
-        if suburb in lowered and suburb not in shop_name.lower():
-            return f"{shop_name} {suburb.title()}"
-    short = shop_address.strip(" ,.")
-    if 0 < len(short) <= 32 and not re.search(r"\d{3,}", short) and short.lower() not in shop_name.lower():
-        return f"{shop_name}, {short}"
-    return shop_name
 
 def _shop_location_rank(shop: dict) -> int:
     """Rank of a stored shop's location quality (0 = missing or country centroid)."""
@@ -812,7 +749,9 @@ async def process_receipt_image(request: ReceiptImageRequest):
                 shop_name, 
                 shop_address,
                 postal_code=postal_code,
-                customer_lat=request.latitude, customer_lon=request.longitude
+                customer_lat=request.latitude, customer_lon=request.longitude,
+                phone=extracted.get("phone_number"), address_lines=extracted.get("address_lines"),
+                suburb=extracted.get("suburb")
             )
         
         # Use geocoded address if OCR address is missing or looks like garbage
@@ -2203,7 +2142,9 @@ async def finalise_receipt_with_location(
             shop_lat, shop_lon, shop_display_name, _, shop_precision = await geocode_shop_from_receipt(
                 shop_name, shop_address,
                 postal_code=extracted.get("postal_code"),
-                customer_lat=latitude, customer_lon=longitude
+                customer_lat=latitude, customer_lon=longitude,
+                phone=extracted.get("phone_number"), address_lines=extracted.get("address_lines"),
+                suburb=extracted.get("suburb")
             )
 
         # Calculate fraud risk using customer location vs shop location

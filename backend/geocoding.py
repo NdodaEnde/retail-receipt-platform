@@ -8,7 +8,7 @@ import os
 import logging
 import asyncio
 import re
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,7 @@ SA_CENTROID = (-30.559482, 22.937506)
 REGION_TYPES = {"country", "administrative_area_level_1", "administrative_area_level_2"}
 
 # Precision of a resolved shop location. Ordered from best to worst.
+#   verified – two independent witnesses agree (phone match, or name + address text)
 #   rooftop  – a specific establishment / street address
 #   biased   – establishment found via Places search biased to the customer's
 #              location (accurate, but not independent evidence for fraud)
@@ -33,10 +34,10 @@ REGION_TYPES = {"country", "administrative_area_level_1", "administrative_area_l
 #   suburb   – suburb / neighbourhood centroid
 #   city     – town / postal-code centroid
 #   none     – unresolved
-PRECISION_RANK = {"rooftop": 4, "biased": 3, "street": 3, "suburb": 2, "city": 1, "none": 0}
+PRECISION_RANK = {"verified": 5, "rooftop": 4, "biased": 3, "street": 3, "suburb": 2, "city": 1, "none": 0}
 # Legacy geocode_confidence values written by the /geocode endpoints
 PRECISION_RANK.update({"high": 3, "medium": 2, "low": 1})
-GOOD_PRECISION = {"rooftop", "biased", "street", "suburb"}
+GOOD_PRECISION = {"verified", "rooftop", "biased", "street", "suburb"}
 
 
 def is_sa_centroid(lat, lon) -> bool:
@@ -362,60 +363,70 @@ class GeocodingService:
             logger.warning(f"Reverse geocode failed: {e}")
         return None
 
-    async def _places_search_biased(self, shop_name: str, address: Optional[str],
-                                    lat: float, lon: float, radius_m: int = 10000) -> Optional[Dict]:
+    async def places_text_search(self, query: str, lat: float = None, lon: float = None,
+                                 radius_m: int = 10000, max_results: int = 3) -> List[Dict]:
         """
-        Places API (New) text search, *biased* (not restricted) to a circle around the
-        customer. Finds the right branch of a chain store. The returned place must
-        share a name token with the OCR shop name, otherwise it is discarded.
+        Places API (New) text search. If a customer location is given the search is
+        *biased* (not restricted) to a circle around it. Returns candidates with
+        coordinates, address, place_id, types and phone number (for phone matching).
         """
-        if not self.google_api_key or not shop_name:
-            return None
-
-        query = f"{shop_name} {address}".strip() if address else shop_name
-        body = {
-            "textQuery": query[:200],
-            "regionCode": "ZA",
-            "maxResultCount": 3,
-            "locationBias": {"circle": {
+        if not self.google_api_key or not query:
+            return []
+        body = {"textQuery": query[:200], "regionCode": "ZA", "maxResultCount": max_results}
+        if lat is not None and lon is not None:
+            body["locationBias"] = {"circle": {
                 "center": {"latitude": float(lat), "longitude": float(lon)},
                 "radius": float(radius_m)
             }}
-        }
         headers = {
             "Content-Type": "application/json",
             "X-Goog-Api-Key": self.google_api_key,
-            "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.types",
+            "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,"
+                                "places.location,places.types,places.nationalPhoneNumber,"
+                                "places.internationalPhoneNumber",
         }
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(GOOGLE_PLACES_SEARCH_URL, headers=headers, json=body, timeout=10)
             if response.status_code != 200:
                 logger.warning(f"Places search failed ({response.status_code}): {response.text[:200]}")
-                return None
-            want = _name_tokens(shop_name)
+                return []
+            out = []
             for place in response.json().get("places", []):
-                got = _name_tokens((place.get("displayName") or {}).get("text", ""))
-                if want and not (want & got):
-                    continue
                 loc = place.get("location") or {}
                 if "latitude" not in loc:
                     continue
-                logger.info(f"✅ Places (customer-biased) matched '{query}' -> {place.get('formattedAddress')}")
-                return {
+                out.append({
+                    "name": (place.get("displayName") or {}).get("text", ""),
                     "latitude": loc["latitude"],
                     "longitude": loc["longitude"],
                     "formatted_address": place.get("formattedAddress", ""),
-                    "source": "google_places",
-                    "confidence": "high",
-                    "precision": "biased",
-                    "types": place.get("types", []),
                     "place_id": place.get("id"),
-                    "note": "Matched via Places search biased to customer location",
-                }
-            logger.warning(f"Places search: no name-matching result for '{query}'")
+                    "types": place.get("types", []),
+                    "phone": place.get("internationalPhoneNumber") or place.get("nationalPhoneNumber"),
+                    "source": "google_places",
+                })
+            return out
         except Exception as e:
             logger.error(f"Places search error: {e}")
+            return []
+
+    async def _places_search_biased(self, shop_name: str, address: Optional[str],
+                                    lat: float, lon: float, radius_m: int = 10000) -> Optional[Dict]:
+        """Nearest name-matching place around the customer (precision 'biased')."""
+        if not shop_name:
+            return None
+        query = f"{shop_name} {address}".strip() if address else shop_name
+        want = _name_tokens(shop_name)
+        for place in await self.places_text_search(query, lat, lon, radius_m):
+            got = _name_tokens(place["name"])
+            if want and not (want & got):
+                continue
+            logger.info(f"✅ Places (customer-biased) matched '{query}' -> {place['formatted_address']}")
+            place.update({"confidence": "high", "precision": "biased",
+                          "note": "Matched via Places search biased to customer location"})
+            return place
+        logger.warning(f"Places search: no name-matching result for '{query}'")
         return None
 
     async def geocode_shop(self, shop_name: str, address: str = None, receipt_text: str = None,

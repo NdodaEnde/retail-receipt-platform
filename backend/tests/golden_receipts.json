@@ -1,0 +1,574 @@
+[
+ {
+  "id": "5ac3c4f0",
+  "label": "Pick n Pay Douglasdale — store no. under 'Store Cash.'",
+  "shop": "Pick n Pay",
+  "postal": null,
+  "phone": [
+   null,
+   "+27118998634"
+  ],
+  "address": [
+   "Douglasdale"
+  ],
+  "suburb": "Douglasdale",
+  "adversarial": "0348",
+  "resolve": [
+   "Douglasdale"
+  ],
+  "proposal_shop_name": "Pick n Pay",
+  "customer": [
+   -26.03,
+   27.99
+  ],
+  "raw_text": "<a id='51bf90f7-9715-478b-85ca-66c9bdaca356'></a>\n\nPick n Pay\n\n<a id='03301342-5190-41a0-97fd-d3ff94782299'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\">1 899</td><td id=\"0-3\">8634</td></tr>\n<tr><td id=\"0-4\" colspan=\"2\">Douglasdale Ull\nCnr Douglas Dr &amp; Leslie Ave\n00011864/037750/36024</td></tr>\n<tr><td id=\"0-5\">Huor Lic. : GAU/7000DIE ENVOICE</td><td id=\"0-6\">32.99#</td></tr>\n<tr><td id=\"0-7\">TAX INVO R AMASI MEDIUM FAT 2KG</td><td id=\"0-8\"></td></tr>\n<tr><td id=\"0-9\">PHT MILK FULL CREAM 1L</td><td id=\"0-a\">35.98#</td></tr>\n<tr><td id=\"0-b\">2 @ 17.9</td><td id=\"0-c\">84 99</td></tr>\n<tr><td id=\"0-d\">LAT CHEDD MAXI SLICE 40</td><td id=\"0-e\"></td></tr>\n<tr><td id=\"0-f\">(4 items)</td><td id=\"0-g\">153.96</td></tr>\n<tr><td id=\"0-h\">CREDIT</td><td id=\"0-i\">153.96</td></tr>\n</table>\n\n<a id='d43b2af4-1a58-439e-8133-6ecd5f685b6c'></a>\n\n<table id=\"0-j\">\n<tr><td id=\"0-k\">Gross</td><td id=\"0-l\">VAT</td><td id=\"0-m\">Net</td></tr>\n<tr><td id=\"0-n\">84.99</td><td id=\"0-o\">11.09</td><td id=\"0-p\">73.90</td></tr>\n<tr><td id=\"0-q\">68.97</td><td id=\"0-r\">0.00</td><td id=\"0-s\">68.97#</td></tr>\n</table>\n\n<a id='7c743e94-29c3-4622-b7cf-48b700199e26'></a>\n\nThank you for shopping at Pick n Pay\nYou were served by\n[name]\nKeep your slip as proof of purchase\nCUSTOMER CARE LINE: 0860 30 30 30\n\n<a id='744f6fef-c135-4954-b85b-cdba8a27e27a'></a>\n\nStore Cash.: 0348 50006064\nTill: 7\nDate: 01.09.26\nTime: 18:53\n\n<a id='d69bf59c-e6dd-4211-a70b-a8a661de6167'></a>\n\n<::scan_code: Code 128\n999102034800730000379\nThe barcode is clearly visible with readable numbers beneath it. The image quality is good.::>"
+ },
+ {
+  "id": "2f3de2d8",
+  "label": "Chicken Licken Sloane Square — name only in logo",
+  "shop": "Chicken Licken",
+  "postal": null,
+  "phone": "+27114635254",
+  "address": [
+   "Sloane"
+  ],
+  "adversarial": "1002",
+  "resolve": [
+   "Bryanston",
+   "Sloane"
+  ],
+  "proposal_shop_name": "Chicken Licken",
+  "customer": [
+   -26.04,
+   28.02
+  ],
+  "raw_text": "<a id='7534b13d-6e53-436f-af7c-1a1a8043c9e4'></a>\n\n<::logo: Chicken Licken\nChicken Licken\nThe logo features a stylized, slightly shadowed font for the text, with a subtle outline and a small, partially visible circular emblem above the text that seems to contain a chicken's head.::>\n\n<a id='2a11ac0e-5d9e-4619-bb2b-69f956c82589'></a>\n\nSloane Square\nVAT No: 4880187812\nReg No: 1998/017620/07\nTel (011) 463-5254\nFax (011) 463-6545 SN 10022\n*** TAX INVOICE ***\n\n<a id='96e18a28-8400-4d7b-837a-cb3657ea0632'></a>\n\nINVOICE FOR CAR 1\n\n<a id='a7d116ec-bcea-458e-8457-196f3fd36e73'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\">Description</td><td id=\"0-3\">Qty</td><td id=\"0-4\">Amount</td></tr>\n<tr><td id=\"0-5\">Family Barrel 21</td><td id=\"0-6\">1</td><td id=\"0-7\">300.00</td></tr>\n<tr><td id=\"0-8\">**Original** Soul Fries Large</td><td id=\"0-9\">1</td><td id=\"0-a\">43.00</td></tr>\n<tr><td id=\"0-b\">Licken Loaf</td><td id=\"0-c\">8</td><td id=\"0-d\">80.00</td></tr>\n<tr><td id=\"0-e\">Licken Loaf</td><td id=\"0-f\">1</td><td id=\"0-g\">10.00</td></tr>\n<tr><td id=\"0-h\">Soulman Load Up</td><td id=\"0-i\">1</td><td id=\"0-j\">84.00</td></tr>\n<tr><td id=\"0-k\">**Bottle Combo - Coke**</td><td id=\"0-l\">1</td><td id=\"0-m\"></td></tr>\n<tr><td id=\"0-n\">** Dreamy Creamy **</td><td id=\"0-o\">1</td><td id=\"0-p\"></td></tr>\n<tr><td id=\"0-q\">Extra Slice Of Cheese</td><td id=\"0-r\">2</td><td id=\"0-s\">14.00</td></tr>\n<tr><td id=\"0-t\">TOTAL</td><td id=\"0-u\" colspan=\"2\">531.00</td></tr>\n</table>\n\n<a id='e8296099-d4af-44a6-a628-b4238f0ce27b'></a>\n\nDEBIT CARD 531.00\nCHANGE 0.00\nVAT 15% 69.26\n\n<a id='6d41a682-c9e8-4b93-84de-aa8fa45c3726'></a>\n\nDate 08 Aug 2026 Time 12:20:36\n[name] Shift 1\n\n<a id='bc979ff6-6e4d-4349-b154-676fbe94b5f6'></a>\n\n<::A horizontal line of dashes, resembling a perforation or tear line.\n: figure::>\n\n<a id='98800e2d-a182-4c9e-876f-32bcace7a9d6'></a>\n\nOrder #3062\n\n<a id='39cf7621-94b6-455d-b70d-7c082bb62aee'></a>\n\nIF YOU ARE NOT COMPLETELY SATISFIED WITH\nYOUR PURCHASE RETURN THE PRODUCT IN THE\nORIGINAL CONDITION AND PACKAGING\n---PLEASE KEEP YOUR RECEIPT---"
+ },
+ {
+  "id": "ecec66c2",
+  "label": "Factorie Tyger Valley — 'Cape Town 7536 WC'",
+  "shop": "FACTORIE",
+  "postal": "7536",
+  "phone": "+27875638147",
+  "address": [
+   "Tyger Valley"
+  ],
+  "resolve": [
+   "Bellville",
+   "Tyger"
+  ],
+  "proposal_shop_name": "FACTORIE",
+  "customer": [
+   -33.87,
+   18.63
+  ],
+  "raw_text": "<a id='21ed2c68-c748-4af5-ae9f-e753c0527251'></a>\n\n<::\nFACTORIE\n: figure::>\n\n<a id='2a8452b9-00cf-4e21-8796-1f41a879c670'></a>\n\nFACTORIE TYGER VALLEY\nShop UL554 Tyger Valley\nCnr B111 Bezuidenhout and\nWillie van Schoor\nCape Town 7536 WC\nTelephone: +27875638147\nTax Invoice\nVAT: 4430259194\n\n<a id='385d6b4d-2ff6-4512-a63b-3312d206b05c'></a>\n\nQty Price                                                               Value\n5300853-02 - SNATCHED CAMI · WHITE · S\n1 @          249.00                                                   R249.00*\n5300853-03 - SNATCHED CAMI · PHANTOM · S\n1 @          249.00                                                   R249.00*\n5300869-01 - SNATCHED RACER TANK · BLACK · S\n1 @          249.00                                                   R249.00*\n5300853-04 - SNATCHED CAMI · BORDEAUX · S\n1 @          249.00                                                   R249.00*\n9630075-48 - FOUNDAT... · PEACH / BRIGHT ORANGE · OS\n1 @           40.00                                                    R40.00\n2 x FACT ZA - 2 FOR R400 GIRLS TOPS                                   -R198.00\n\n----------------------------------------------------------------------------\nSale total (includes R109.30 VAT)                                      R838.00\nEFT Payment Eftpos Terminal                                            R838.00\nAuth No.: 00\nChange                                                                   R0.00\n\n<a id='4782a0e9-9a02-422d-a065-c46e2d4141de'></a>\n\nTotal no. of units: 5\nYour Cashier was Nicole\n\n<a id='0778bb0a-615b-4570-ab81-8235406ef380'></a>\n\nWed 29 Jul 2026 2:36PM\nTerminal ID\nTrans No. Reg 01/236223\n\n<a id='300e6c45-ac96-4e64-a9f1-8e2ab08534ca'></a>\n\n01/082901005015\nPOS082901\n\n<a id='b4354b23-45e6-4d2b-b969-c96ebdbf3dc3'></a>\n\nTHANK YOU FOR SHOPPING AT FACTORIE\nChange your mind, anytime\nCurious about our refund & exchange policy\nVisit cottonon.com/za/factorie\n\nCustomer feedback on\n0800 007 786\nRetain Receipt for Returns\nReceipt No. 2912-4092-0831\n291240928851\n\n<a id='6a0a8045-5c0e-40f5-bc43-a97eee274251'></a>\n\n<NBSP>\n<NBSP>\n\nFactorie\nTyger Valley 16:39:29\n\nJul 29. 2026 PURCHASE 55PX\nCUSTOMER [illegible]\n\nNET AMOUNT 8.5\nVAT INCL 0.12\nVAT EXCL 8.38\nCHANGE 0.00\n\nITEM PRICE QTY TOTAL\n[illegible]"
+ },
+ {
+  "id": "562de15d",
+  "label": "Cotton On Tygervalley — 'Cape Town 7530 WC'",
+  "shop": "COTTON ON",
+  "postal": "7530",
+  "phone": "+27871598302",
+  "address": [
+   "Bezuidenhout"
+  ],
+  "resolve": [
+   "Bellville",
+   "Tyger",
+   "Oakdale",
+   "Willie Van Schoor"
+  ],
+  "proposal_shop_name": "COTTON ON",
+  "customer": [
+   -33.87,
+   18.63
+  ],
+  "raw_text": "<a id='aed7b887-53fa-4446-9725-7c6285d9372d'></a>\n\nCOTTON ON\n\n<a id='4e26e3b0-d473-41b6-a60f-ebb50a5fc7f5'></a>\n\nTygervalley Mega\nShop UL531\nCorner of Bill Bezuidenhout Ave\nWillie Van Schoor Drive\nCape Town 7530 WC\nTelephone: +27871598302\nTax Invoice\nVAT: 4430259194\n\n<a id='627a1b54-bdd4-4882-b397-c04e3901d541'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\">Qty</td><td id=\"0-3\">Price</td><td id=\"0-4\">Value</td></tr>\n<tr><td id=\"0-5\" colspan=\"2\">900905-03 - TYPO RECYCLED PAPER BAG • LARGE</td><td id=\"0-6\">SOLID</td></tr>\n<tr><td id=\"0-7\">1 @</td><td id=\"0-8\">5.00</td><td id=\"0-9\">R5.00</td></tr>\n<tr><td id=\"0-a\" colspan=\"3\">4590512-147 - PRESS ON . . . SO FRENCHY SO FINE OS</td></tr>\n<tr><td id=\"0-b\">1 @</td><td id=\"0-c\">149.00</td><td id=\"0-d\">R149.00</td></tr>\n<tr><td id=\"0-e\" colspan=\"3\">4591864-12 - 2PK SOFT ... - BLACK &amp; ECRU SMOOTH - OS</td></tr>\n<tr><td id=\"0-f\">1 @</td><td id=\"0-g\">129.00</td><td id=\"0-h\">R129.00*</td></tr>\n<tr><td id=\"0-i\" colspan=\"3\">2060057-11 - CURVY 91 STRAIGH... UNDONE BLACK 12</td></tr>\n<tr><td id=\"0-j\">1 @</td><td id=\"0-k\">799.00</td><td id=\"0-l\">R799.00</td></tr>\n<tr><td id=\"0-m\" colspan=\"2\">4590512-250 - PRESS ON NAILS • GLAZED FRENCHY</td><td id=\"0-n\">• OS</td></tr>\n<tr><td id=\"0-o\">1 @</td><td id=\"0-p\">169.00</td><td id=\"0-q\">R169.00</td></tr>\n<tr><td id=\"0-r\" colspan=\"2\">2059282-26 - 91 STRAIGHT JEAN · LAUREL BLUE ·</td><td id=\"0-s\">12</td></tr>\n<tr><td id=\"0-t\">1 @</td><td id=\"0-u\">799.00</td><td id=\"0-v\">R799.00</td></tr>\n<tr><td id=\"0-w\" colspan=\"3\">4591680-01 - SLIM DAD BELT BLACK/SILVER M/L</td></tr>\n<tr><td id=\"0-x\">1 @</td><td id=\"0-y\">199.00</td><td id=\"0-z\">R199.00</td></tr>\n<tr><td id=\"0-A\" colspan=\"2\">4591680-20 - SLI... &#x27;&#x27; BLACK TEXTURE/BRUSHED...</td><td id=\"0-B\">M/L</td></tr>\n<tr><td id=\"0-C\">1 @</td><td id=\"0-D\">199.00</td><td id=\"0-E\">R199.00</td></tr>\n<tr><td id=\"0-F\" colspan=\"2\">RUBI - RSA LARGE STRS DWELL BUY</td><td id=\"0-G\">-R129.00</td></tr>\n</table>\n\n<a id='6660d836-c4f0-4ac0-b0ee-bdc4b032fecf'></a>\n\nSale total (includes R302.48 VAT) R2,319.00\nEFT Payment Eftpos Terminal R2,319.00\nAuth No.: 00\nChange R0.00\n\n<a id='c9dde09d-b7fa-46bd-8dd5-90878b887bf5'></a>\n\nTotal no. of units: 8\nYour Cashier was LELAH\nCard number: 2710010017721363\nPoints for this sale: 231\nPoints Balance: 283\n\n<a id='01ef9d7c-78e0-4d99-8efd-49bc35cabd2f'></a>\n\n04/591104001580\nPOS591104\n\n<a id='231cf7db-2b74-4796-9280-9a470fa86656'></a>\n\nWed 29 Jul 2026 3:17PM\nTerminal ID\nTrans No. Reg 04/55018\n\n<a id='5fbeb6c9-9df7-46b4-8652-5e853e42e089'></a>\n\nTHANK YOU FOR SHOPPING AT COTTON ON\nChange your mind, anytime\nCurious about our refund & exchange policy\nVisit cottonon.com\n\n<a id='386b8fcf-e7c4-41cb-ac6e-2bcf6bb66765'></a>\n\nCustomer feedback on\n0800 007 786\n\n<a id='2ec7d3ca-0f25-4422-a1a5-381c6ce77d89'></a>\n\nRetain Receipt for Returns\nReceipt No. 1142-7511-0909\n... ...\n\n<a id='cd5f815c-d6a5-4a33-b48b-47da0b8cf419'></a>\n\nHey, we're hiring\ncottonon.com/careers\n\n<::scan_code: Barcode\nContent: 114275110909::>\n\n<a id='f19e073e-901f-4ff0-b64b-62dd2d8780c4'></a>\n\n<NBSP>\n<NBSP>\ncotton On"
+ },
+ {
+  "id": "2d730aa4",
+  "label": "Game Beacon Bay — 'East London 5241', toll-free phone",
+  "shop": "Game",
+  "postal": "5241",
+  "phone": null,
+  "address": [
+   "Bonza Bay"
+  ],
+  "resolve": [
+   "Beacon Bay",
+   "East London"
+  ],
+  "proposal_shop_name": "Game",
+  "customer": [
+   -32.96,
+   27.95
+  ],
+  "raw_text": "<a id='81e4d678-485a-4282-b016-1f9b79c4fb17'></a>\n\n<::logo: Game\nGame\nThe logo features the word \"Game\" in a stylized, striped font, set against a background of yellow and white diagonal stripes.::>\n\n<a id='7a61e9d8-4f15-42c0-892a-7f6bf99118f5'></a>\n\nMasstores (Pty) Ltd trading as Game\n\nGAME BEACON BAY\nSHOF 36, RETAIL PARK\nStore GOOB\nBonza Bay Rd\n\nEast London 5241\nProne 0861426023\n\n****************\nPRESENT THIS SLIP\nTO VALIDATE\nYOUR GUARANTEE\n******************************\nTAX INVOICE\nVAT REG No.: 4300119155\nTIN No.:9999945711\nCOMPANY REG. NUMEER: 199100680507\nC006008/21072026/3704/102/0125\n<::attestation: [Stamp] REDEEMED\n[Status: Redeemed]\n[Readable Text: REDEEMED]\n[Description: Faded, diagonal watermark/stamp across the right side of the receipt]::>\n\n<a id='a756e0b4-4901-4eb8-b6bc-c567ecdcf23a'></a>\n\n#21072020.3704/10\n\n<::scan_code: QR code::>\n\nUR FEEDBACK MATTER\n\n<a id='0631de5a-c2db-4c64-bca1-063e5530b5fd'></a>\n\nYOUR FEEDBACK MATTERS!\nWe'd love to hear your\nthoughts on how we're doing\nand how we can serve you even\nbetter. To give feedback, scan\nthe QR code or visit\nhttps://feedback.game.co.za\n***\nArt/EAN 6001106128050\nFINISH ALL IN ONE                                 220.00\nArt/EAN 8690842485862\n15 PLATE DISHWASHER                             7299.00\nLine item markdown                               -729.00\nReason: Promotion\nAuthorized by: Nomaver Mkapa\nSales assistart: Witress Sibiya\n\nTeta [2]                                R    6790.00\nTermral Payment                         R    6790.00\n\nCUSTOMER RECEIPT (PURCHASE)\n\n<a id='1ddfde47-9098-4125-a636-35549289510a'></a>\n\nDATE: Tue 21/07/2026 TIME:10:21 AM\nPAN:441796*****6138\nTRANSACTION NO: 223701\nAUTH NO:601373\nUTI:ase13737-2976-4184-86:6-8f44376b99fe\nRRN:102174037013\nCARD ENTRY MODE: Tap\nAPL: VISA DEBIT\nMERCHANT NUMBER:000000000922419\n\nTILL ID: 102\nRESPONSE CODE:00 APPROVED\nAMOUNT:R6790.00\n\n<a id='9a57567b-13fd-4487-8c5e-f14d3c313cbf'></a>\n\n--> VAT exclusive\nVAT 14.5%\n\n<a id='c0d7f976-aee1-4fdf-91f4-d4e1c2d06ad6'></a>\n\n5904.35\n885.65\n\n<a id='f44f12b3-c39b-47b7-a2bf-665f31d59452'></a>\n\n<::scan_code: Code 128\n001G008210726102000125\nThis is a clear, horizontally oriented barcode with black bars on a light background.::>\n\n<a id='9643f02d-40cf-4030-b179-d6cda76c7026'></a>\n\n001461384685\n\nYou were served by:\nCashier: 1003704, Nokuzola Best\n\nDate Time Store Pos Op Rece\n21/07/26 10:20 0006008 102 3704 0125\n\n<a id='7347488b-5a47-43a9-8748-d0b2a5f3cc1a'></a>\n\n***\nCUSTOMER CARE CONTACT DETAILS\n0361 GAME CARE - 0861 4263 2273\nemail: [email]\n***\nThanks for shopping at Game\nGive us your feedback on the link\nhttps://feedback.game.co.za\nand vou coule stand a chance to win a\nR5000 Game Voucher\nSurvey is only valid for 5 days\n\"T's and C's apoly\"\n***KA\nGot a Cash Loan of up to R250 000\nSMS your ID Numae το 43934 to apply"
+ },
+ {
+  "id": "7e7ad135",
+  "label": "Checkers Hyper Baywest — '+27 41 392 1400'",
+  "shop": "Checkers Hyper",
+  "postal": null,
+  "phone": "+27413921400",
+  "address": [
+   "Baywest"
+  ],
+  "resolve": [
+   "Baywest",
+   "Hunters Retreat"
+  ],
+  "proposal_shop_name": "Checkers Hyper",
+  "customer": [
+   -33.95,
+   25.46
+  ],
+  "raw_text": "<a id='0cf387a6-5da8-4239-bfe7-89e0c75d629d'></a>\n\n<::logo: Checkers\nCheckers Hyper\nThe logo features the word \"Checkers\" in a bold, sans-serif font, with \"Hyper\" in a smaller, italicized sans-serif font beneath it, all in a dark gray color.::>\n\n<a id='1b3ea10c-cd30-4cc9-bd6b-5d8e7ecaa87b'></a>\n\nSHOPRITE CHECKERS (PTY) LTD\nBAY WEST Tel No +27 41 392 1400\nBaywest Mall, Baywest Blvd\nVAT No: 4420106777\nTAX INVOICE\n\n<a id='b77cb8e6-9309-4329-8f4d-fbdb4bd87ea6'></a>\n\nTAX INVOICE\n\nCHECKOUT BAG CH R1.40\nFRITOS TOM 120 R18.99\nDORITOS 145G R24.99\nRLB LMNCRM 200G R28.99\nEETSMR ORIG 200G R39.99\nDIDDL CML 150G R29.99\nTOPPR RASP 125G R15.99\nKIT KAT 85G R55.98\n2 @ R27.99\nLONG CHIPS 75G R26.99\nSWEETS 450G TUB R70.00\nMATHS SET R44.99\nSHARPENER BARREL R48.99\nBIC ORNG BLK 2PK R24.99\nRULER PLAST 30CM R4.99\nPENCIL LEADS HB R6.99\nTOTAL [16] R444.26\nElectronic Payment R444.26\n\nRATE TAX GROSS NET\n15% R57.95 R444.26 R386.31\n\n<a id='af747f97-ad3d-4acb-b219-c455c447bb25'></a>\n\nToday you could have saved an extra R24.00\n\n<a id='8f6a1a9d-53c5-4342-a907-cf0ddbb257dd'></a>\n\nGet your XTRA SAVINGS Card now\nto get xtra cash savings, Instantly!\nTo sign up in just 3min, either:\n1. Dial *134*885*CARDNUMBER#\n2. Visit checkers.co.za\n3. Add 087 240 5385 as a WhatsApp\ncontact and say \"Hi\"\n\n<a id='054ee285-7bb2-4f28-8dc9-013fd5209e78'></a>\n\n<::scan_code: Code 128\n0018046190726006000039\nThis is a clear, well-defined barcode with a sequence of vertical lines and a numerical string beneath it, indicating good quality for scanning.::>\n\n<a id='decb8603-4605-4737-b1ef-3e55c71265e2'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\">Date</td><td id=\"0-3\">Time</td><td id=\"0-4\">Store</td><td id=\"0-5\">Reg</td><td id=\"0-6\">Txn</td></tr>\n<tr><td id=\"0-7\">19/07/26</td><td id=\"0-8\">10:33</td><td id=\"0-9\">8046</td><td id=\"0-a\">006</td><td id=\"0-b\">39</td></tr>\n</table>\n\n<a id='afb24376-b0a8-43b1-b43a-fb8dfa9e2aa3'></a>\n\nPlease keep your till slip\nas proof of purchase\nFor cash rounding, VAT shown on this\nslip must be adjusted for input tax\n\n<a id='7ddf658a-eb0c-4456-9338-ecc02efca212'></a>\n\nYou were served by:\n[name]\n(V) Discovery Vitality members save up\nto 75% on HealthyFood products"
+ },
+ {
+  "id": "2eeb57d4",
+  "label": "Debonairs Baywest Mall",
+  "shop": "Debonairs Pizza",
+  "postal": null,
+  "phone": "+27414920366",
+  "address": [
+   "Baywest"
+  ],
+  "resolve": [
+   "Baywest",
+   "Hunters Retreat"
+  ],
+  "proposal_shop_name": "Debonairs Pizza",
+  "customer": [
+   -33.95,
+   25.46
+  ],
+  "raw_text": "<a id='418ee317-616a-4dce-9168-572458762bce'></a>\n\n<::logo: King Steer\nORIGINAL KING STEER BURGER & CHIPS 11490\nThe logo features bold, blocky black text on a light background, with a prominent price displayed below the brand name.::>\n\n<a id='ee2449ce-d7cf-4b8c-8b97-ce6fb806ef10'></a>\n\nFREE 440ML COKE\nT&Cs apply.\n\n<a id='92ca6795-eb06-4fa7-9390-814ee067ad02'></a>\n\nDebonairs Pizza\nBaywest Mall\nPhone: 041 492 0366\n\n<a id='6eaa9404-db35-484f-8487-1d8c3704b847'></a>\n\nOrder 24\n\n<a id='784b50cb-5832-4dd3-b91d-ee004122fe8b'></a>\n\n[name] Pty Ltd\nPort Elizabeth,\n\nVAT #: 4670269010\nInv Type: Counter\n\nInv #: 1126530\n\nTake Away\n\nDate : 19 Jul 2026\nTime : 11:13\n\nOff Code: 24/antonio//109.90\nCashier: johnson, antonio\n\n<a id='92c19e98-6d8f-4c34-8166-343474d71285'></a>\n\n1 Eazzy Lunch Tripl R 109.\n1 Small Creamy Chicken Tr R 0.00\n1 Buddy Full Suga R 0.00\n1 Buddy Coke Buddy R 0.00\n\n<a id='00396104-f02f-48bd-a935-8f11d99914d4'></a>\n\nTOTAL: R 109.90\nTotal Excl VAT: R 95.57\nVAT Incl.: R 14.33\nTendered: R 0.00\nChange: R 0.00"
+ },
+ {
+  "id": "dd0c5c62",
+  "label": "Clicks Baywest — no address printed",
+  "shop": "CLICKS Pharmacy",
+  "postal": null,
+  "phone": null,
+  "address": null,
+  "resolve": [
+   "Baywest",
+   "Hunters Retreat"
+  ],
+  "proposal_shop_name": "CLICKS Pharmacy",
+  "customer": [
+   -33.95,
+   25.46
+  ],
+  "raw_text": "<a id='81611be4-36a7-455a-9762-bdc7cc4f9a4d'></a>\n\n<::logo: Clicks\nCLICKS Pharmacy\nCALL 0860 254 257 www.clicks.co.za\nWelcome to\nThe logo features the word \"CLICKS\" in a bold, sans-serif font, with a stylized 'C' that incorporates a wave-like element, and a medical cross symbol to the right of the text.::>\n\n<a id='afe54e4c-95ed-41f4-8024-063df91e0d6c'></a>\n\nBAYWEST\nCLICKS 100% 12LT BAG        R1.22\nDOVE BODYWASH 1L            R185.00\nESS. HYDRA LIP OIL03        R74.95\n\n3 BALANCE DUE               R261.17\nDebit card                  R261.17\nAuth Code = B26879\nCHANGE                      R0.00\nTOTAL BEFORE VAT            R227.10\nTOTAL VAT                   R34.07\nTOTAL AFTER VAT             R261.17\n\n<a id='331ab22a-d3b7-4f7b-a965-b186da85126b'></a>\n\nTAX-CODE         TAXABLE VAL         TAX-VALUE\n15% VAT          R261.17             R34.07\n\n<a id='5d32511d-add1-4384-96a5-17ddf9a61d34'></a>\n\nTax Inv. Incl. VAT @15% REG:4520189236\nDue to cash rounding the value added tax\ncharged & as reflected on this document\nmust be adjusted for input tax purposes\nWith ClubCard you could have earned\n52 points\n\n<a id='a2e08322-f067-4a64-bac5-1a486e53e619'></a>\n\nCASHIER NAME: Faith\nC0011 #0448 10:07:10 19JUL2026\nS01743 R004\n\n<a id='6c044b6d-bac8-488d-a7a7-0e1da837bc4a'></a>\n\nSQ1743 R004\nRXNO/OTC - Levy Payment\nPlease retain as proof of purchase\nDiscovery Vitality members save up\nto 25% on HealthyCare products."
+ },
+ {
+  "id": "af06eae4",
+  "label": "Rita's Fourways — cashier '2633 Singobile'",
+  "shop": "RITA'S",
+  "postal": null,
+  "phone": "+27100060994",
+  "address": [
+   "Leaping Frog"
+  ],
+  "adversarial": "2633",
+  "resolve": [
+   "Fourways",
+   "Leaping Frog"
+  ],
+  "proposal_shop_name": "RITA'S",
+  "customer": [
+   -26.03,
+   27.99
+  ],
+  "raw_text": "<a id='849ca312-f563-4023-8116-3f54600e19a7'></a>\n\n<::logo: Rita's\nRITA'S\nA line drawing of a woman's face with flowing hair is centered above a rectangular banner containing the company name.::>\n\n<a id='b12bb970-a138-4824-89d7-8c76568690bc'></a>\n\nFourways\nShop 41, Leaping Frog Centre, Winnie\nMandela Dr\nT: 010 006 0994\nE: [email]\nVAT: 4680317726\n2633 [name]\n\n<a id='8a6ff903-a745-4e6a-a6d8-cc7f5a5e38b8'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\" colspan=\"2\">CHK 6982\n7/2/2026</td><td id=\"0-3\">TBL 6:22 PM</td><td id=\"0-4\">64/1</td></tr>\n<tr><td id=\"0-5\">4</td><td id=\"0-6\" colspan=\"3\">Inverroche Classic @\n50.00 200.00</td></tr>\n<tr><td id=\"0-7\">7</td><td id=\"0-8\">Indian Tonic 200ml 27.00</td><td id=\"0-9\" colspan=\"2\">@\n189. 00</td></tr>\n<tr><td id=\"0-a\">4</td><td id=\"0-b\" colspan=\"3\">Inverroche Amber @ 50.00 200.00</td></tr>\n<tr><td id=\"0-c\">4</td><td id=\"0-d\">Jameson @ 45.00</td><td id=\"0-e\" colspan=\"2\">180.00</td></tr>\n<tr><td id=\"0-f\">2</td><td id=\"0-g\">Wagyu Beef Smash\n140.00</td><td id=\"0-h\" colspan=\"2\">aco @\n\n280. 00</td></tr>\n<tr><td id=\"0-i\">1</td><td id=\"0-j\">Sharing Platter</td><td id=\"0-k\" colspan=\"2\">550. 00</td></tr>\n<tr><td id=\"0-l\">1</td><td id=\"0-m\">Water | Sparkling</td><td id=\"0-n\" colspan=\"2\">330ml 25. 00</td></tr>\n<tr><td id=\"0-o\">1</td><td id=\"0-p\">Social Hour</td><td id=\"0-q\" colspan=\"2\">-140.00</td></tr>\n<tr><td id=\"0-r\"></td><td id=\"0-s\">193.57 VAT 15 %</td><td id=\"0-t\" colspan=\"2\">1484.00</td></tr>\n<tr><td id=\"0-u\"></td><td id=\"0-v\">193.57 VAT</td><td id=\"0-w\" colspan=\"2\">1484. 00</td></tr>\n<tr><td id=\"0-x\"></td><td id=\"0-y\">Subtotal</td><td id=\"0-z\" colspan=\"2\">R1484.00</td></tr>\n<tr><td id=\"0-A\"></td><td id=\"0-B\">Total Due</td><td id=\"0-C\" colspan=\"2\">R1484.00</td></tr>\n</table>\n\n<a id='d6e7dfdb-1321-4652-bcb2-1026b04960c9'></a>\n\nGratuity: R___\n\n<a id='ab756bad-1e8d-49c1-ae33-4cafcd282952'></a>\n\nTotal: R"
+ },
+ {
+  "id": "c3f56578",
+  "label": "La Parada Kyalami — cashier '1202 Khanyisile'",
+  "shop": "LA PARADA",
+  "postal": null,
+  "phone": "+27100012520",
+  "address": [
+   "Kyalami"
+  ],
+  "adversarial": "1202",
+  "resolve": [
+   "Kyalami",
+   "Witpoort",
+   "Midrand"
+  ],
+  "proposal_shop_name": "LA PARADA",
+  "customer": [
+   -25.99,
+   28.07
+  ],
+  "raw_text": "<a id='a66a3567-a3eb-4fa3-91dc-60283aa0ae4f'></a>\n\nLife & Brand Portfolio (Pty) Ltd\nLA PARADA\nShop 116, Kyalami Corner, c/o R55 & Mai\nRd, Witpoort, Midrand\nT: 010 001 2520\nE: [email]\nVAT: 4520271299\n1202 [name]\n\n<a id='47445627-13dd-437c-9d4a-0d9092598173'></a>\n\n---  \nCHK 20835 TBL 13/1  \nGST 2\n\n<a id='9d2373ae-9290-4588-9a73-01d1e474bbec'></a>\n\n30 Jun '26 16:07 PM\n---\n\n\n<a id='b8fe5399-a114-47f5-8a93-3e43b9351fe7'></a>\n\n--- --- \n1 Fried Calamari 139.00\n1 Platter BBQ Chicken Wings 145.00\n1 Grilled Beef Ribeye 300g 330.00\n1 Orange Juice 35.00\n1 Jack Daniels Old No.7 42.00\n2 Schweppes Dry Lemon 200ml\n@ 30.00 60.00\n1 Schweppes Lemonade 200ml 30.00\n1 Water Sparkling 750ml 49.00\n1 Water Still 250ml 29.00\n\n112.04 VAT 859.00\nNet Total: R746.96\nSubtotal R859.00\nTotal Due R859.00\n\n<a id='94a2ef73-ad0d-4844-adc0-df1d3002f0be'></a>\n\nPlease note: Unless itemised, gratuity\nis not included.\nGratiuty:\n\n<a id='d6e1c9ba-f639-45ab-a078-471ca2e30f3d'></a>\n\nR___ Total:"
+ },
+ {
+  "id": "4ee95f97",
+  "label": "Engen Myezo Mthatha",
+  "shop": "ENGEN MYEZO",
+  "postal": null,
+  "phone": "+27470655021",
+  "address": [
+   "Nelson Mandela"
+  ],
+  "resolve": [
+   "Mthatha"
+  ],
+  "proposal_shop_name": "ENGEN MYEZO",
+  "customer": [
+   -31.6,
+   28.74
+  ],
+  "raw_text": "<a id='53647940-1538-48ca-b6a9-6d3fc66d4a63'></a>\n\n** WELCOME TO MYEZO CONVINIENCE CENTRE\nMYEZO 1 STOP\nNELSON MANDELA DRIVE MTHATHA\nVAT : 4370315196\nTEL : 047 065 5021\n\n<a id='1c9636eb-3b5d-4126-a153-2f7ecb176be7'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\">IMP PINK SL GRAPE</td><td id=\"0-3\">Tx Z 76.99</td></tr>\n<tr><td id=\"0-4\" colspan=\"2\">WW Promo Discount -8.0000</td></tr>\n<tr><td id=\"0-5\">PINEAPPLE 350G</td><td id=\"0-6\">Tx Z 45.99</td></tr>\n<tr><td id=\"0-7\">PINEAPPLE 350G</td><td id=\"0-8\">Tx Z 45.99</td></tr>\n<tr><td id=\"0-9\">IMP WHITE SEEDLESS</td><td id=\"0-a\">Tx Z 76.99</td></tr>\n<tr><td id=\"0-b\" colspan=\"2\">WW Promo Discount -10.0000</td></tr>\n<tr><td id=\"0-c\">SALAMI STICKS 400 G</td><td id=\"0-d\">187.99</td></tr>\n<tr><td id=\"0-e\" colspan=\"2\">WW Promo Discount -20.0000</td></tr>\n<tr><td id=\"0-f\">6X275ML PEACH SODA</td><td id=\"0-g\">89.99</td></tr>\n<tr><td id=\"0-h\">MAYNARDS 1EA WINE GU</td><td id=\"0-i\">35.90</td></tr>\n<tr><td id=\"0-j\" colspan=\"2\">MaynardsJellyTots100 125gR28.9 -7.00</td></tr>\n<tr><td id=\"0-k\">DAMASCUS FRENCH NOUG</td><td id=\"0-l\">29.90</td></tr>\n<tr><td id=\"0-m\">DAMASCUS FRENCH NOUG</td><td id=\"0-n\">29.90</td></tr>\n<tr><td id=\"0-o\">SPOOKIES SWT CHIL 10</td><td id=\"0-p\">14.90</td></tr>\n<tr><td id=\"0-q\">CHUCKLES SCAKE 125G</td><td id=\"0-r\">64.99</td></tr>\n<tr><td id=\"0-s\">POPCORN SVIN 90 G</td><td id=\"0-t\">26.99</td></tr>\n<tr><td id=\"0-u\">POPCORN W CHED 90G</td><td id=\"0-v\">26.99</td></tr>\n<tr><td id=\"0-w\">POPCORN SCC 90 G</td><td id=\"0-x\">26.99</td></tr>\n<tr><td id=\"0-y\">PLASTIC BAGS 24L 1EA</td><td id=\"0-z\">1.99</td></tr>\n<tr><td id=\"0-A\">ITEMS 15 TOTAL</td><td id=\"0-B\">737.49</td></tr>\n<tr><td id=\"0-C\">EFT-Retail</td><td id=\"0-D\">737.49</td></tr>\n<tr><td id=\"0-E\">461282*******3080\nCHANGE</td><td id=\"0-F\">0.00</td></tr>\n</table>\n\n<a id='e37c5fcc-360e-4741-94d3-98e16edfe0ac'></a>\n\nJoin MySchool and Support Your Community\n\n<a id='aeba5421-515f-4a8a-bc3f-4461f6f9f691'></a>\n\n<table id=\"0-G\">\n<tr><td id=\"0-H\">VAT-CODE</td><td id=\"0-I\">NET-VAL</td><td id=\"0-J\">VAT-VAL</td></tr>\n<tr><td id=\"0-K\">ZERO RATE/Z 0.0%</td><td id=\"0-L\">227.96</td><td id=\"0-M\">0.00</td></tr>\n<tr><td id=\"0-N\">STANDARD RATE/S 15.0%</td><td id=\"0-O\">443.07</td><td id=\"0-P\">66.46</td></tr>\n</table>\n\n<a id='c83a19ca-ce41-492e-850a-f5006b5ad351'></a>\n\n2 ZONA 8697 14:11:48 29/06/2026\n\n<a id='307ecea6-4ddf-4c29-9835-6e9caee807a7'></a>\n\nTHANK YOU FOR SHOPPING AT ENGEN MYEZO\n** MYEZO 1 STOP**",
+  "shop_live": "MYEZO"
+ },
+ {
+  "id": "c6491282",
+  "label": "TotalEnergies Bryanston — '82 Hobart Road'",
+  "shop": "TotalEnergies Bryanston",
+  "postal": null,
+  "phone": "+27762985014",
+  "address": [
+   "Hobart"
+  ],
+  "resolve": [
+   "Bryanston"
+  ],
+  "proposal_shop_name": "TotalEnergies Bryanston",
+  "customer": [
+   -26.06,
+   28.03
+  ],
+  "raw_text": "<a id='1825b604-5799-4207-9143-58d0b2177432'></a>\n\nMotorsport Marketing co T/A\n$696 - TotalEnergies Bryanston\n82 Hobart Road\nTell. 076 298 5014\n\n<a id='c9d839d3-8199-4ca5-8fff-2aaa60b714ed'></a>\n\nVAT Number: 4540182252\n\n<a id='75bc5d49-da1e-4940-89be-564c23724b3e'></a>\n\nMERCHANT COPY\nApproved 00\nForecourt EFT\n\n<a id='91e25402-6927-481d-98d7-9a2f8035dba4'></a>\n\nTOTECourt EFI\n\n2026-06-15 11:18:51\n\nMerchant ID: 347621\n\nTerminal ID: 77852580\n\nBatch Number: 2708\n\n480882******1010 366517\n\nVisa Card C\n\nRegistration:\n\n<a id='10b2c157-7134-42af-853f-f76f1e971d92'></a>\n\nRRN: TL2708366517\nUTI: 1ef498ac-5e3a-4014-8f5c-2ca76dfb75f1\n\nARQC B0D445DAFCEFAB50\nVisa Card 0000000000\nA0000000034010 0000\nPIN Statement: Online PIN used\nIAD: 06011203A000000F030000000000000000000047\nD09219\n\n<a id='ca847326-66e9-4890-8c14-efc15526cfd0'></a>\n\nLOYALTY APPROVED\n570 points earned.Forecourt Excellium-57\n0 points.\nLoyalty Scheme                                                              Total\n\n<a id='6368a8fb-665c-428f-8d91-398980693719'></a>\n\nPump Number 3\nExcellium ULP 93 R 1087.55\n38.91 litres\n@ 27.95 per litre\n\n<a id='8bd8d2d5-2195-4bbd-a309-35da87686c5c'></a>\n\nTotal Amount R 1087.55\nAttendant ID: 6973\nAttendant name:[name]\n\n<a id='9f47baff-60fa-40de-92ca-3908c32cf29a'></a>\n\nTotal Bryanston C GP GPZA\n\n<a id='9dd8c985-efaa-4b8a-b002-8a22a7680f92'></a>\n\nSignature:\n\n<a id='016a608e-b1fc-4257-aae8-7edd4d475eff'></a>\n\nPlease call again"
+ },
+ {
+  "id": "bea0a793",
+  "label": "Card-machine slip — no address (name merge happens later in the processor)",
+  "shop": "Meat World Jackal",
+  "postal": null,
+  "phone": null,
+  "address": null,
+  "resolve": "skip",
+  "proposal_shop_name": "Meat World Jackal",
+  "customer": [
+   -26.03,
+   27.99
+  ],
+  "raw_text": "<a id='cd881299-ac91-4fa5-bd5c-67450710bbc3'></a>\n\nMeat World Jackal\nCreek\nClient copy\nDate: 2026/06/09 12:44:48\n\n<a id='34a014d0-40de-4b58-ab3a-c705036cbea8'></a>\n\n<::attestation: Payment approval status\nStatus indicators - approved\nReadable Text: Card Payment Receipt, Approved\nShort description of visual elements and positioning: Blue text on a light background, with \"Approved\" being larger and more prominent.::>\n\n<a id='9c662860-a60a-4adb-9cf0-315a3c59a32d'></a>\n\nAuthId: 860110\nMerchant ID: VEXEN000132\nTerminal ID: U1122621\nTrans Ref: 8_66061_23\n4a ef11c-451c-4cbc-93ee-0f3bad7a45e4\nPIN: 08\nBatch No: 0041\nCard Type: Visa Debit\nCard Category: DEBIT&CREDIT CARD\nCard No: 4847********0662\nBudget Period: 00\nResponse Code: 00\nRetrieval Ref No: 044002803066\nAuth Ref: 000000000\nCard Type: Visa Debit\nTransaction ID: 0000000031010\n\n<a id='83689b2a-b1b3-4503-9154-8118a384c4f8'></a>\n\n<::logo: \nTotal R 556.13\nText in black on a light blue background::>"
+ },
+ {
+  "id": "96c23109",
+  "label": "Heylo — '0350' alone on first line",
+  "shop": "HEYLO",
+  "postal": null,
+  "phone": null,
+  "address": null,
+  "adversarial": "0350",
+  "resolve": [
+   "Baywest",
+   "Hunters Retreat",
+   "Gqeberha",
+   "Port Elizabeth"
+  ],
+  "proposal_shop_name": "HEYLO",
+  "customer": [
+   -33.95,
+   25.46
+  ],
+  "raw_text": "<a id='df69be50-d834-4d52-bebd-77c2d3ea0aee'></a>\n\n0350\nMASTERCARD\nR80\nCOPY\n\n<a id='585e60e2-a454-41d3-887d-3b886977085e'></a>\n\nHEYLO\n\n<a id='838f1907-71d0-4c3d-9928-3e34b3314d20'></a>\n\nCashier: [name] Till: B003\nS/N: 202605031106278720050\nVAT No: 4790286282\nTime: 2026-05-03 11:06:29\n\n<a id='3584fed4-1353-4e19-9031-b21cce3b0431'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\">Item</td><td id=\"0-3\">Price</td><td id=\"0-4\">Qty</td><td id=\"0-5\">Total</td></tr>\n<tr><td id=\"0-6\">type c earp</td><td id=\"0-7\">60</td><td id=\"0-8\">1</td><td id=\"0-9\">60</td></tr>\n<tr><td id=\"0-a\">hone Lock 38mm</td><td id=\"0-b\">20</td><td id=\"0-c\">1</td><td id=\"0-d\">20</td></tr>\n</table>\n\n<a id='7f46bed0-0673-4ec0-ad34-5519d20195f3'></a>\n\nVAT 15%: R10.43\nTotal: R80\n\n<a id='94c9ab55-9368-4bf3-975f-f2384cf0a4af'></a>\n\nPaid By Card:R80.00\nTendered : 80 Change : 0\n\n<a id='4ad9cf0c-c5e5-4951-8fac-daa2fd153913'></a>\n\n14 days cash back refund.1 month\nexchange with original package.\nNo refund on cosmetics, perfume\n, undergarments, costumes, party\nwigs, hair braids and jewelry."
+ },
+ {
+  "id": "51a1c087",
+  "label": "Woolworths Douglasdale — postcode alone on a line; STORE/TILL footer",
+  "shop": "WOOLWORTHS",
+  "postal": "2191",
+  "phone": "+27112511900",
+  "address": [
+   "Douglasdale"
+  ],
+  "adversarial": "0413",
+  "resolve": [
+   "Douglasdale"
+  ],
+  "proposal_shop_name": "WOOLWORTHS",
+  "customer": [
+   -26.04,
+   27.99
+  ],
+  "raw_text": "<a id='8a0b3d03-1f16-49b4-b10d-b7f7927143e8'></a>\n\nWOOLWORTHS\n\n<a id='de9b2c6c-ac8c-4c8e-a71c-6f212454e835'></a>\n\n<::logo: Unknown\nW\nA white letter 'W' is centered within a dark blue square.::>\n\n<a id='b465921a-3853-4570-b7df-9945970e3c06'></a>\n\nWelcome to our store\nDOUGLASDALE JHB\nCnr Leslie and Douglas Road\nDouglasdale JHB\n2191\n\n<a id='2a0d09be-26b0-43a6-83ca-3238064ca4d3'></a>\n\nTel No: 011 251 1900\nVAT No 4550102216\nLiquor No:GAU101012C\n\n<a id='4c1bdf3c-6088-4b6f-bc90-de7143bd2291'></a>\n\nwww.woolworths.co.za\nCustomer Help Line 086 0022 002\n\n<a id='2fb309d4-7c00-4477-b26f-c26db675e9af'></a>\n\nTAX INVOICE\n\n<a id='0cb16f13-0d50-4252-89a8-97f78a42978f'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\">Smk Beef 125g</td><td id=\"0-3\">21.99</td></tr>\n<tr><td id=\"0-4\">Gar Herb 150</td><td id=\"0-5\">84.99</td></tr>\n<tr><td id=\"0-6\"></td><td id=\"0-7\">R106.98</td></tr>\n<tr><td id=\"0-8\">sa Debit</td><td id=\"0-9\">R106.98</td></tr>\n</table>\n\n<a id='97ba05ca-584a-48c8-ba32-0da1aa6226aa'></a>\n\nACCOUNT NUMBER **** **** **** 5134\nAUTH 680520\n\n<a id='2c1a6515-b389-4bbb-8531-39e8902e4bb8'></a>\n\n<table id=\"0-a\">\n<tr><td id=\"0-b\" colspan=\"4\">----------------------VAT SUMMARY------------------------</td></tr>\n<tr><td id=\"0-c\">IND %</td><td id=\"0-d\">GROSS</td><td id=\"0-e\">VAT</td><td id=\"0-f\">NETT</td></tr>\n<tr><td id=\"0-g\">S 15.0</td><td id=\"0-h\">106.98</td><td id=\"0-i\">13.95</td><td id=\"0-j\">93.03</td></tr>\n<tr><td id=\"0-k\">Total</td><td id=\"0-l\">106.98</td><td id=\"0-m\">13.95</td><td id=\"0-n\">93.03</td></tr>\n</table>\n\n<a id='b20e42ca-a312-45e1-afd5-ffc4a2dacea2'></a>\n\nMerchandise purchased during the Sale\ncannot be returned or exchanged after\nthe 24 March 2026.\nRetain as Proof of Purchase\n\n<a id='0cb0dbaa-340b-4ef5-ade1-c260a0d31550'></a>\n\nLAST DAY FOR FULL REFUND IS 20/06/2026\nexcept for SALE Items purchased\nSee reverse for refund policy\n\n<a id='a4c3e758-5b0b-4d30-b6ef-cc392868c407'></a>\n\n<::scan_code: Code 128\n9990204130072335024\nThis is a clear barcode with the number 9990204130072335024 printed below it, with no quality issues.::>\n\n<a id='3d00274d-c4ce-4670-b93e-9bb6a82afda1'></a>\n\n<table id=\"0-o\">\n<tr><td id=\"0-p\">STORE</td><td id=\"0-q\">TILL OP NO</td><td id=\"0-r\">TRANS</td><td id=\"0-s\">DATE</td></tr>\n<tr><td id=\"0-t\">0413</td><td id=\"0-u\">7 7182196</td><td id=\"0-v\">233502</td><td id=\"0-w\">21/04/2026 17:43</td></tr>\n<tr><td id=\"0-x\">CASHIER-</td><td id=\"0-y\">[name]</td><td id=\"0-z\">[name]</td><td id=\"0-A\"></td></tr>\n</table>\n\n<a id='4dc86fb3-1ea0-45ce-a3f6-df6f8c526655'></a>\n\n<::logo: Unidentifiable Brand\nOKAY YOUR ATO\nThe text is white and appears on a dark background, possibly fabric.::>"
+ },
+ {
+  "id": "eefb5934",
+  "label": "Yoco screenshot — '18:01' is not a shop",
+  "shop": null,
+  "postal": null,
+  "phone": null,
+  "address": null,
+  "resolve": "skip",
+  "proposal_shop_name": "18:01",
+  "customer": [
+   -33.82,
+   18.63
+  ],
+  "raw_text": "<a id='65abfc43-eb42-426e-967f-3d2fe4115493'></a>\n\n18:01\n\n<a id='a9273111-28ee-4c93-b73a-f01975ef5688'></a>\n\noption green icon: [x]\noption signal strength: [x]\noption 5G: [x]\noption battery icon: [x]\n\n<a id='2af93611-9224-462c-9591-af8cb236552e'></a>\n\n[camera icon] receipts.yoco.co.za\n\n<a id='2ab28652-b7fc-415e-aab5-5cbee0dbc0d6'></a>\n\n<::logo: Share Icon\nAn arrow pointing upwards from a square, symbolizing sharing or exporting.::>\n\n<a id='1bf828f7-a9fc-42d4-9a21-347731b81ee0'></a>\n\nPayment Received\n\n<a id='08b29deb-0962-4a7d-9f77-75cd3248a041'></a>\n\nTAX INVOICE\n\n<a id='cc6701f2-1f2d-48c5-9717-de986a63bc6a'></a>\n\nThank you for your payment of\nR870.00 on 18 April 2026\n\n<a id='ef41601f-39fa-46b3-9c54-954d72e8a5ef'></a>\n\nSale #2026/04/173631\n\n<a id='ea938b33-3739-4c07-bba7-ae0667a9072c'></a>\n\nVAT Number:\n4150314872\n\n<a id='91c686f0-b2b3-4335-b8ed-36fcb4f13886'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\">DESCRIPTION</td><td id=\"0-3\">AMOUNT</td></tr>\n<tr><td id=\"0-4\">Custom Amount</td><td id=\"0-5\">R870.00</td></tr>\n<tr><td id=\"0-6\">VAT</td><td id=\"0-7\">R113.48</td></tr>\n<tr><td id=\"0-8\">Total (Incl. tax)</td><td id=\"0-9\">R870.00</td></tr>\n<tr><td id=\"0-a\">Amount Paid</td><td id=\"0-b\">R870.00</td></tr>\n<tr><td id=\"0-c\">CARD</td><td id=\"0-d\">APPROVED</td></tr>\n<tr><td id=\"0-e\">VISA DEBIT</td><td id=\"0-f\">**** **** **** 1604</td></tr>\n<tr><td id=\"0-g\">AUTHORIZATION</td><td id=\"0-h\">099327</td></tr>\n<tr><td id=\"0-i\">TRANSACTION</td><td id=\"0-j\">614228319744</td></tr>\n</table>\n\n<a id='23a69d40-25d6-4212-84e4-ee2d5d9e8f0e'></a>\n\nThank you for your business\n\n<a id='ae1d459b-5b2e-4f3a-88ea-fefe8492efa5'></a>\n\nContact Us: Follow Us:\n\n<a id='7e1c267a-a974-4b87-ac2e-7a24a9ea00a8'></a>\n\nShare Download\n\n<a id='e7f907d7-22b5-4943-b117-03e9180eb076'></a>\n\n<::logo: Unidentifiable Brand\n<-- --> + 20 ...\nA dark grey bar with several white icons, including left and right arrows, a plus sign, the number 20 in a square, and an ellipsis.::>"
+ },
+ {
+  "id": "1215e688",
+  "label": "Dis-Chem Claremont — '7708 Claremont'",
+  "shop": "Dis-Chem Claremont",
+  "postal": "7708",
+  "phone": "+27216731480",
+  "address": [
+   "Claremont"
+  ],
+  "resolve": [
+   "Claremont"
+  ],
+  "proposal_shop_name": "Dis-Chem Claremont",
+  "customer": [
+   -33.98,
+   18.46
+  ],
+  "raw_text": "<a id='0457acc8-dd9c-4005-9b74-eaca9e40044e'></a>\n\n<::logo: Not a logo\nYour till slip never looked * better * With instant discounts on 140+ most-loved brands\nThe text is black and bold on a white background, with two asterisks flanking the word \"better\".::>\n\n<a id='f9fa6147-c441-4591-8ab2-155860ec9f20'></a>\n\nDis-Chem Claremont\nShop G1 Standard Bank Galleria\n7708 Claremont\nTelephone 0216731480\nwww.dischem.co.za\nTax Invoice VAT Reg No: 4820223024\n\n<a id='5fc05aff-f72e-4402-bf7d-e0c9c7ec2281'></a>\n\nItem/GTIN 6001051005710\nLABELLO CARDED 4.8G HYDR                 40,99\n---\nTOTAL [1]                               R 40,99\nCard Payment                            R 40,99\n\n<a id='4c34ebf3-0461-4677-bdce-c6e8dbbb304c'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\"></td><td id=\"0-3\">VAT</td><td id=\"0-4\">VAT</td><td id=\"0-5\">INC</td></tr>\n<tr><td id=\"0-6\">15%</td><td id=\"0-7\">R5,35</td><td id=\"0-8\">R40,</td><td id=\"0-9\">99</td></tr>\n</table>\n\n<a id='7dbfcd94-55c8-44d4-a543-602a75489300'></a>\n\n<::scan_code: Code 128\n001S201130426116000075\nThis is a clear, high-contrast barcode with readable text above it.::>\n\n<a id='d78211f4-5a9b-42a6-8fab-b11d6a86370c'></a>\n\n<table id=\"0-a\">\n<tr><td id=\"0-b\">Date</td><td id=\"0-c\">Time</td><td id=\"0-d\"></td><td id=\"0-e\">Store</td><td id=\"0-f\">Pos</td><td id=\"0-g\">Rcpt\n75</td></tr>\n<tr><td id=\"0-h\">13/04/26</td><td id=\"0-i\">12:11</td><td id=\"0-j\">pm</td><td id=\"0-k\">S201</td><td id=\"0-l\">110</td><td id=\"0-m\">75</td></tr>\n</table>\n\n<a id='6b1c6d01-5df6-423e-b99c-0ba9edc509a1'></a>\n\nYou were served by:\n[name]\n\n<a id='3e99d1d3-3fa6-4cb5-b41f-b3003369623e'></a>\n\n<::logo: Dis-Chem\nDis-Chem Better Rewards\nThe logo features the text \"Dis-Chem Better Rewards\" in a bold, dark grey font, with a prominent plus sign to the left of \"Better\".::>\n\n<a id='14a5f350-23dd-441b-b2c6-c18c9838ca9c'></a>\n\nScan to join or unlock more discounts\n\n<a id='79299a91-d075-4f35-81f0-cca5c4b09d5e'></a>\n\n<::scan_code: QR code\nThis QR code is clear and appears to be in good condition, with no visible damage or obstruction that would hinder scanning.::>\n\n<a id='478c45b6-fc0a-4893-87a1-242a49dabb1a'></a>\n\nRcpt\n75"
+ },
+ {
+  "id": "d61ab5c3",
+  "label": "Fuel card slip — 'CUSTOMER RECEIPT', 'Status: 2017H'",
+  "shop": null,
+  "postal": null,
+  "phone": null,
+  "address": null,
+  "adversarial": "2017",
+  "resolve": "skip",
+  "proposal_shop_name": "CUSTOMER RECEIPT",
+  "customer": [
+   -33.88,
+   18.62
+  ],
+  "raw_text": "<a id='e32a1e60-1d6f-4db0-8db3-60fd4a88e296'></a>\n\nCUSTOMER RECEIPT\n\n2024-04-12 19:30 Rev:4.367S S/N: 442111\nMch No: 570074-410442 ECR: 0579N\nSlipNo: 529 Receipt: 9675\nUT2-9104432-0020-0200-9675-260412192000\nBatch-Rec: 220-474 SPON: 2009675\nOperator: [name] PGD/Shift: 32/3077\nSupervisor: No Status: 2017H\nEntry Mode: Contactless Mode: Host:\nPAN:540765xxxxxx9039\nAPL: DEBIT MASTERCARD\nTVR: 0000008001 AID: A0000000041010\nTC: A44842B6537FC4E TSI: 0000\n\n---\n\nUnloaded 95 P 7 13.340 R 300.00\n\n---\n\nTOTAL: R 300.00\nApproved no balances Auth Code: 822083\nPlease retain as proof of payment.\n\nThank you for visiting us.\n\n<a id='e49aa3e2-a2e1-4293-87e6-ce3dc7e15228'></a>\n\nPAN: 540765xxxxxxxx9039\nAPL: DEBIT MASTERCARD\nTVR: 0000008001 AID: A0000000041010\nTC: AA4B4D86637F02E TSL: 0000\n---\n\n\n<a id='e2f70244-fe36-4d12-89fa-fb475f47aa37'></a>\n\nTC : AA4840865378C4E TSI: 0000\n~~~\nUnleaded 95 P7 13.340 R 300.00\n\n<a id='49ccac73-3b2c-4666-9505-4f36946f189e'></a>\n\nTOTAL: R 300.00\nApproved no balances Auth Code: 822083\nPlease retain as proof of payment.\n\n<a id='190357be-305d-494a-af94-1d872eb942e3'></a>\n\nThank you for visiting us.\nBe careless with \"Engan I acc\""
+ },
+ {
+  "id": "95e5a423",
+  "label": "Card slip — 'Purchase' is not a shop",
+  "shop": null,
+  "postal": null,
+  "phone": null,
+  "address": null,
+  "resolve": "skip",
+  "proposal_shop_name": "Purchase",
+  "customer": [
+   -33.79,
+   18.46
+  ],
+  "raw_text": "<a id='e9e737f8-eb62-4f94-8a30-37535441ef9d'></a>\n\nPurchase\n\nTransaction #: 20\nCard Type: MasterCard\nAccount: 54076545*******39\n\nAPPROVED\n\n<a id='1be69ee6-afe7-472b-9e4e-d94425c39364'></a>\n\nAccount:\n\nTRANSACTION APPROVED\n\nDescription MasterCard Token\nEntry: Contactless\nRef. Number: 000312755647\nTrace ID: 000312755647\nGlobal UID: 1854223207202604101817062130\nSTAN: 184020\nAuth. Code: B87770\n\n<a id='b6088b1d-c3f1-44c1-92c9-73d665bb2001'></a>\n\n184\n\nBatch #:\nResponse: 0 - Approved\n\n<a id='fa02d906-6f93-46ca-93b0-357b7ee0e9bc'></a>\n\nMode:                               Issuer\nAID:                            A0000000041010\nTVR:                                0000008001\nCVR:\n0114A14003020000000400000000000000\nFF\nTSI:                                    0000\nRespCode:                                 00\nAC:                         C1CE3B631C5B8BEC\nATC:                                    033C\nAPPLAB:                       DEBIT MASTERCARD\nAmount:                                R60.00\n\n<a id='b029d8a1-a8d1-445b-bd42-da212a1d82b4'></a>\n\n<::attestation: Stamp\nStatus: Customer copy\nReadable Text: CUSTOMER COPY\nShort description of visual elements and positioning: A rectangular stamp with the text \"CUSTOMER COPY\" centrally located.::>\n\n<a id='028a6f89-e598-4fb4-8d4a-ef41f060830c'></a>\n\nFLE\n18:17:06\nPurchase\nTransaction #\nCard Type:\nAccount:\n20\nMasterCard\n54076545******39\n\nTRANSACTION APPROVED\n\nDescription\nEntry:\nRef. Number:\nTrace ID:\nGlobal UID:\n\nSTAN:\nAuth. Code:\n\nBatch #:\nResponse:\n\nMasterCard Token\nContactless\n000312755647\n000312755647\n1854223207202604101817062130\n184020\nB87770\n\n184\n0 - Approved\n\nMode:\nAID:\nTVR:\nCVR:\nFF\nTSI:\nRespCode:\nAC:\nATC:\nAPPLAB:\nAmount:\n\nIssuer\nA0000000041010\n0000008001\n0114A14003020000000400000000000000\n\n0000\n00\nC1CE3B631C5B8BEC\n033C\nDEBIT MASTERCARD\nR60.00\n\nCUSTOMER COPY"
+ },
+ {
+  "id": "fe0e4daf",
+  "label": "Blanko / Kove Collection — footer '7848 Cape Town'",
+  "shop": "Kove Collection",
+  "postal": "7848",
+  "phone": null,
+  "address": [
+   "Cape Town"
+  ],
+  "resolve": [
+   "Constantia",
+   "Alphen",
+   "Cape Town"
+  ],
+  "proposal_shop_name": "Kove Collection",
+  "customer": [
+   -34.01,
+   18.45
+  ],
+  "raw_text": "<a id='b7cb23fc-5802-41cc-8ee8-342af01fd680'></a>\n\nblanko.\n\n<a id='8d625c93-5654-4e89-98ed-c6be693e7008'></a>\n\n* DRAFT RECEIPT #1 *\n\n<a id='db50ad5d-ca8b-47f6-a8a8-5719c07d5276'></a>\n\nBLANKO\n\n<a id='4791b56f-7936-4621-8d17-753f98a5746a'></a>\n\nVAT: 4010230912\nKove Collection\n\niPad170/629014-[name] Waiter A755179.56317\nStatement N755179.53604\n\n2026/04/05, 16:58\n\n<a id='8de12451-90d0-45d8-97ed-8e9049b0b902'></a>\n\nInside, Table 17\n\n<a id='532c0a2b-b5d9-4a5e-bbd5-2e1a246a1a4c'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\"></td><td id=\"0-3\">Min Spark Lrg 11t</td><td id=\"0-4\"></td><td id=\"0-5\">65.00</td></tr>\n<tr><td id=\"0-6\"></td><td id=\"0-7\">Min Still Lrg</td><td id=\"0-8\"></td><td id=\"0-9\">65.00</td></tr>\n<tr><td id=\"0-a\"></td><td id=\"0-b\" colspan=\"2\">Merlot Kove Collection By</td><td id=\"0-c\"></td></tr>\n<tr><td id=\"0-d\"></td><td id=\"0-e\">Glenelly Bt1</td><td id=\"0-f\"></td><td id=\"0-g\">460.00</td></tr>\n<tr><td id=\"0-h\">2</td><td id=\"0-i\">Strawberry Rush</td><td id=\"0-j\">135.00</td><td id=\"0-k\">270.00</td></tr>\n<tr><td id=\"0-l\"></td><td id=\"0-m\">Fruity Collins</td><td id=\"0-n\"></td><td id=\"0-o\">135.00</td></tr>\n<tr><td id=\"0-p\"></td><td id=\"0-q\">Cranberry Juice</td><td id=\"0-r\"></td><td id=\"0-s\">50.00</td></tr>\n<tr><td id=\"0-t\"></td><td id=\"0-u\">SSM 2 Course (Starter &amp;</td><td id=\"0-v\"></td><td id=\"0-w\"></td></tr>\n<tr><td id=\"0-x\"></td><td id=\"0-y\">Main)</td><td id=\"0-z\"></td><td id=\"0-A\">395.00</td></tr>\n<tr><td id=\"0-B\"></td><td id=\"0-C\">House Burger</td><td id=\"0-D\"></td><td id=\"0-E\">185.00</td></tr>\n<tr><td id=\"0-F\"></td><td id=\"0-G\">Prawn Linguine</td><td id=\"0-H\"></td><td id=\"0-I\">275.00</td></tr>\n<tr><td id=\"0-J\">2</td><td id=\"0-K\">Carbonara.</td><td id=\"0-L\">195.00</td><td id=\"0-M\">390.00</td></tr>\n<tr><td id=\"0-N\">2</td><td id=\"0-O\">Sirloin Tagliata</td><td id=\"0-P\">295.00</td><td id=\"0-Q\">590.00</td></tr>\n<tr><td id=\"0-R\">2</td><td id=\"0-S\">Side Fries.</td><td id=\"0-T\">55.00</td><td id=\"0-U\">110.00</td></tr>\n<tr><td id=\"0-V\"></td><td id=\"0-W\">Vanilla Creme Brulee.</td><td id=\"0-X\"></td><td id=\"0-Y\">135.00</td></tr>\n<tr><td id=\"0-Z\"></td><td id=\"0-10\">Chocolate Ganache</td><td id=\"0-11\"></td><td id=\"0-12\">165.00</td></tr>\n<tr><td id=\"0-13\" colspan=\"2\">SUB-TOTAL</td><td id=\"0-14\"></td><td id=\"0-15\">3.290.00</td></tr>\n<tr><td id=\"0-16\" colspan=\"2\">Gratuity (10%)</td><td id=\"0-17\"></td><td id=\"0-18\">329.00</td></tr>\n</table>\n\n<a id='fd109aef-e42d-409b-aeec-9b34572e42e9'></a>\n\n---Amount due ZAR 3,619.00\n\n<a id='3151b8c1-6894-4eae-b6ae-e04da8f1e276'></a>\n\n<::attestation: Status indicator\nStatus indicators: No payment received\nReadable Text: No payment received\nShort description of visual elements and positioning: Centered text indicating no payment.\n::>\n\n<a id='94ea7fb8-12c4-409a-afc7-64bd5fab88b9'></a>\n\nDivision hint\n3,619.00 / 7 = 517.00\n517.00 x 2 = 1,034.00\n517.00 x 3 = 1,551.00\n517.00 x 4 = 2,068.00\n\n<a id='12fe86bb-9113-4da0-b151-f6d240e20de1'></a>\n\n***\nGratuity: ___ 38.00\nTotal: ___ 4,000-00\nRoom Number: ___\nSignature: ___\n***\n\n<a id='2881dc99-3819-4f19-afa5-79b2f7c6b233'></a>\n\nThank you for your patronage!\n7848 Cape Town\nLightspeed (K) 23.49.0.15006"
+ },
+ {
+  "id": "ab8a35df",
+  "label": "Centurion Country Club — no address",
+  "shop": "Centurion Country Club",
+  "postal": null,
+  "phone": null,
+  "address": null,
+  "resolve": [
+   "Centurion"
+  ],
+  "proposal_shop_name": "Centurion Country Club",
+  "customer": [
+   -25.87,
+   28.21
+  ],
+  "raw_text": "<a id='feccab45-a467-45a3-9d8e-1fda31bc24fb'></a>\n\n<::logo: Centurion Country Club\nCENTURION COUNTRY CLUB\n*** BILL ***\nA circular logo featuring a stylized centurion helmet in the center, surrounded by the club's name, with three asterisks on either side of the word \"BILL\" below the circle.::>\n\n<a id='64a29dbd-c63e-41af-9aba-bfcbd2da993e'></a>\n\nCENTURION COUNTRY CLUB\n\n<a id='0c5c5e1a-7380-449d-9ff8-add2caa51ea1'></a>\n\nSaturday, 04 April 2026 19:52:27\n\n<a id='aa6427fa-3030-4776-a02c-851f58a58ab2'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\">Glenfiddich 12 yr 8@ 65.00</td><td id=\"0-3\">520.00</td></tr>\n<tr><td id=\"0-4\">Kleine Zalze Chenin</td><td id=\"0-5\">195.00</td></tr>\n<tr><td id=\"0-6\">Coffee Cappucino / Bar 6@ 35.00</td><td id=\"0-7\">210.00</td></tr>\n<tr><td id=\"0-8\">Coffee Espresso Single / Ear</td><td id=\"0-9\">25.00</td></tr>\n<tr><td id=\"0-a\">New Sparkling 500ml</td><td id=\"0-b\">40.00</td></tr>\n<tr><td id=\"0-c\">2 @ 20.00</td><td id=\"0-d\"></td></tr>\n<tr><td id=\"0-e\">2x Double Buffels &amp; coke\n4 @ 75.00</td><td id=\"0-f\">300.00</td></tr>\n<tr><td id=\"0-g\">Steel Works</td><td id=\"0-h\">50.00</td></tr>\n<tr><td id=\"0-i\">SpringField Life From Store</td><td id=\"0-j\">360.00</td></tr>\n<tr><td id=\"0-k\">2x Double Belgravia and Tonic</td><td id=\"0-l\">75.00</td></tr>\n<tr><td id=\"0-m\">Tonic 200ml</td><td id=\"0-n\">75.00</td></tr>\n<tr><td id=\"0-o\">3 @ 25.00</td><td id=\"0-p\"></td></tr>\n<tr><td id=\"0-q\">Corona Beer</td><td id=\"0-r\">200.00</td></tr>\n<tr><td id=\"0-s\">5 @ 40.00</td><td id=\"0-t\"></td></tr>\n<tr><td id=\"0-u\">Total</td><td id=\"0-v\">R2050.00</td></tr>\n<tr><td id=\"0-w\">Gratuity:</td><td id=\"0-x\">200</td></tr>\n<tr><td id=\"0-y\">TOTAL:</td><td id=\"0-z\">2250</td></tr>\n</table>\n\n<a id='1d3dc535-217d-4bf6-9f13-2afef75314fe'></a>\n\nServed by: [name]\nTable41, PATIO, WAITERSTATION-N\n\n<a id='44a8ad33-1a7e-44ae-99c9-d72f9db66560'></a>\n\n<::scan_code: QR code\nThere is no readable text within or near the code.\nThis is a clear, high-contrast QR code with a circular logo in the center, and no visible quality issues affecting scannability.::>"
+ },
+ {
+  "id": "bf88d288",
+  "label": "Ginja V&A Hotel",
+  "shop": "Ginja Restaurant & Cocktail Bar",
+  "postal": null,
+  "phone": "+27214196677",
+  "address": [
+   "Victoria"
+  ],
+  "resolve": [
+   "Waterfront",
+   "Cape Town"
+  ],
+  "proposal_shop_name": "Ginja Restaurant & Cocktail Bar",
+  "customer": [
+   -33.91,
+   18.42
+  ],
+  "raw_text": "<a id='2d1455cf-aa43-4287-a430-5c82e1a45a75'></a>\n\n<::logo: Ginja\nGINJA\nV & A WATERFRONT\nWhite text on a black background, enclosed within a white rectangular border.::>\n\n<a id='c761f442-4ce6-4c51-853a-2a4014fd47b5'></a>\n\nGinja Restaurant & Cocktail Bar\nVictoria & Alfred Hotel\n[email]\nTel: +27 21 419 6677\nVAT: 427 010 1555\n\n<a id='27593ed2-da48-46e5-93e7-177ab9803baf'></a>\n\n47 Asiphe\n\n<a id='339f6225-0b1d-4772-b0ae-89b4e2c73e09'></a>\n\n----------\nCHK 111267 TBL 50/1\nGST 7\n4/4/2026 3:23 PM\n\n<a id='f466cb3d-fad5-4ac4-a895-5be71675571a'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\">1</td><td id=\"0-3\">Beef Ragu</td><td id=\"0-4\">195.00</td></tr>\n<tr><td id=\"0-5\">1</td><td id=\"0-6\">Lemon Chicken Gnocchi</td><td id=\"0-7\">295.00</td></tr>\n<tr><td id=\"0-8\">2</td><td id=\"0-9\">Fire+ Smoke Board @\n460.00</td><td id=\"0-a\">920.00</td></tr>\n<tr><td id=\"0-b\">1</td><td id=\"0-c\">Flat White Reg\nFull Cream</td><td id=\"0-d\">39.00</td></tr>\n<tr><td id=\"0-e\">1</td><td id=\"0-f\">Orange Juice</td><td id=\"0-g\">40.00</td></tr>\n<tr><td id=\"0-h\">1</td><td id=\"0-i\">La Vie 750 Sparkling</td><td id=\"0-j\">65.00</td></tr>\n<tr><td id=\"0-k\">1</td><td id=\"0-l\">La Vie 750 Still</td><td id=\"0-m\">65.00</td></tr>\n<tr><td id=\"0-n\">1</td><td id=\"0-o\">French Sanctuary</td><td id=\"0-p\">150.00</td></tr>\n<tr><td id=\"0-q\">1</td><td id=\"0-r\">Long Island</td><td id=\"0-s\">160.00</td></tr>\n<tr><td id=\"0-t\">2</td><td id=\"0-u\">Virgin Strawberry Daiquiri @ 70.00</td><td id=\"0-v\">140.00</td></tr>\n<tr><td id=\"0-w\" colspan=\"2\">1 Virgin Mojito</td><td id=\"0-x\">70.00</td></tr>\n<tr><td id=\"0-y\"></td><td id=\"0-z\">279.00 VAT</td><td id=\"0-A\">2139.00</td></tr>\n<tr><td id=\"0-B\" colspan=\"2\">Subtotal</td><td id=\"0-C\">R2139.00</td></tr>\n<tr><td id=\"0-D\" colspan=\"3\">Total Due R2139.00</td></tr>\n</table>\n\n<a id='5a81a101-5d17-4844-a963-2b163dc36885'></a>\n\nGratuity: --- 210-20\n\nTotal: --- 2349 30\n\nName: ---\n\n<a id='44832568-f96b-43e1-a793-0dfe7aa3f778'></a>\n\nRoom Number: ___\nSignature: ___"
+ },
+ {
+  "id": "e9f1bd42",
+  "label": "MCC Hobart — only emails/URLs",
+  "shop": "MCC HOBART",
+  "postal": null,
+  "phone": null,
+  "address": null,
+  "resolve": null,
+  "proposal_shop_name": "MCC HOBART",
+  "customer": [
+   -26.06,
+   28.03
+  ],
+  "raw_text": "<a id='cbf995ff-031f-47c4-84b2-3e9b8e961546'></a>\n\nMCC HOBART\n\n<a id='abc96cf6-09d3-4078-8937-4d1c4447b57b'></a>\n\n[email]\nwww.motherlandcoffee.com\n\n<a id='70d214ec-89f5-4b51-a1fa-0c0c35214494'></a>\n\nTAX INVOICE\nOpened at 10:46:09 20/03/2026\n\n<a id='1e976e82-68a8-4c18-839d-b075e1b90864'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\">QTY</td><td id=\"0-3\">ITEM</td><td id=\"0-4\">TOTAL</td></tr>\n<tr><td id=\"0-5\">1</td><td id=\"0-6\">Flat White M</td><td id=\"0-7\">57.00</td></tr>\n<tr><td id=\"0-8\">1</td><td id=\"0-9\">Cappuccino T</td><td id=\"0-a\">43.50</td></tr>\n<tr><td id=\"0-b\">1</td><td id=\"0-c\">CR ST Greek</td><td id=\"0-d\">88.50</td></tr>\n<tr><td id=\"0-e\">VAT</td><td id=\"0-f\"></td><td id=\"0-g\">R24.65</td></tr>\n<tr><td id=\"0-h\" colspan=\"2\">TOTAL</td><td id=\"0-i\">R189.00</td></tr>\n<tr><td id=\"0-j\" colspan=\"2\">PAYMENT</td><td id=\"0-k\"></td></tr>\n<tr><td id=\"0-l\" colspan=\"2\">Credit card</td><td id=\"0-m\">189.00</td></tr>\n<tr><td id=\"0-n\" colspan=\"2\">AMOUNT</td><td id=\"0-o\">R189.00</td></tr>\n<tr><td id=\"0-p\">TIP</td><td id=\"0-q\"></td><td id=\"0-r\">R0.00</td></tr>\n</table>\n\n<a id='482c9fc2-e99b-4276-a65c-b78c61aef92e'></a>\n\nServed by: roger@bizzfo\n\n<a id='9e82e8b6-a860-4dc6-b497-ea82e98a079a'></a>\n\nTAX SUMMARY\n\nExempted R0.00\nTaxable R189.00\nZero Rated R0.00\nVAT @ 15% R24.65\nTotal R189.00\n\nINDICATING NON-TAXABLE --> #\n\nVAT No: 4110256916\nINVOICE No: 111823\n\n<a id='f77d1af8-4052-4b3a-bbe3-24df27eb9af5'></a>\n\nCard number: 0672382434\nBalances prior to this: 0.00\nAvailable Balance: 0.00\nCashBack Balance: 0.00\nThe value of this transaction could take\nup to 24 hours to reflect.\n\n<a id='71da78c3-9415-4292-bc45-5961b2ef7ed1'></a>\n\nRewards Program\nLoyalty Points 17\nR50 Motherland Coffee Co. Reward Gift\nCard 1"
+ },
+ {
+  "id": "54336ec6",
+  "label": "Bossa Meerendal — phone identifies the branch, customer 1 200 km away",
+  "shop": "Bossa Meerendal",
+  "postal": null,
+  "phone": "+27210085669",
+  "address": [
+   "Meerendal"
+  ],
+  "resolve": [
+   "Durbanville",
+   "Meerendal"
+  ],
+  "proposal_shop_name": "Bossa Meerendal",
+  "customer": [
+   -26.03,
+   27.99
+  ],
+  "raw_text": "<a id='618101e0-830d-40ad-b6c3-4e7457152f28'></a>\n\n<::logo: BOSSA\nBOSSA\n(3)\nWINELANDS\nHANDMADE IN\nO.A.P.E.T.O.W.N\nBrown and white distressed label with stars and a number 3::>\n\n<a id='d3209206-6020-437f-8c63-1eb754262ee9'></a>\n\nBossa Meerendal\nMeerendal Wine Estate\nTEL 021 008 5669\n\n<a id='a72d2ade-2bc8-4b33-81c5-4748e333ba08'></a>\n\nPRO-FORMA INVOICE: 00229162\nVAT 4300317825\nHANDMADE IN CAPE TOWN\n\n<a id='b1713a72-6147-4781-966d-74f1fda4e6bc'></a>\n\nTIME : 09/02/2026 19:29\nTABLE: 313\nWAITER: [name] (13)\nCOVERS: 2\n\n<a id='80c9ad4a-869b-4e8d-b032-5e1c1c86571c'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\">ITEM</td><td id=\"0-3\">QTY</td><td id=\"0-4\">PRICE</td><td id=\"0-5\">VALUE</td></tr>\n<tr><td id=\"0-6\">1 Lt Still</td><td id=\"0-7\">1</td><td id=\"0-8\">35.00</td><td id=\"0-9\">35.00</td></tr>\n<tr><td id=\"0-a\">300g Grilled H</td><td id=\"0-b\">2</td><td id=\"0-c\">165.00</td><td id=\"0-d\">330.00</td></tr>\n<tr><td id=\"0-e\">Meerendal Chen</td><td id=\"0-f\">1</td><td id=\"0-g\">260.00</td><td id=\"0-h\">260.00</td></tr>\n<tr><td id=\"0-i\">Spinach &amp; Butt</td><td id=\"0-j\">2</td><td id=\"0-k\">45.00</td><td id=\"0-l\">90.00</td></tr>\n</table>\n<table id=\"0-m\">\n<tr><td id=\"0-n\">Bill Total</td><td id=\"0-o\">715.00</td></tr>\n<tr><td id=\"0-p\">Tax% (already included)</td><td id=\"0-q\">93.26</td></tr>\n<tr><td id=\"0-r\">Tendered</td><td id=\"0-s\">0.00</td></tr>\n</table>\n\n<a id='54891d9d-bec0-4997-bddf-2b2928117647'></a>\n\nTendered : 0.00 R75-00\nThank you for Gratuity: R790-00"
+ },
+ {
+  "id": "01b08c48",
+  "label": "The Pool Team Fourways — phone after VAT number",
+  "shop": "The Pool Team - Fourways",
+  "postal": null,
+  "phone": "+27116581766",
+  "address": [
+   "Fourways Crossing"
+  ],
+  "resolve": [
+   "Fourways"
+  ],
+  "proposal_shop_name": "The Pool Team - Fourways",
+  "customer": [
+   -26.03,
+   27.99
+  ],
+  "raw_text": "<a id='6f3b588d-37a1-4f0b-8e0c-10f74da41f5e'></a>\n\nVer 2.1\n\n<a id='2ff13495-55ae-440e-80a7-4c2296583a48'></a>\n\n<::logo: The Pool Team\nThe Pool Team\nKeep Swimming\nBlack dotted text on a white background, with a faint swimming graphic::>\n\n<a id='8b0127ba-e9e3-4037-948a-2773d84b9b05'></a>\n\nThe Pool Team - Fourways\nFourways Crossing & William Nicol Dr\nVAT No 4920269612                                                                                                    011 6581766\n\n<a id='bf0d2578-a5e9-4ca4-8528-03ab64b1cc4f'></a>\n\n[email]\n\n<a id='3b5d505a-cc05-46de-9341-58fc4f2e42a4'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\" colspan=\"2\">Tax Invoice (text on crumpled paper)</td></tr>\n<tr><td id=\"0-3\">Date/Time</td><td id=\"0-4\">2026/02/07 12:28</td></tr>\n<tr><td id=\"0-5\">Document No</td><td id=\"0-6\">CASH554-5117</td></tr>\n<tr><td id=\"0-7\">Operator</td><td id=\"0-8\">FOURWAYSTILL1</td></tr>\n<tr><td id=\"0-9\">Sales Person</td><td id=\"0-a\">Philip Mhlanga</td></tr>\n<tr><td id=\"0-b\">Account No</td><td id=\"0-c\"></td></tr>\n<tr><td id=\"0-d\">Name</td><td id=\"0-e\">Luzuko Ndzuta</td></tr>\n<tr><td id=\"0-f\">Order Number</td><td id=\"0-g\"></td></tr>\n</table>\n\n<a id='84b45825-21ad-4931-9d97-838f63d34681'></a>\n\n<table id=\"0-h\">\n<tr><td id=\"0-i\">Code</td><td id=\"0-j\" colspan=\"2\">Description</td><td id=\"0-k\"></td><td id=\"0-l\"></td></tr>\n<tr><td id=\"0-m\">Qty</td><td id=\"0-n\">Unit Price</td><td id=\"0-o\">Line Total</td><td id=\"0-p\">Tax</td><td id=\"0-q\">Line Total</td></tr>\n<tr><td id=\"0-r\"></td><td id=\"0-s\">Excl</td><td id=\"0-t\">Excl</td><td id=\"0-u\"></td><td id=\"0-v\">Incl</td></tr>\n</table>\n\n<a id='412b43ec-824e-4ee7-9150-867847e9d8e2'></a>\n\n<table id=\"0-w\">\n<tr><td id=\"0-x\">APA</td><td id=\"0-y\" colspan=\"4\">AQUA PRO 2KG ALUMINIUM SULPHATE FL</td></tr>\n<tr><td id=\"0-z\">1.0</td><td id=\"0-A\">86.91</td><td id=\"0-B\">86.91</td><td id=\"0-C\">13.04</td><td id=\"0-D\">99.95</td></tr>\n<tr><td id=\"0-E\">JLR</td><td id=\"0-F\" colspan=\"3\">LEAF RAKE HEAVY DUTY BLUE</td><td id=\"0-G\"></td></tr>\n<tr><td id=\"0-H\">1.0</td><td id=\"0-I\">86.91</td><td id=\"0-J\">186.91</td><td id=\"0-K\">28.04</td><td id=\"0-L\">214.95</td></tr>\n<tr><td id=\"0-M\">Total</td><td id=\"0-N\">Excl</td><td id=\"0-O\"></td><td id=\"0-P\"></td><td id=\"0-Q\">R273.83</td></tr>\n<tr><td id=\"0-R\">Tax</td><td id=\"0-S\"></td><td id=\"0-T\"></td><td id=\"0-U\"></td><td id=\"0-V\">R41.07</td></tr>\n<tr><td id=\"0-W\">Total</td><td id=\"0-X\">Inc</td><td id=\"0-Y\"></td><td id=\"0-Z\"></td><td id=\"0-10\">R314.90</td></tr>\n</table>\n\n<a id='c9cbb995-d006-462d-b4ed-a29e60f54bad'></a>\n\nTenders Received\nCARD R3 4.90"
+ },
+ {
+  "id": "597472f9",
+  "label": "'Ver 2.1' logo version stored as shop — LLM recovers 'The Pool Team'",
+  "shop": null,
+  "postal": null,
+  "phone": "+27116581766",
+  "address": [
+   "Fourways Crossing"
+  ],
+  "resolve": "skip",
+  "proposal_shop_name": "Ver 2.1",
+  "customer": [
+   -26.03,
+   27.99
+  ],
+  "raw_text": "<a id='e878745b-3540-4b9b-a3d4-dca942cafcc3'></a>\n\nVer 2.1\n\n<a id='e7206298-055b-4f21-89c3-1d3113ed86f7'></a>\n\n<::logo: The Pool Team\nThe Pool Team\nKeep Swimming\nBlack dotted text on a white background, with a faint swimming graphic::>\n\n<a id='eb47556d-82af-42fd-8647-c68f93cedf0b'></a>\n\nThe Pool Team - Fourways\nFourways Crossing & William Nicol Dr\nVAT No 4920269612                                                                                                    011 6581766\n\n<a id='a4d6612f-5a49-40c9-bdfd-0a3fec07a88a'></a>\n\n[email]\n\n<a id='ac9ccf24-9c83-4a2a-b3b9-7ce71caab3b2'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\" colspan=\"2\">Tax Invoice (text on crumpled paper)</td></tr>\n<tr><td id=\"0-3\">Date/Time</td><td id=\"0-4\">2026/02/07 12:28</td></tr>\n<tr><td id=\"0-5\">Document No</td><td id=\"0-6\">CASH554-5117</td></tr>\n<tr><td id=\"0-7\">Operator</td><td id=\"0-8\">FOURWAYSTILL1</td></tr>\n<tr><td id=\"0-9\">Sales Person</td><td id=\"0-a\">Philip Mhlanga</td></tr>\n<tr><td id=\"0-b\">Account No</td><td id=\"0-c\"></td></tr>\n<tr><td id=\"0-d\">Name</td><td id=\"0-e\">Luzuko Ndzuta</td></tr>\n<tr><td id=\"0-f\">Order Number</td><td id=\"0-g\"></td></tr>\n</table>\n\n<a id='acebaa15-4af2-4225-a3f7-067717944542'></a>\n\n<table id=\"0-h\">\n<tr><td id=\"0-i\">Code</td><td id=\"0-j\" colspan=\"2\">Description</td><td id=\"0-k\"></td><td id=\"0-l\"></td></tr>\n<tr><td id=\"0-m\">Qty</td><td id=\"0-n\">Unit Price</td><td id=\"0-o\">Line Total</td><td id=\"0-p\">Tax</td><td id=\"0-q\">Line Total</td></tr>\n<tr><td id=\"0-r\"></td><td id=\"0-s\">Excl</td><td id=\"0-t\">Excl</td><td id=\"0-u\"></td><td id=\"0-v\">Incl</td></tr>\n</table>\n\n<a id='48b7bdec-96a6-4f8f-8097-f8746e1aac25'></a>\n\n<table id=\"0-w\">\n<tr><td id=\"0-x\">APA</td><td id=\"0-y\" colspan=\"4\">AQUA PRO 2KG ALUMINIUM SULPHATE FL</td></tr>\n<tr><td id=\"0-z\">1.0</td><td id=\"0-A\">86.91</td><td id=\"0-B\">86.91</td><td id=\"0-C\">13.04</td><td id=\"0-D\">99.95</td></tr>\n<tr><td id=\"0-E\">JLR</td><td id=\"0-F\" colspan=\"3\">LEAF RAKE HEAVY DUTY BLUE</td><td id=\"0-G\"></td></tr>\n<tr><td id=\"0-H\">1.0</td><td id=\"0-I\">86.91</td><td id=\"0-J\">186.91</td><td id=\"0-K\">28.04</td><td id=\"0-L\">214.95</td></tr>\n<tr><td id=\"0-M\">Total</td><td id=\"0-N\">Excl</td><td id=\"0-O\"></td><td id=\"0-P\"></td><td id=\"0-Q\">R273.83</td></tr>\n<tr><td id=\"0-R\">Tax</td><td id=\"0-S\"></td><td id=\"0-T\"></td><td id=\"0-U\"></td><td id=\"0-V\">R41.07</td></tr>\n<tr><td id=\"0-W\">Total</td><td id=\"0-X\">Inc</td><td id=\"0-Y\"></td><td id=\"0-Z\"></td><td id=\"0-10\">R314.90</td></tr>\n</table>\n\n<a id='8fd4b31a-5e1f-4373-a2f5-8c6a1862f484'></a>\n\nTenders Received\nCARD R3 4.90",
+  "shop_live": "The Pool Team"
+ },
+ {
+  "id": "ab5d638c",
+  "label": "Blanko Constantia — footer postcode, no customer location",
+  "shop": "Blanko",
+  "postal": "7848",
+  "phone": null,
+  "address": [
+   "Cape Town"
+  ],
+  "resolve": null,
+  "proposal_shop_name": "blanko. Constantia",
+  "customer": null,
+  "raw_text": "<a id='2aff2090-009d-4374-a7a1-05ca414d4861'></a>\n\n<::logo: Blanko\nblanko.\nThe logo features the word \"blanko.\" in a distressed black font on a light grey background, with a period at the end.::>\n\n<a id='97ce1b79-41a1-4912-a89f-cfde4f8d0443'></a>\n\n* DRAFT RECEIPT #1 *\nBLANKO\n\n<a id='5defd014-15a5-4f9c-a1e8-e255f9861c5e'></a>\n\nVAT:4010230912\nKove Collection\n\n<a id='2b8d99f9-d2da-4bef-8cbe-dd1358193fa5'></a>\n\nKOVO ...\niPad171/907965-[name] A755179\nStatement N755179.49078 2026/01/10,\n\n<a id='e46f29fe-009b-422c-9a90-368cc09e1c50'></a>\n\nInside, Table 10\n\n<a id='0413a3fe-f9b9-4990-b7c6-c29a8dc4aa0c'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\">3</td><td id=\"0-3\">Min Still Lrg 1lt</td><td id=\"0-4\">65.00</td><td id=\"0-5\">45.00</td></tr>\n<tr><td id=\"0-6\"></td><td id=\"0-7\">Cappuccino</td><td id=\"0-8\"></td><td id=\"0-9\">20.00</td></tr>\n<tr><td id=\"0-a\">3</td><td id=\"0-b\">Coke Zero</td><td id=\"0-c\">40.00</td><td id=\"0-d\">295.00</td></tr>\n<tr><td id=\"0-e\"></td><td id=\"0-f\">Sirloin Tagliata</td><td id=\"0-g\"></td><td id=\"0-h\">590.00</td></tr>\n<tr><td id=\"0-i\">2</td><td id=\"0-j\">Crispy Skin White Fish</td><td id=\"0-k\">345.00</td><td id=\"0-l\">285.00</td></tr>\n<tr><td id=\"0-m\"></td><td id=\"0-n\">Grilled Baby Squid Main</td><td id=\"0-o\"></td><td id=\"0-p\">95.00</td></tr>\n<tr><td id=\"0-q\"></td><td id=\"0-r\">Side Broccolini.</td><td id=\"0-s\"></td><td id=\"0-t\">15.00</td></tr>\n<tr><td id=\"0-u\"></td><td id=\"0-v\">Extra Grana Padano</td><td id=\"0-w\"></td><td id=\"0-x\">40.00</td></tr>\n<tr><td id=\"0-y\"></td><td id=\"0-z\">Bernaise Sauce</td><td id=\"0-A\"></td><td id=\"0-B\">80.00</td></tr>\n<tr><td id=\"0-C\">2</td><td id=\"0-D\">Americano Espresso</td><td id=\"0-E\">40.00</td><td id=\"0-F\">38.00</td></tr>\n<tr><td id=\"0-G\"></td><td id=\"0-H\">TAI</td><td id=\"0-I\">19</td><td id=\"0-J\">98.00</td></tr>\n</table>\n\n<a id='28c8bcbe-1c89-4dcb-b5b7-b5631a34f73c'></a>\n\nAmount due ZAR 1,898.0\n\n<a id='ad55617d-50f1-4097-9c28-f3dd57cd0690'></a>\n\n<::attestation: Status stamp\nStatus indicators - No payment received\nReadable Text: No payment received\nA rectangular stamp with the text \"No payment received\" in the center.::>\n\n<a id='ec53d986-a571-4d2a-82ab-a7b3db1dae16'></a>\n\nDivision hint\n1,898.00 / 4 = 474.50\n474.50 x 2 = 949.00\n474.50 x 3 = 1,423.50\n\n<a id='fa84e044-6549-4ab3-a9f0-c9a7407f13d4'></a>\n\nGratuity:\n\nTotal: 21.00-00\n\nRoom Number:\n\n<a id='d74ed3aa-6013-47cb-97f4-5347df7e6ffa'></a>\n\n<::attestation: Signature line\nSignature: not present\nReadable Text: Signature:\nShort description of visual elements and positioning: Signature line with a placeholder consisting of asterisks, positioned horizontally across the page.::>\n\n<a id='3e791730-07fc-4cb0-9b83-71bd0243c526'></a>\n\nThank you for your patronage!\n7848 Cape Town\nLightspeed (K) 24.38.0.20855"
+ },
+ {
+  "id": "142911b1",
+  "label": "Shoprite Brackenfell — '## SHOPRITE'",
+  "shop": "SHOPRITE",
+  "postal": null,
+  "phone": "+27219804000",
+  "address": [
+   "Brackenfell"
+  ],
+  "resolve": [
+   "Brackenfell"
+  ],
+  "proposal_shop_name": "## SHOPRITE Brackenfell",
+  "customer": [
+   -33.88,
+   18.69
+  ],
+  "raw_text": "<a id='899af272-50c2-4c91-9b17-a374b7da96d9'></a>\n\n## SHOPRITE\n\nTel 021 980 4000\nCnr William Dabbs & Old Paarl Rd\nBrackenfell\n\n<a id='fce7ec4e-bfc2-4e16-ac6d-13a99b6b164d'></a>\n\nTax Invoice VAT NO.4420106777\n\nSTANDARD BROWN BREAD 600G R5.00\nSUNFOIL PURE SUNFLOWER SEED OIL 2L R69.99\nTAFELBERG MAIZE MEAL FLOUR 2.5KG R29.99\nRITEBRAND WHITE SUGAR 2KG R49.99\nCRYSTAL VALLEY FULL CREAM MILK 2L R33.99\nRITEBRAND WHITE RICE 2KG R34.99\nGOLDEN CLOUD CAKE WHEAT FLOUR 2.5KG R38.99\nBATH SOAP RENEW 175G, SOFT PEARL R12.99\nRITEBRAND SPAGHETTI 500G R14.99\nRITEBRAND SMOOTH PEANUT BUTTER 400G R33.99\nRITEBRAND INSTANT OATS 750G R39.99\nRITEBRAND TEABAGS 100 PACK R22.99\nTOTAL R387.89\nR387.89\n\n<a id='5bb124f8-7fc9-43ed-80ee-8a1b631f2e5a'></a>\n\nTOTAL R387.8[illegible]\nElect Payment\nVat\nRate 15.00% 40.58\n---\nTOTAL R387.89\n\n<a id='9bca6c26-3dc5-476f-867f-fe9b97f3c7a0'></a>\n\n--- \nThank you for swiping your\nXtra Savings Card\n---\n\n<a id='4d7a19b8-9ba0-4dcf-b90a-66191e085a81'></a>\n\n--- \n08:00:00 18/09/2023\nPlease keep your till slip\nas proof of purchase\n\n<a id='21cf0457-b69c-4c24-9524-da01dd28af14'></a>\n\nNeed more information\n[name]\n[email]"
+ },
+ {
+  "id": "3963996a",
+  "label": "Cesco's Strydom Park",
+  "shop": "CescO'S",
+  "postal": null,
+  "phone": "+27117927495",
+  "address": [
+   "Strydom Park"
+  ],
+  "resolve": [
+   "Strydom",
+   "Randburg"
+  ],
+  "proposal_shop_name": "** CescO'S ** Strydompark",
+  "customer": [
+   -26.09,
+   28.01
+  ],
+  "raw_text": "<a id='735540ed-8f8d-472b-a9dd-c8378b9eade9'></a>\n\n** CescO'S **\nCnr C R Swart & Tungsten Ave\nStrydom Park\nRandburg\nTel : 011 792-7495\n\n<a id='2daf7439-376c-4cda-a466-402643c63026'></a>\n\nGuest Check 138\nTable No 41\nGuest(s) 2 Served by [name]\nOpened at 17:45:58 09/09/2016\n\n<a id='af317b77-47b0-47d9-b5f9-d0f9bc61b872'></a>\n\n1 x Fillet Steak 135.00\n1 x 500G Rump 148.00\n1 x Halloumi/Prawn Skewer 58.50\n1 x Black/Mush Ch sauce 20.50\n4 x Castle 19.00 76.00\n2 x Savannah Light 24.00 48.00\n\n<a id='733ff954-1c07-4487-9fdd-302926183d24'></a>\n\nAmount Due 486.00\n\n<a id='636294a6-804b-44bf-a203-6e0e38cd06b8'></a>\n\nGratuity : ‘’‘540-00\nTotal :"
+ },
+ {
+  "id": "f114412f",
+  "label": "Yuppiechef online invoice — seller's postal address",
+  "shop": "YUPPIECHEF",
+  "postal": [
+   null,
+   "7966"
+  ],
+  "phone": [
+   null,
+   "+27217024969"
+  ],
+  "address": null,
+  "resolve": "skip",
+  "proposal_shop_name": "YUPPIECHEF",
+  "customer": [
+   -33.82,
+   18.63
+  ],
+  "raw_text": "<a id='4da71d58-aed8-4ddd-9fe6-b832fa14d6df'></a>\n\nYUPPIECHEF\nKitchen & Home\n\n<a id='d7900ea9-1865-459b-a172-3e36a83e60e3'></a>\n\nTax Invoice\nCustomer Billing Address:\n\n<a id='95d6958a-db27-4d51-95e7-ac4948f46477'></a>\n\nTax Date: 2026-04-\nInvoice Number: 495287\nOur Reference: YC952024\n\n<a id='38ef684b-b72c-4fff-8a48-ed9be99fad6b'></a>\n\n<table id=\"0-1\">\n<tr><td id=\"0-2\">Item Description</td><td id=\"0-3\">Qty Unit Price</td><td id=\"0-4\">Amount VAT (included)</td></tr>\n<tr><td id=\"0-5\">Yuppiechef Products Laid Back Company Meat Board</td><td id=\"0-6\">1 549.00</td><td id=\"0-7\">549.00 71.61</td></tr>\n<tr><td id=\"0-8\"></td><td id=\"0-9\">Total:</td><td id=\"0-a\">R549.00</td></tr>\n<tr><td id=\"0-b\"></td><td id=\"0-c\">VAT (included)</td><td id=\"0-d\">R71.61</td></tr>\n<tr><td id=\"0-e\"></td><td id=\"0-f\">Payments:</td><td id=\"0-g\">R549.00</td></tr>\n<tr><td id=\"0-h\"></td><td id=\"0-i\">Balance Due:</td><td id=\"0-j\">R0.00</td></tr>\n</table>\n\n<a id='a23b4ca8-2cd7-46c5-88d7-0ed159752ca2'></a>\n\nYuppiechef Online (Pty) Ltd\nRegistration Number: 2007/021383/07 | VAT Number: 4410253258\nExporters Code: 21084645 | Liquor Licence Number: WCP/040148\nPostal Address: Postnet Suite #132, Private Bag X26, Tokai, South Africa, 7966\nTel: +27 (0)21 702 4969 | Email: [email protected] | Web: www.yuppiechef.com\nYupplechef Banking Details:\n\n<a id='7d91c77a-2a79-44e1-af80-d2fb58711121'></a>\n\nFirst National Bank\nName: Yuppiechef Online\nAccount No.: 624-6821-4467\nBranch Code: 201109\nAcc. Type: Cheque/Current\nSwift Code: FIRNZAJJXXX"
+ }
+]

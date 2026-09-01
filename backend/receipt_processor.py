@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import re
+from extraction_verifier import verify_extraction, sanitize_shop_name
 import base64
 import tempfile
 import json
@@ -255,6 +256,7 @@ class ReceiptProcessor:
             # Schema extraction: use LandingAI extract() on the markdown text
             # This gives structured shop_name, address, items, amount
             line_items_from_schema = []
+            schema_proposal = {}
             schema_shop_name = None
             schema_shop_address = None
             schema_total_amount = None
@@ -277,9 +279,12 @@ class ReceiptProcessor:
                         }
                     },
                     "total_amount": {"type": "number", "description": "Final total amount due on the receipt including tax"},
-                    "shop_name": {"type": "string", "description": "Name of the shop, store, or business (not slogans, version numbers, or taglines)"},
-                    "shop_address": {"type": "string", "description": "Street address or location of the shop"},
-                    "postal_code": {"type": "string", "description": "South African 4-digit postal/area code belonging to the shop's address (e.g. 2188). Must be the address postcode, NOT a phone number, VAT number, till/batch/terminal number, card number, or transaction reference."}
+                    "shop_name": {"type": "string", "description": "Name of the shop, store, or business (not slogans, version numbers, taglines, or transaction words like 'Purchase' or 'Customer receipt')"},
+                    "shop_address": {"type": "string", "description": "Street address or location of the shop as printed"},
+                    "address_lines": {"type": "array", "items": {"type": "string"}, "description": "The shop's address exactly as printed on the receipt, one entry per printed line, in order (suburb, street, mall, city). Usually in the header; some restaurant slips print it in the footer. Do not include phone numbers, VAT numbers, or slogans. Empty if no address is printed."},
+                    "phone_number": {"type": "string", "description": "The shop's own telephone number as printed near the address (e.g. '011 899 8634' or '+27 41 392 1400'). Not a customer-care / 0800 / 0860 line, not a fax number. Null if none is printed."},
+                    "postal_code": {"type": "string", "description": "South African 4-digit postal code ONLY if it is printed as part of the shop's address (e.g. 'Cape Town 7536', 'Douglasdale 2191', '7848 Cape Town'). Return null if no postcode is printed. NEVER take a number from Store, Cash, Till, Trans, Date, Time, Batch, Auth, Terminal, Ref or cashier rows, phone numbers, VAT numbers, prices, or barcodes."},
+                    "postal_code_source_line": {"type": "string", "description": "The exact printed line the postal_code was read from, verbatim. Null if postal_code is null."}
                     }
                 })
 
@@ -314,6 +319,14 @@ class ReceiptProcessor:
                     if extracted_data.get('postal_code'):
                         schema_postal_code = str(extracted_data['postal_code']).strip()
                         logger.info(f"Schema postal_code: {schema_postal_code}")
+                    schema_proposal = {
+                        "shop_name": extracted_data.get("shop_name"),
+                        "shop_address": extracted_data.get("shop_address"),
+                        "address_lines": extracted_data.get("address_lines"),
+                        "phone_number": extracted_data.get("phone_number"),
+                        "postal_code": extracted_data.get("postal_code"),
+                        "postal_code_source_line": extracted_data.get("postal_code_source_line"),
+                    }
             except Exception as e:
                 logger.warning(f"Schema extraction failed: {e}")
 
@@ -336,18 +349,21 @@ class ReceiptProcessor:
                     final_items = line_items_from_schema
                     logger.info(f"Using schema-extracted items ({len(final_items)} items)")
             
-            # Schema extraction is primary, text parser is fallback
-            final_shop_name = schema_shop_name or parsed.get("shop_name")
-            final_address = schema_shop_address or parsed.get("address")
-            final_amount = schema_total_amount or parsed.get("amount", 0.0)
+            # The LLM proposes, the receipt's structure verifies (extraction_verifier).
+            # Every accepted field is corroborated by an address line of the slip;
+            # nothing is invented — absence is the normal answer for postcode/phone.
+            if not schema_proposal.get("shop_name"):
+                schema_proposal["shop_name"] = parsed.get("shop_name")
+            if not schema_proposal.get("shop_address") and not schema_proposal.get("address_lines"):
+                schema_proposal["shop_address"] = parsed.get("address")
+            verified = verify_extraction(full_text, schema_proposal)
+            for line in verified["evidence"]:
+                logger.info(f"verify: {line}")
 
-            # Postal code: prefer the LLM's understanding (it reads context, so it
-            # tells an area code apart from a phone/till/batch number far better than
-            # regex). Fall back to the rule-based scan. Only trust a clean 4-digit value.
-            final_postal_code = parsed.get("postal_code")
-            if schema_postal_code and re.fullmatch(r"\d{4}", schema_postal_code):
-                final_postal_code = schema_postal_code
-                logger.info(f"Using schema postal_code: {final_postal_code}")
+            final_shop_name = verified["shop_name"] or sanitize_shop_name(parsed.get("shop_name"))
+            final_address = verified["address"] or parsed.get("address")
+            final_amount = schema_total_amount or parsed.get("amount", 0.0)
+            final_postal_code = verified["postal_code"]
 
             # Fix line-wrapped shop names: extract() sometimes splits a name that
             # wraps across two header lines, putting the tail word into shop_address
@@ -373,7 +389,11 @@ class ReceiptProcessor:
                 "success": True,
                 "shop_name": final_shop_name,
                 "shop_address": final_address,
-                "postal_code": final_postal_code,  # LLM-extracted (preferred) or regex fallback
+                "postal_code": final_postal_code,  # verified against an address line, else None
+                "phone_number": verified["phone_number"],
+                "address_lines": verified["address_lines"],
+                "suburb": verified["suburb"],
+                "extraction_evidence": verified["evidence"],
                 "amount": final_amount,
                 "currency": "ZAR",
                 "items": final_items,
@@ -427,74 +447,10 @@ class ReceiptProcessor:
         lines = text.strip().split('\n')
         lines = [l.strip() for l in lines if l.strip()]
         
-        # --- First pass: Scan ENTIRE text for SA postal codes ---
-        # SA postal codes are 4 digits, typically appearing alone or with suburb name
-        # They should NOT be part of phone numbers, VAT numbers, or prices
-        
-        def is_valid_sa_postal(code_str, line_context):
-            """Check if a 4-digit number is likely a postal code, not phone/VAT/price"""
-            try:
-                code = int(code_str)
-                line_lower = line_context.lower()
-
-                # Exclude card-slip / transaction fields (batch, terminal, auth, ref, etc.)
-                # These 4-digit IDs are commonly misread as postal codes on card receipts.
-                # Match as whole words only, so short tokens like 'stan'/'mid' don't
-                # falsely fire inside suburb names (con-stan-tia, mid-rand).
-                if re.search(
-                    r'\b(batch|terminal|auth|ref|pin|card|merchant|trans|response|'
-                    r'retrieval|budget|transaction|invoice|till|rrn|stan|mid|tid|seq|aid)\b',
-                    line_lower
-                ):
-                    return False
-
-                # Exclude if in phone number context
-                if any(kw in line_lower for kw in ['tel', 'phone', 'cell', 'care line', 'customer care', 'call', 'helpline', 'hotline']):
-                    return False
-                if re.search(r'0\d{2}\s?\d{3}\s?' + code_str, line_context):  # Part of phone number
-                    return False
-                # Exclude toll-free style numbers (0800, 0860, 0861, etc.)
-                if code >= 800 and code <= 899:
-                    return False
-                    
-                # Exclude if part of VAT number
-                if 'vat' in line_lower:
-                    return False
-                    
-                # Exclude if looks like a year
-                if code >= 1900 and code <= 2100:
-                    return False
-                    
-                # Exclude if appears with R (price) or decimal
-                if re.search(r'R\s*' + code_str, line_context) or re.search(code_str + r'[.,]\d{2}', line_context):
-                    return False
-                
-                # Valid SA postal codes are between 0001-9999
-                # Most commonly 7000-7999 for Western Cape, 2000-2999 for Gauteng, etc.
-                if code < 1 or code > 9999:
-                    return False
-                
-                # Prefer codes that appear alone on a line or with suburb context
-                # e.g., "Constantia 7848" or just "7848"
-                clean_line = re.sub(r'[^\w\s]', '', line_context).strip()
-                words = clean_line.split()
-                if code_str in words:
-                    return True
-                    
-                return False
-            except:
-                return False
-        
-        # Search each line for potential postal codes
-        for line in lines:
-            potential_codes = re.findall(r'\b(\d{4})\b', line)
-            for code in potential_codes:
-                if is_valid_sa_postal(code, line):
-                    result["postal_code"] = code
-                    logger.info(f"Detected SA postal code: {code} from line: {line[:50]}")
-                    break
-            if result["postal_code"]:
-                break
+        # Postal codes are no longer guessed here: a whole-text 4-digit scan had ~4%
+        # precision on real receipts. extraction_verifier.verify_postal_code accepts a
+        # code only when it is printed on an address line of the slip.
+        result["postal_code"] = None
 
         # --- Extract Shop Name ---
         # Usually first non-empty line or look for known SA retailers

@@ -73,6 +73,21 @@ In-memory state:
 - **A receipt is never held from the draw because we couldn't find the shop** — unresolved shop ⇒ `fraud_flag=valid` with reason; only a missing customer location ⇒ `review`
 - Backfill / repair: `python scripts/backfill_geocode.py [--apply | --fill-precision]`
 
+## Receipt Field Extraction & Shop Resolution (Sept 2026)
+
+**The LLM proposes, the receipt's structure verifies, Google resolves, agreement decides.**
+
+| Stage | Module | Rule |
+|-------|--------|------|
+| Propose | `receipt_processor.py` (LandingAI `extract()` schema) | asks for `address_lines`, `phone_number`, `postal_code` + `postal_code_source_line`; descriptions say *return null if not printed* |
+| Verify | `extraction_verifier.py` → `verify_extraction()` | a postcode is accepted only if printed on an **address-block line** (header, or restaurant footer like `7848 Cape Town`), not a transaction row (`Store Cash. Till Date Time`), < 8 digits on the line, next to a place word. Phone must be printed, SA-shaped, not 0800/0860/0861. Shop names like `Purchase`, `18:01`, `Ver 2.1` are rejected. Every decision is logged as `verify: …` |
+| Resolve | `shop_resolver.py` → `resolve_shop()` | witness ladder: **phone** → name+address → name+suburb → address geocode → name+postcode → name near customer (`biased`) → postcode alone (`city`). Results must agree with the slip's text (`address_consistent`); a metro city is not a suburb |
+| Decide | precision `verified` (two witnesses agree) / `rooftop` / `biased` / … | `biased` = found only by searching around the customer: a *small* distance is not fraud evidence, a large one still is |
+
+- No whole-text 4-digit postcode scan anywhere — it had ~4% precision on real receipts. Absence is the normal answer.
+- **Golden set**: `backend/tests/golden_receipts.json` (30 real, scrubbed slips) + `python tests/test_extraction_golden.py [--live-schema] [--live-resolve]`. Add a receipt there whenever a new POS format misbehaves.
+- Planned next: key `shops` by Google Place ID (branch = entity, names become aliases).
+
 ## Draw Schedule
 - Runs at **19:00 UTC = 21:00 SAST** every day (APScheduler CronTrigger)
 - Picks a random valid receipt from today
