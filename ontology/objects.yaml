@@ -96,6 +96,9 @@ objects:
       - { name: latitude,           type: geo,      source: Google_Maps, sensitivity: X }  # shop pin is public
       - { name: longitude,          type: geo,      source: Google_Maps, sensitivity: X }
       - { name: geocode_confidence, type: enum,     source: Google_Maps, sensitivity: O }  # same enum as receipt.geocode_precision
+      - { name: place_id,           type: string,   source: Google_Maps, sensitivity: X }  # Google Place ID — canonical branch identity (migration 004); public identifier
+      - { name: phone,              type: string,   source: LandingAI_ADE, sensitivity: X }  # branch's published number as printed on slips
+      - { name: aliases,            type: string,   source: LandingAI_ADE, sensitivity: O }  # shop_aliases table — names seen on receipts
       - { name: receipt_count,      type: number,   source: Supabase,    sensitivity: O }
       - { name: total_sales,        type: currency, source: function,    sensitivity: F }  # shop revenue — commercially sensitive
 

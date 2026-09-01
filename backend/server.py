@@ -330,8 +330,8 @@ async def geocode_shop_from_receipt(shop_name: str, address: str = None, postal_
                                     suburb: str = None) -> tuple:
     """
     Resolve a shop from the slip's verified fields (see shop_resolver.resolve_shop).
-    Returns (latitude, longitude, display_name, formatted_address, precision).
-    On failure: (None, None, <name + OCR suburb if any>, None, "none").
+    Returns (latitude, longitude, display_name, formatted_address, precision, place_id).
+    On failure: (None, None, <name + OCR suburb if any>, None, "none", None).
     """
     try:
         res = await resolve_shop(
@@ -341,10 +341,10 @@ async def geocode_shop_from_receipt(shop_name: str, address: str = None, postal_
         if res:
             logger.info(f"Resolved {shop_name}: {res.latitude}, {res.longitude} [{res.precision}] "
                         f"via {res.source} -> {res.display_name} | " + "; ".join(res.evidence))
-            return (res.latitude, res.longitude, res.display_name, res.formatted_address, res.precision)
+            return (res.latitude, res.longitude, res.display_name, res.formatted_address, res.precision, res.place_id)
     except Exception as e:
         logger.error(f"Shop resolution error: {e}")
-    return (None, None, display_name_from_ocr_address(shop_name, address), None, "none")
+    return (None, None, display_name_from_ocr_address(shop_name, address), None, "none", None)
 
 # ============== SCHEDULED DRAW FUNCTION ==============
 
@@ -461,8 +461,10 @@ class Shop(BaseModel):
     address: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-    geocode_confidence: Optional[str] = None  # rooftop|biased|street|suburb|city|none
+    geocode_confidence: Optional[str] = None  # verified|rooftop|biased|street|suburb|city|none
     geocoded_at: Optional[str] = None
+    place_id: Optional[str] = None            # Google Place ID — canonical identity (migration 004)
+    phone: Optional[str] = None               # +27... as printed on receipts
     receipt_count: int = 0
     total_sales: float = 0.0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -542,43 +544,101 @@ def _shop_location_rank(shop: dict) -> int:
         return precision_rank(shop["geocode_confidence"])
     return 1  # legacy coordinates of unknown quality
 
+SAME_BRANCH_KM = 2.0  # two same-name shops further apart than this are different branches
+
+
+def _same_place(shop: dict, lat: Optional[float], lon: Optional[float]) -> bool:
+    """A stored shop is 'the same place' if it has no usable coords or is within SAME_BRANCH_KM."""
+    slat, slon = shop.get("latitude"), shop.get("longitude")
+    if slat is None or slon is None or is_sa_centroid(slat, slon) or lat is None or lon is None:
+        return True
+    return calculate_distance_km(slat, slon, lat, lon) <= SAME_BRANCH_KM
+
+
+async def _find_shop_by_name(*names: Optional[str], lat: Optional[float] = None,
+                             lon: Optional[float] = None, unclaimed_only: bool = False) -> Optional[dict]:
+    """
+    Among all shops carrying any of these names (a chain has many), return the one
+    at the same place as (lat, lon) — nearest first — or None. Without coordinates,
+    any same-name shop counts.
+    """
+    best, best_d = None, None
+    for name in names:
+        if not name:
+            continue
+        for shop in await db.shops_find_by_name(name):
+            if unclaimed_only and shop.get("place_id"):
+                continue
+            if not _same_place(shop, lat, lon):
+                continue
+            slat, slon = shop.get("latitude"), shop.get("longitude")
+            d = calculate_distance_km(slat, slon, lat, lon) if (slat is not None and lat is not None and not is_sa_centroid(slat, slon)) else 1e9
+            if best is None or d < best_d:
+                best, best_d = shop, d
+        if best:
+            return best
+    return None
+
+
 async def get_or_create_shop(shop_name: str, address: Optional[str] = None,
                              lat: Optional[float] = None, lon: Optional[float] = None,
-                             precision: Optional[str] = None) -> dict:
+                             precision: Optional[str] = None, place_id: Optional[str] = None,
+                             display_name: Optional[str] = None, phone: Optional[str] = None) -> dict:
     """
-    Get existing shop or create new one. If this receipt resolved the shop more
-    precisely than what is stored, upgrade the stored location — one bad geocode
-    must not poison every later receipt at the same shop.
+    Identity rules (the branch is the entity):
+      1. A Google Place ID wins: same place_id -> same shop, whatever the receipt called it.
+      2. A resolved branch claims a legacy name-matched shop that has no place_id and
+         is at the same place (or has no coordinates) — so old rows are upgraded, not duplicated.
+      3. Without a place_id, a name match only counts as the same shop if it is at the
+         same place; "PICK N PAY" 1 400 km away is a different branch.
+      4. Stored location is upgraded whenever a receipt resolves it more precisely.
+    The OCR name is always recorded as an alias.
     """
-    # Try to find by name (case insensitive)
-    shop = await db.shops_find_one({"name": {"$regex": f"^{re.escape(shop_name)}$", "$options": "i"}})
     has_coords = lat is not None and lon is not None and not is_sa_centroid(lat, lon)
     now_iso = datetime.now(timezone.utc).isoformat()
-    if not shop:
-        shop_obj = Shop(
-            name=shop_name, address=address,
-            latitude=lat if has_coords else None,
-            longitude=lon if has_coords else None,
-            geocode_confidence=(precision or "rooftop") if has_coords else None,
-            geocoded_at=now_iso if has_coords else None,
-        )
-        shop = shop_obj.model_dump()
-        shop['created_at'] = shop['created_at'].isoformat()
-        shop = await db.shops_insert_one(shop)
+    canonical = display_name or shop_name
+    location_fields = {
+        "latitude": lat, "longitude": lon,
+        "geocode_confidence": precision or "rooftop", "geocoded_at": now_iso,
+    } if has_coords else {}
+
+    async def upgrade(shop: dict, claim: bool = False) -> dict:
+        upd = {}
+        if has_coords and precision_rank(precision or "rooftop") > _shop_location_rank(shop):
+            upd.update(location_fields)
+        if claim:
+            upd["place_id"] = place_id
+            if canonical and canonical != shop.get("name"):
+                upd["name"] = canonical
+        if phone and not shop.get("phone"):
+            upd["phone"] = phone
+        if address and not shop.get("address"):
+            upd["address"] = address
+        if upd:
+            logger.info(f"⬆️ Shop {shop.get('name')!r}: " + ", ".join(f"{k}={v!r}" for k, v in upd.items() if k != "geocoded_at"))
+            await db.shops_update_one({"id": shop["id"]}, {"$set": upd})
+            shop.update(upd)
+        await db.shop_alias_add(shop["id"], shop_name)
         return shop
 
-    if has_coords and precision_rank(precision or "rooftop") > _shop_location_rank(shop):
-        upgrade = {
-            "latitude": lat, "longitude": lon,
-            "geocode_confidence": precision or "rooftop",
-            "geocoded_at": now_iso,
-        }
-        if address and not shop.get("address"):
-            upgrade["address"] = address
-        logger.info(f"⬆️ Upgrading shop location for {shop_name!r}: "
-                    f"{shop.get('geocode_confidence')} -> {upgrade['geocode_confidence']}")
-        await db.shops_update_one({"id": shop["id"]}, {"$set": upgrade})
-        shop.update(upgrade)
+    if place_id:
+        shop = await db.shops_find_one({"place_id": place_id})
+        if shop:
+            return await upgrade(shop)
+        legacy = await _find_shop_by_name(canonical, shop_name, lat=lat, lon=lon, unclaimed_only=True)
+        if legacy:
+            return await upgrade(legacy, claim=True)
+    else:
+        shop = await _find_shop_by_name(canonical, shop_name, lat=lat, lon=lon)
+        if shop:
+            return await upgrade(shop)
+
+    shop_obj = Shop(name=canonical, address=address, place_id=place_id, phone=phone, **location_fields)
+    shop = shop_obj.model_dump()
+    shop['created_at'] = shop['created_at'].isoformat()
+    shop = await db.shops_insert_one(shop)
+    await db.shop_alias_add(shop["id"], shop_name)
+    logger.info(f"🆕 Shop created {canonical!r} place_id={place_id} [{precision}]")
     return shop
 
 def reverse_geocode(lat: float, lon: float) -> Optional[str]:
@@ -742,10 +802,11 @@ async def process_receipt_image(request: ReceiptImageRequest):
         postal_code = extracted.get("postal_code")  # Get postal code from OCR
         geocoded_address = None
         shop_precision = None
+        shop_place_id = None
         
         if shop_name:
             # Pass postal code + customer location to geocoding for better accuracy
-            shop_lat, shop_lon, shop_display_name, geocoded_address, shop_precision = await geocode_shop_from_receipt(
+            shop_lat, shop_lon, shop_display_name, geocoded_address, shop_precision, shop_place_id = await geocode_shop_from_receipt(
                 shop_name, 
                 shop_address,
                 postal_code=postal_code,
@@ -767,7 +828,9 @@ async def process_receipt_image(request: ReceiptImageRequest):
         # Get or create shop with display name (e.g., "Shoprite Brackenfell")
         shop = None
         if shop_display_name:
-            shop = await get_or_create_shop(shop_display_name, shop_address, shop_lat, shop_lon, precision=shop_precision)
+            shop = await get_or_create_shop(shop_name, shop_address, shop_lat, shop_lon, precision=shop_precision,
+                                            place_id=shop_place_id, display_name=shop_display_name,
+                                            phone=extracted.get("phone_number"))
             # Update shop stats
             await db.shops_update_one(
                 {"id": shop["id"]},
@@ -2138,8 +2201,9 @@ async def finalise_receipt_with_location(
         shop_lat, shop_lon = None, None
         shop_display_name = shop_name
         shop_precision = None
+        shop_place_id = None
         if shop_name:
-            shop_lat, shop_lon, shop_display_name, _, shop_precision = await geocode_shop_from_receipt(
+            shop_lat, shop_lon, shop_display_name, _, shop_precision, shop_place_id = await geocode_shop_from_receipt(
                 shop_name, shop_address,
                 postal_code=extracted.get("postal_code"),
                 customer_lat=latitude, customer_lon=longitude,
@@ -2161,7 +2225,9 @@ async def finalise_receipt_with_location(
         # Create shop if needed
         shop = None
         if shop_name:
-            shop = await get_or_create_shop(shop_name, shop_address, shop_lat, shop_lon, precision=shop_precision)
+            shop = await get_or_create_shop(shop_name, shop_address, shop_lat, shop_lon, precision=shop_precision,
+                                            place_id=shop_place_id, display_name=shop_display_name,
+                                            phone=extracted.get("phone_number"))
             await db.shops_update_one(
                 {"id": shop["id"]},
                 {"$inc": {"receipt_count": 1, "total_sales": amount}}

@@ -86,7 +86,9 @@ In-memory state:
 
 - No whole-text 4-digit postcode scan anywhere — it had ~4% precision on real receipts. Absence is the normal answer.
 - **Golden set**: `backend/tests/golden_receipts.json` (30 real, scrubbed slips) + `python tests/test_extraction_golden.py [--live-schema] [--live-resolve]`. Add a receipt there whenever a new POS format misbehaves.
-- Planned next: key `shops` by Google Place ID (branch = entity, names become aliases).
+- **Shops are keyed by Google Place ID** (migration 004): same `place_id` ⇒ same shop whatever the slip called it; a resolved branch claims a legacy name-matched shop only at the same place (≤2 km); without a place_id a name match 1 400 km away is a *different* branch. Canonical `shops.name` = Google's business name (+suburb); OCR names land in `shop_aliases`. Place IDs come only from Places (establishment) results — never from address/postcode geocodes. Brand-token matching stops a mall outscoring the store inside it.
+- Identity backfill: `python scripts/backfill_shop_identity.py [--apply]` (requires migration 004; resolves every receipt via the full pipeline, merges duplicate shops, repoints receipts, recomputes shop stats).
+- Unit tests: `python tests/test_shop_identity.py` (identity rules, mocked DB).
 
 ## Draw Schedule
 - Runs at **19:00 UTC = 21:00 SAST** every day (APScheduler CronTrigger)

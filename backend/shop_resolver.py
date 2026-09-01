@@ -38,7 +38,8 @@ class Resolution:
     formatted_address: str
     display_name: str
     precision: str
-    place_id: Optional[str] = None
+    place_id: Optional[str] = None     # only for Places (establishment) results — the branch identity
+    place_name: Optional[str] = None   # Google's own name for the business
     source: str = ""
     evidence: List[str] = field(default_factory=list)
 
@@ -47,20 +48,39 @@ def _digits(s: Optional[str]) -> str:
     return re.sub(r"\D", "", s or "")
 
 
+PREMISE_WORDS = ("shop", "unit", "level", "floor", "corner", "cnr", "centre", "center", "mall",
+                 "shopping", "block", "building", "suite", "wharf", "&", "ah")
+
+
 def suburb_from_formatted(formatted: Optional[str]) -> Optional[str]:
-    """'18 Sloane St, Bryanston, Sandton, 2191, South Africa' -> 'Bryanston'."""
+    """
+    Google formats SA addresses as 'Premise, Street, Suburb, City, Postcode, Country'.
+    The suburb is the part two before the postcode; without a postcode, the first
+    part that is neither a premise nor a street.
+    """
     if not formatted:
         return None
     parts = [p.strip() for p in formatted.split(",")]
-    if len(parts) < 3:
+    parts = [p for p in parts if p and "south africa" not in p.lower()]
+    if len(parts) < 2:
         return None
-    for part in parts[1:4]:
+
+    def is_place(part: str) -> bool:
         low = part.lower()
-        if part.isdigit() or "south africa" in low or len(part) <= 3:
-            continue
-        if any(w in low for w in STREET_WORDS):
-            continue
-        return part
+        if part.isdigit() or len(part) <= 3 or re.search(r"\d", part):
+            return False
+        if any(w in low.split() or w in low for w in PREMISE_WORDS) or any(w in low for w in STREET_WORDS):
+            return False
+        return True
+
+    pc = next((i for i, p in enumerate(parts) if re.fullmatch(r"\d{4}", p)), None)
+    if pc is not None:
+        for i in (pc - 2, pc - 1):
+            if 0 < i < len(parts) and is_place(parts[i]):
+                return parts[i]
+    for part in parts[1:]:
+        if is_place(part):
+            return part
     return None
 
 
@@ -92,6 +112,25 @@ def _name_matches(shop_name: str, place_name: str) -> bool:
     return not want or bool(want & _name_tokens(place_name))
 
 
+_BRAND_SKIP = {"the", "la", "le", "el", "cafe", "café", "restaurant", "store", "shop"}
+
+
+def _brand_matches(shop_name: str, place_name: str) -> bool:
+    """
+    The slip's *brand* token (first meaningful word) must appear in the place's
+    name — otherwise "Checkers Walmer Park" happily matches the mall itself.
+    Fuzzy on containment so OCR damage survives ("ARGAIN" ~ "Bargain").
+    """
+    tokens = [t for t in re.findall(r"[a-z0-9]+", (shop_name or "").lower()) if len(t) >= 3 and t not in _BRAND_SKIP]
+    if not tokens:
+        return True
+    brand = tokens[0]
+    for got in re.findall(r"[a-z0-9]+", (place_name or "").lower()):
+        if got == brand or (len(brand) >= 4 and (brand in got or got in brand)):
+            return True
+    return False
+
+
 async def resolve_shop(shop_name: Optional[str], address: Optional[str] = None,
                        address_lines: Optional[List[str]] = None, postal_code: Optional[str] = None,
                        phone: Optional[str] = None, suburb: Optional[str] = None,
@@ -105,13 +144,21 @@ async def resolve_shop(shop_name: Optional[str], address: Optional[str] = None,
     fallback: Optional[Resolution] = None
 
     def make(place, precision, source, disp_suburb=None) -> Resolution:
-        name = shop_name or place.get("name") or "Shop"
+        is_place = source.startswith("places:")
+        place_name = place.get("name") if is_place else None
+        # Google's business name is canonical when it plausibly names the same shop;
+        # otherwise (odd phone matches) keep what the slip said.
+        if place_name and (not shop_name or _brand_matches(shop_name, place_name)):
+            name = place_name
+        else:
+            name = shop_name or place_name or "Shop"
         sub = disp_suburb or suburb_from_formatted(place.get("formatted_address"))
         return Resolution(
             latitude=place["latitude"], longitude=place["longitude"],
             formatted_address=place.get("formatted_address", ""),
             display_name=display_name_with(name, sub), precision=precision,
-            place_id=place.get("place_id"), source=source, evidence=list(evidence),
+            place_id=place.get("place_id") if is_place else None, place_name=place_name,
+            source=source, evidence=list(evidence),
         )
 
     # 1. Phone number — a branch identifier. Places supports phone-number queries.
@@ -142,7 +189,7 @@ async def resolve_shop(shop_name: Optional[str], address: Optional[str] = None,
                 if place.get("place_id") in seen:
                     continue
                 seen.add(place.get("place_id"))
-                name_ok = _name_matches(shop_name, place["name"])
+                name_ok = _brand_matches(shop_name, place["name"])
                 addr_ok = address_consistent(address, place["formatted_address"])
                 if name_ok and addr_ok:
                     evidence.append(f"name+address agree with {place['formatted_address']!r}")
@@ -154,7 +201,7 @@ async def resolve_shop(shop_name: Optional[str], address: Optional[str] = None,
     # 3. Name + suburb from the slip (a metro city is not a suburb — it cannot pick a branch)
     if shop_name and suburb and suburb.lower() not in METRO_CITIES:
         for place in await svc.places_text_search(f"{shop_name} {suburb}", *bias):
-            if _name_matches(shop_name, place["name"]) and suburb.lower() in place["formatted_address"].lower():
+            if _brand_matches(shop_name, place["name"]) and suburb.lower() in place["formatted_address"].lower():
                 evidence.append(f"name+suburb {suburb!r} agree with {place['formatted_address']!r}")
                 return make(place, "verified", "places:name+suburb")
         evidence.append(f"name+suburb search: no agreement on {suburb!r}")
@@ -181,7 +228,7 @@ async def resolve_shop(shop_name: Optional[str], address: Optional[str] = None,
     if shop_name and has_customer:
         if fallback is None:
             for place in await svc.places_text_search(shop_name, *bias):
-                if _name_matches(shop_name, place["name"]):
+                if _brand_matches(shop_name, place["name"]):
                     fallback = make(place, "biased", "places:name(bias-only)")
                     break
         if fallback:

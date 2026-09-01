@@ -66,7 +66,7 @@ async def main(apply: bool):
         if not name:
             print(f"· {r['id'][:8]} {r['shop_name']!r:32} → non-shop name, skipping")
             continue
-        lat, lon, display, _, precision = await server.geocode_shop_from_receipt(
+        lat, lon, display, _, precision, _place_id = await server.geocode_shop_from_receipt(
             name, r.get("shop_address"), None,
             customer_lat=r.get("upload_latitude"), customer_lon=r.get("upload_longitude"),
         )

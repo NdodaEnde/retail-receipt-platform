@@ -42,7 +42,7 @@ class Database:
 
     # Columns added by migrations that may not have been applied yet. Writes strip
     # them (with a one-time warning) instead of failing the whole insert.
-    OPTIONAL_COLUMNS = {"receipts": ("geocode_precision",)}
+    OPTIONAL_COLUMNS = {"receipts": ("geocode_precision",), "shops": ("place_id", "phone")}
     _column_cache: Dict[str, bool] = {}
 
     def _column_exists(self, table: str, column: str) -> bool:
@@ -181,8 +181,36 @@ class Database:
         if 'created_at' not in doc:
             doc['created_at'] = datetime.now(timezone.utc).isoformat()
         
+        doc = self._drop_missing_columns('shops', doc)
         result = self.client.table('shops').insert(doc).execute()
         return self._safe_get(result, [doc])[0]
+
+    async def shops_find_by_name(self, name: str) -> List[Dict]:
+        """All shops whose name equals `name` (case-insensitive) — chains have many."""
+        if not name:
+            return []
+        try:
+            result = self.client.table('shops').select('*').ilike('name', name).execute()
+            return self._safe_get(result, [])
+        except Exception as e:
+            logger.error(f"shops_find_by_name error: {e}")
+            return []
+
+    async def shop_alias_add(self, shop_id: str, alias: str) -> bool:
+        """Record a name seen on a receipt for this shop (migration 004). Never raises."""
+        if not alias or not shop_id:
+            return False
+        if not self._column_exists('shop_aliases', 'alias'):
+            return False
+        try:
+            self.client.table('shop_aliases').upsert(
+                {"shop_id": shop_id, "alias": alias.strip()[:255]},
+                on_conflict="shop_id,alias", ignore_duplicates=True
+            ).execute()
+            return True
+        except Exception as e:
+            logger.debug(f"shop_alias_add skipped: {e}")
+            return False
     
     async def shops_update_one(self, filter: Dict, update: Dict):
         """Update a shop"""
@@ -197,6 +225,7 @@ class Database:
                     new_val = current_val + delta
                     set_data[key] = int(new_val) if isinstance(delta, int) and isinstance(current_val, int) else new_val
         
+        set_data = self._drop_missing_columns('shops', set_data)
         if set_data:
             query = self.client.table('shops').update(set_data)
             for key, value in filter.items():
