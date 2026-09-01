@@ -53,6 +53,7 @@ objects:
       - { name: shop_latitude,  type: geo,      source: Google_Maps,   sensitivity: O }
       - { name: shop_longitude, type: geo,      source: Google_Maps,   sensitivity: O }
       - { name: shop_address,   type: string,   source: LandingAI_ADE, sensitivity: O }
+      - { name: geocode_precision, type: enum, source: Google_Maps,   sensitivity: O }  # rooftop|biased|street|suburb|city|none — migration 003
       - { name: postal_code,    type: string,   source: LandingAI_ADE, sensitivity: O }
       - { name: distance_km,    type: number,   source: function,      sensitivity: O }
       - { name: fraud_flag,     type: enum,     source: function,      sensitivity: O }
@@ -94,7 +95,7 @@ objects:
       - { name: address,            type: string,   source: Google_Maps, sensitivity: O }
       - { name: latitude,           type: geo,      source: Google_Maps, sensitivity: X }  # shop pin is public
       - { name: longitude,          type: geo,      source: Google_Maps, sensitivity: X }
-      - { name: geocode_confidence, type: enum,     source: Google_Maps, sensitivity: O }
+      - { name: geocode_confidence, type: enum,     source: Google_Maps, sensitivity: O }  # same enum as receipt.geocode_precision
       - { name: receipt_count,      type: number,   source: Supabase,    sensitivity: O }
       - { name: total_sales,        type: currency, source: function,    sensitivity: F }  # shop revenue — commercially sensitive
 

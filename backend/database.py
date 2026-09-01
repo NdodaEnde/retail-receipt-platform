@@ -39,6 +39,31 @@ class Database:
         if result and result.data:
             return result.data
         return default
+
+    # Columns added by migrations that may not have been applied yet. Writes strip
+    # them (with a one-time warning) instead of failing the whole insert.
+    OPTIONAL_COLUMNS = {"receipts": ("geocode_precision",)}
+    _column_cache: Dict[str, bool] = {}
+
+    def _column_exists(self, table: str, column: str) -> bool:
+        key = f"{table}.{column}"
+        if key not in self._column_cache:
+            try:
+                self.client.table(table).select(column).limit(1).execute()
+                self._column_cache[key] = True
+            except Exception as e:
+                self._column_cache[key] = False
+                logger.warning(
+                    f"⚠️ Column {key} missing — run backend/migrations for it. "
+                    f"Writes will drop this field until then. ({str(e)[:120]})"
+                )
+        return self._column_cache[key]
+
+    def _drop_missing_columns(self, table: str, doc: Dict) -> Dict:
+        for col in self.OPTIONAL_COLUMNS.get(table, ()):
+            if col in doc and not self._column_exists(table, col):
+                doc = {k: v for k, v in doc.items() if k != col}
+        return doc
     
     # ==================== CUSTOMERS ====================
     
@@ -270,6 +295,7 @@ class Database:
         # Handle image_data -> image will be stored separately later
         # For now, we don't store base64 in the database
         doc.pop('image_data', None)
+        doc = self._drop_missing_columns('receipts', doc)
         
         result = self.client.table('receipts').insert(doc).execute()
         receipt = self._safe_get(result, [doc])[0]
@@ -318,6 +344,7 @@ class Database:
                     new_val = current_val + delta
                     set_data[key] = int(new_val) if isinstance(delta, int) and isinstance(current_val, int) else new_val
         
+        set_data = self._drop_missing_columns('receipts', set_data)
         if set_data:
             query = self.client.table('receipts').update(set_data)
             for key, value in filter.items():

@@ -32,7 +32,7 @@ from zoneinfo import ZoneInfo
 from receipt_processor import get_receipt_processor
 from vector_store import get_receipt_vector_store
 from whatsapp_cloud import get_whatsapp_client, parse_webhook_message, WHATSAPP_VERIFY_TOKEN
-from geocoding import get_geocoding_service
+from geocoding import get_geocoding_service, precision_rank, is_sa_centroid, SA_LOCATIONS
 from database import get_database
 from storage_helper import get_storage
 from portal_token import generate_portal_token, validate_portal_token
@@ -177,16 +177,37 @@ def calculate_distance_km(lat1: float, lon1: float, lat2: float, lon2: float) ->
     
     return round(R * c, 2)
 
-def assess_fraud_risk(distance_km: float, amount: float = 0) -> dict:
+def assess_fraud_risk(distance_km: Optional[float], amount: float = 0,
+                      customer_located: bool = True, shop_precision: Optional[str] = None) -> dict:
     """
-    Assess fraud risk based on distance between shop and upload location
-    Returns fraud_flag, fraud_score, and fraud_reason
+    Assess fraud risk based on distance between shop and upload location.
+    Returns fraud_flag, fraud_score, and fraud_reason.
+
+    Principle: a receipt is only held back on evidence *of* fraud, never because we
+    failed to resolve the shop. Only 'valid' receipts enter the draw (run_daily_draw).
     """
     if distance_km is None:
+        if not customer_located:
+            return {
+                "fraud_flag": "review",
+                "fraud_score": 30,
+                "fraud_reason": "Customer location missing - manual review required"
+            }
         return {
-            "fraud_flag": "review",
-            "fraud_score": 30,
-            "fraud_reason": "Location data incomplete - manual review required"
+            "fraud_flag": "valid",
+            "fraud_score": 0,
+            "fraud_reason": "Shop location unresolved - distance check skipped"
+        }
+
+    if shop_precision == "biased" and distance_km <= FRAUD_THRESHOLD_VALID:
+        # Shop was found by searching *around the customer*, so a small distance is
+        # not independent evidence and must not be scored. A large distance is
+        # still evidence (the bias failed to pull the match nearby) and falls
+        # through to the normal tiers below.
+        return {
+            "fraud_flag": "valid",
+            "fraud_score": 0,
+            "fraud_reason": "Shop matched near customer location - distance not used as evidence"
         }
     
     # Base scoring on distance
@@ -301,61 +322,52 @@ async def process_receipt_with_landingai(image_base64: str, mime_type: str = "im
         result["error"] = str(e)
         return result
 
-async def geocode_shop_from_receipt(shop_name: str, address: str = None, postal_code: str = None, customer_lat: float = None, customer_lon: float = None) -> tuple:
+async def geocode_shop_from_receipt(shop_name: str, address: str = None, postal_code: str = None,
+                                    customer_lat: float = None, customer_lon: float = None) -> tuple:
     """
-    Try to geocode a shop from its name, address, and/or postal code using improved geocoding service
-    Returns (latitude, longitude, display_name, geocoded_address) or (None, None, shop_name, None)
+    Resolve a shop from its name, receipt address and/or postal code; falls back to a
+    Places search biased around the customer (see geocoding.geocode_shop).
+
+    Returns (latitude, longitude, display_name, geocoded_address, precision).
+    On failure: (None, None, <name + OCR suburb if any>, None, "none").
     """
     try:
         geocoding_service = get_geocoding_service()
+        result = await geocoding_service.geocode_shop(
+            shop_name, address, postal_code=postal_code,
+            customer_lat=customer_lat, customer_lon=customer_lon
+        )
 
-        # If we have customer location but no specific address, reverse-geocode to get area name
-        # This helps disambiguate chain stores (e.g., "Pick n Pay Sandton" vs generic "Pick n Pay")
-        if customer_lat and customer_lon and not address:
-            try:
-                area_result = await geocoding_service.reverse_geocode(customer_lat, customer_lon)
-                if area_result:
-                    address = area_result
-                    logger.info(f"Using customer area for geocoding: {address}")
-            except Exception:
-                pass
-
-        result = await geocoding_service.geocode_shop(shop_name, address, postal_code=postal_code)
-        
         if result:
             lat = result["latitude"]
             lon = result["longitude"]
             formatted = result.get("formatted_address", "")
-            
+            precision = result.get("precision") or "rooftop"
+
             # Extract suburb/area from formatted address for display name
             display_name = shop_name
             if formatted:
-                # Parse Google's formatted address to extract suburb
                 # Format: "Street, Suburb, City, PostCode, South Africa"
                 parts = [p.strip() for p in formatted.split(",")]
                 if len(parts) >= 3:
-                    # Try to find suburb (usually 2nd or 3rd part)
                     for part in parts[1:4]:
-                        # Skip postal codes and "South Africa"
-                        if part.isdigit() or "south africa" in part.lower():
+                        if part.isdigit() or "south africa" in part.lower() or len(part) <= 3:
                             continue
-                        # Skip street names (contain "St", "Rd", etc.)
-                        if any(x in part.lower() for x in [' st', ' rd', ' ave', ' dr', 'street', 'road']):
+                        if any(x in part.lower() for x in [' st', ' rd', ' ave', ' dr', ' blvd', ' ln', ' cres', 'street', 'road', 'avenue', 'drive', 'boulevard', 'lane', 'crescent']):
                             continue
-                        # This is likely the suburb
                         suburb = part.strip()
                         if suburb and suburb.lower() not in shop_name.lower():
                             display_name = f"{shop_name} {suburb}"
                         break
-            
-            logger.info(f"Geocoded {shop_name}: {lat}, {lon} -> Display: {display_name}")
-            return (lat, lon, display_name, formatted)
-        else:
-            logger.warning(f"Could not geocode shop: {shop_name}, {address}")
+
+            logger.info(f"Geocoded {shop_name}: {lat}, {lon} [{precision}] -> Display: {display_name}")
+            return (lat, lon, display_name, formatted, precision)
+
+        logger.warning(f"Could not geocode shop: {shop_name}, {address}")
     except Exception as e:
         logger.error(f"Geocoding error: {e}")
-    
-    return (None, None, shop_name, None)
+
+    return (None, None, display_name_from_ocr_address(shop_name, address), None, "none")
 
 # ============== SCHEDULED DRAW FUNCTION ==============
 
@@ -472,6 +484,8 @@ class Shop(BaseModel):
     address: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    geocode_confidence: Optional[str] = None  # rooftop|biased|street|suburb|city|none
+    geocoded_at: Optional[str] = None
     receipt_count: int = 0
     total_sales: float = 0.0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -496,6 +510,7 @@ class Receipt(BaseModel):
     shop_latitude: Optional[float] = None
     shop_longitude: Optional[float] = None
     shop_address: Optional[str] = None
+    geocode_precision: Optional[str] = None  # rooftop|biased|street|suburb|city|none (migration 003)
     # Fraud detection
     distance_km: Optional[float] = None  # Distance between shop and upload location
     fraud_flag: str = "valid"  # valid, review, suspicious, flagged
@@ -541,15 +556,92 @@ async def get_or_create_customer(phone_number: str, name: Optional[str] = None) 
         customer = await db.customers_insert_one(customer)
     return customer
 
-async def get_or_create_shop(shop_name: str, address: Optional[str] = None, lat: Optional[float] = None, lon: Optional[float] = None) -> dict:
-    """Get existing shop or create new one"""
+# OCR sometimes returns a transactional word as the "shop name" (e.g. a card slip
+# whose first line is "Purchase"). These are never shops.
+NON_SHOP_NAMES = {
+    "purchase", "total", "subtotal", "tax invoice", "invoice", "receipt", "cash",
+    "card", "eft", "change", "vat", "sale", "payment", "approved", "transaction",
+    "customer copy", "merchant copy", "till slip", "unknown", "unknown shop",
+    "customer receipt", "tax receipt", "slip", "thank you",
+}
+
+def sanitize_shop_name(shop_name: Optional[str]) -> Optional[str]:
+    """Drop non-shop 'names' so we store no shop rather than a bogus one."""
+    if not shop_name:
+        return None
+    # Strip any LandingAI markup that slipped through ("<::LOGO: PICK N PAY")
+    shop_name = re.sub(r"<::[A-Z]+:\s*", "", re.sub(r"<::[^>]*::>", "", shop_name)).strip(" >:")
+    if not shop_name:
+        return None
+    cleaned = re.sub(r"[^a-z0-9 ]", "", shop_name.lower()).strip()
+    # No letters at all (e.g. "18:01", "0000") cannot be a shop name
+    if not cleaned or cleaned in NON_SHOP_NAMES or not re.search(r"[a-z]", cleaned):
+        logger.warning(f"Discarding non-shop name from OCR: {shop_name!r}")
+        return None
+    return shop_name
+
+def display_name_from_ocr_address(shop_name: str, shop_address: Optional[str]) -> str:
+    """
+    When geocoding fails, still give the customer a location in the confirmation
+    ("Chicken Licken, Sloane Square") using the address text OCR read off the slip.
+    """
+    if not shop_address or re.search(r"www\.|https?:|\.co\b|\.com\b|@", shop_address.lower()):
+        return shop_name
+    lowered = shop_address.lower()
+    for suburb in SA_LOCATIONS:
+        if suburb in lowered and suburb not in shop_name.lower():
+            return f"{shop_name} {suburb.title()}"
+    short = shop_address.strip(" ,.")
+    if 0 < len(short) <= 32 and not re.search(r"\d{3,}", short) and short.lower() not in shop_name.lower():
+        return f"{shop_name}, {short}"
+    return shop_name
+
+def _shop_location_rank(shop: dict) -> int:
+    """Rank of a stored shop's location quality (0 = missing or country centroid)."""
+    lat, lon = shop.get("latitude"), shop.get("longitude")
+    if lat is None or lon is None or is_sa_centroid(lat, lon):
+        return 0
+    if shop.get("geocode_confidence"):
+        return precision_rank(shop["geocode_confidence"])
+    return 1  # legacy coordinates of unknown quality
+
+async def get_or_create_shop(shop_name: str, address: Optional[str] = None,
+                             lat: Optional[float] = None, lon: Optional[float] = None,
+                             precision: Optional[str] = None) -> dict:
+    """
+    Get existing shop or create new one. If this receipt resolved the shop more
+    precisely than what is stored, upgrade the stored location — one bad geocode
+    must not poison every later receipt at the same shop.
+    """
     # Try to find by name (case insensitive)
     shop = await db.shops_find_one({"name": {"$regex": f"^{re.escape(shop_name)}$", "$options": "i"}})
+    has_coords = lat is not None and lon is not None and not is_sa_centroid(lat, lon)
+    now_iso = datetime.now(timezone.utc).isoformat()
     if not shop:
-        shop_obj = Shop(name=shop_name, address=address, latitude=lat, longitude=lon)
+        shop_obj = Shop(
+            name=shop_name, address=address,
+            latitude=lat if has_coords else None,
+            longitude=lon if has_coords else None,
+            geocode_confidence=(precision or "rooftop") if has_coords else None,
+            geocoded_at=now_iso if has_coords else None,
+        )
         shop = shop_obj.model_dump()
         shop['created_at'] = shop['created_at'].isoformat()
         shop = await db.shops_insert_one(shop)
+        return shop
+
+    if has_coords and precision_rank(precision or "rooftop") > _shop_location_rank(shop):
+        upgrade = {
+            "latitude": lat, "longitude": lon,
+            "geocode_confidence": precision or "rooftop",
+            "geocoded_at": now_iso,
+        }
+        if address and not shop.get("address"):
+            upgrade["address"] = address
+        logger.info(f"⬆️ Upgrading shop location for {shop_name!r}: "
+                    f"{shop.get('geocode_confidence')} -> {upgrade['geocode_confidence']}")
+        await db.shops_update_one({"id": shop["id"]}, {"$set": upgrade})
+        shop.update(upgrade)
     return shop
 
 def reverse_geocode(lat: float, lon: float) -> Optional[str]:
@@ -707,18 +799,20 @@ async def process_receipt_image(request: ReceiptImageRequest):
         
         # Try to geocode shop if we have a name
         shop_lat, shop_lon = None, None
-        shop_display_name = extracted.get("shop_name")
-        shop_name = extracted.get("shop_name")
+        shop_name = sanitize_shop_name(extracted.get("shop_name"))
+        shop_display_name = shop_name
         shop_address = extracted.get("shop_address")
         postal_code = extracted.get("postal_code")  # Get postal code from OCR
         geocoded_address = None
+        shop_precision = None
         
         if shop_name:
-            # Pass postal code to geocoding for better accuracy
-            shop_lat, shop_lon, shop_display_name, geocoded_address = await geocode_shop_from_receipt(
+            # Pass postal code + customer location to geocoding for better accuracy
+            shop_lat, shop_lon, shop_display_name, geocoded_address, shop_precision = await geocode_shop_from_receipt(
                 shop_name, 
                 shop_address,
-                postal_code=postal_code
+                postal_code=postal_code,
+                customer_lat=request.latitude, customer_lon=request.longitude
             )
         
         # Use geocoded address if OCR address is missing or looks like garbage
@@ -734,7 +828,7 @@ async def process_receipt_image(request: ReceiptImageRequest):
         # Get or create shop with display name (e.g., "Shoprite Brackenfell")
         shop = None
         if shop_display_name:
-            shop = await get_or_create_shop(shop_display_name, shop_address, shop_lat, shop_lon)
+            shop = await get_or_create_shop(shop_display_name, shop_address, shop_lat, shop_lon, precision=shop_precision)
             # Update shop stats
             await db.shops_update_one(
                 {"id": shop["id"]},
@@ -747,7 +841,11 @@ async def process_receipt_image(request: ReceiptImageRequest):
             distance_km = calculate_distance_km(shop_lat, shop_lon, request.latitude, request.longitude)
         
         # Assess fraud risk
-        fraud_assessment = assess_fraud_risk(distance_km, extracted.get("amount", 0))
+        fraud_assessment = assess_fraud_risk(
+            distance_km, extracted.get("amount", 0),
+            customer_located=bool(request.latitude and request.longitude),
+            shop_precision=shop_precision
+        )
         
         # Determine which image to store (prefer converted JPEG for display)
         image_to_store = extracted.get("converted_image") or request.image_data
@@ -776,6 +874,7 @@ async def process_receipt_image(request: ReceiptImageRequest):
             shop_latitude=shop_lat,
             shop_longitude=shop_lon,
             shop_address=shop_address or (shop.get("address") if shop else None),
+            geocode_precision=shop_precision if shop_name else None,
             distance_km=distance_km,
             fraud_flag=fraud_assessment["fraud_flag"],
             fraud_score=fraud_assessment["fraud_score"],
@@ -2092,13 +2191,19 @@ async def finalise_receipt_with_location(
         extracted = pending["extracted"]
         image_base64 = pending["image_base64"]
 
-        # Geocode shop — also gives us a clean display name with suburb
+        # Geocode shop — also gives us a clean display name with suburb.
+        # The customer's location is passed as a *bias* for chain-store branch
+        # resolution; results found that way are marked precision="biased" and
+        # are not used as distance evidence for fraud.
+        shop_name = sanitize_shop_name(shop_name)
         shop_lat, shop_lon = None, None
         shop_display_name = shop_name
+        shop_precision = None
         if shop_name:
-            shop_lat, shop_lon, shop_display_name, _ = await geocode_shop_from_receipt(
+            shop_lat, shop_lon, shop_display_name, _, shop_precision = await geocode_shop_from_receipt(
                 shop_name, shop_address,
-                postal_code=extracted.get("postal_code")
+                postal_code=extracted.get("postal_code"),
+                customer_lat=latitude, customer_lon=longitude
             )
 
         # Calculate fraud risk using customer location vs shop location
@@ -2106,12 +2211,16 @@ async def finalise_receipt_with_location(
         if shop_lat and shop_lon and latitude and longitude:
             distance_km = calculate_distance_km(shop_lat, shop_lon, latitude, longitude)
 
-        fraud_assessment = assess_fraud_risk(distance_km, amount)
+        fraud_assessment = assess_fraud_risk(
+            distance_km, amount,
+            customer_located=bool(latitude and longitude),
+            shop_precision=shop_precision
+        )
 
         # Create shop if needed
         shop = None
         if shop_name:
-            shop = await get_or_create_shop(shop_name, shop_address, shop_lat, shop_lon)
+            shop = await get_or_create_shop(shop_name, shop_address, shop_lat, shop_lon, precision=shop_precision)
             await db.shops_update_one(
                 {"id": shop["id"]},
                 {"$inc": {"receipt_count": 1, "total_sales": amount}}
@@ -2136,6 +2245,7 @@ async def finalise_receipt_with_location(
             shop_latitude=shop_lat,
             shop_longitude=shop_lon,
             shop_address=shop_address,
+            geocode_precision=shop_precision if shop_name else None,
             distance_km=distance_km,
             fraud_flag=fraud_assessment["fraud_flag"],
             fraud_score=fraud_assessment["fraud_score"],

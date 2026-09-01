@@ -68,6 +68,10 @@ In-memory state:
 - **Velocity fraud**: implied travel speed >900 km/h between shops → flagged
 - **Duplicate fraud**: same customer + same shop + same amount today → flagged
 - Customer GPS is NOT required — fraud runs on shop coordinates only
+- **Only the distance signal is implemented in code today** (`assess_fraud_risk`); velocity and duplicate checks are roadmap
+- **Geocode precision gate** (Sept 2026): Google returns the *country* (SA centroid `-30.559482, 22.937506`) with `status: OK` when it can't match a shop. `geocoding.py` rejects region-level matches, records `geocode_precision` (`rooftop|biased|street|suburb|city|none`) on receipts (migration 003) and `shops.geocode_confidence`, and falls back to a Places search *biased* to the customer's location (`biased`: a *small* distance is not scored as evidence, a large one still is). Results must name a place the receipt address names (`address_consistent`) — guards against precise-but-wrong matches
+- **A receipt is never held from the draw because we couldn't find the shop** — unresolved shop ⇒ `fraud_flag=valid` with reason; only a missing customer location ⇒ `review`
+- Backfill / repair: `python scripts/backfill_geocode.py [--apply | --fill-precision]`
 
 ## Draw Schedule
 - Runs at **19:00 UTC = 21:00 SAST** every day (APScheduler CronTrigger)
