@@ -12,6 +12,7 @@ from the same shop cost one lookup.
 import argparse
 import asyncio
 import sys
+import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,6 +28,19 @@ from geocoding import precision_rank, is_sa_centroid  # noqa: E402
 import server  # noqa: E402
 
 
+def retry(fn, what: str, attempts: int = 4):
+    """Supabase over a flaky link: one ReadTimeout must not kill a 200-row apply."""
+    for i in range(attempts):
+        try:
+            return fn()
+        except Exception as e:
+            if i == attempts - 1:
+                raise
+            wait = 2 ** i
+            print(f"  ⚠️ {what}: {type(e).__name__}, retrying in {wait}s")
+            time.sleep(wait)
+
+
 async def main(apply: bool):
     db = server.db
     client = db.client
@@ -35,11 +49,11 @@ async def main(apply: bool):
         print("❌ migration 004 not applied (shops.place_id / shop_aliases missing) — run it first")
         return
 
-    receipts = client.table("receipts").select(
+    receipts = retry(lambda: client.table("receipts").select(
         "id,shop_id,shop_name,shop_address,raw_text,upload_latitude,upload_longitude,"
         "shop_latitude,shop_longitude,amount,status,fraud_flag,distance_km"
-    ).order("created_at").limit(5000).execute().data or []
-    shops = {s["id"]: s for s in (client.table("shops").select("*").execute().data or [])}
+    ).order("created_at").limit(5000).execute(), "read receipts").data or []
+    shops = {s["id"]: s for s in (retry(lambda: client.table("shops").select("*").execute(), "read shops").data or [])}
     print(f"{len(receipts)} receipts, {len(shops)} shops")
 
     # 1. resolve each receipt (cached)
@@ -130,7 +144,7 @@ async def main(apply: bool):
         row = await db.shops_insert_one(dict(doc))
         new_ids[tid] = row["id"]
     for sid, (shop, upd) in plan_shop_updates.items():
-        client.table("shops").update(upd).eq("id", sid).execute()
+        retry(lambda: client.table("shops").update(upd).eq("id", sid).execute(), f"claim shop {sid[:8]}")
     touched = set()
     for rid, (r, target_id, res, aliases) in plan_receipts.items():
         sid = new_ids.get(target_id, target_id)
@@ -147,15 +161,15 @@ async def main(apply: bool):
                     upd["status"] = "processed"
         if db._column_exists("receipts", "geocode_precision"):
             upd["geocode_precision"] = res.precision
-        client.table("receipts").update(upd).eq("id", rid).execute()
+        retry(lambda: client.table("receipts").update(upd).eq("id", rid).execute(), f"receipt {rid[:8]}")
         for alias in aliases:
             await db.shop_alias_add(sid, alias)
     for sid in merged_away:
-        client.table("shops").delete().eq("id", sid).execute()
+        retry(lambda: client.table("shops").delete().eq("id", sid).execute(), f"delete shop {sid[:8]}")
     # 5. recompute stats for touched shops
     for sid in touched:
-        rows = client.table("receipts").select("amount,status").eq("shop_id", sid).neq("status", "rejected").execute().data or []
-        client.table("shops").update({"receipt_count": len(rows), "total_sales": round(sum(float(x["amount"] or 0) for x in rows), 2)}).eq("id", sid).execute()
+        rows = retry(lambda: client.table("receipts").select("amount,status").eq("shop_id", sid).neq("status", "rejected").execute(), f"stats read {sid[:8]}").data or []
+        retry(lambda: client.table("shops").update({"receipt_count": len(rows), "total_sales": round(sum(float(x["amount"] or 0) for x in rows), 2)}).eq("id", sid).execute(), f"stats write {sid[:8]}")
     print(f"\n✅ written: {len(plan_new_shops)} shops created, {len(plan_shop_updates)} claimed, {len(merged_away)} deleted, "
           f"{len(plan_receipts)} receipts repointed, {len(touched)} shop stats recomputed")
 
