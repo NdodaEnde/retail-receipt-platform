@@ -8,7 +8,7 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
   ShoppingCart, Package, TrendingUp, Users, DollarSign, Layers,
-  Search, ArrowUpDown, ArrowDown, ArrowUp, List, Tag
+  Search, ArrowUpDown, ArrowDown, ArrowUp, List, Tag, Trophy, LineChart
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -29,6 +29,9 @@ export default function BasketAnalytics() {
   const [itemPairs, setItemPairs] = useState([]);
   const [behavior, setBehavior] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [priceIndex, setPriceIndex] = useState([]);
+  const [priceSearch, setPriceSearch] = useState("");
+  const [elasticity, setElasticity] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // All Items tab state — lazy loaded
@@ -44,18 +47,22 @@ export default function BasketAnalytics() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [statsRes, itemsRes, pairsRes, behaviorRes, categoriesRes] = await Promise.all([
+      const [statsRes, itemsRes, pairsRes, behaviorRes, categoriesRes, priceRes, liftRes] = await Promise.all([
         api.get("/analytics/basket-stats"),
         api.get("/analytics/top-items?limit=20"),
         api.get("/analytics/item-pairs?limit=20"),
         api.get("/analytics/customer-behavior?limit=50"),
         api.get("/analytics/category-spend"),
+        api.get("/analytics/price-index?limit=300"),
+        api.get("/analytics/incentive-elasticity"),
       ]);
       setStats(statsRes.data);
       setTopItems(itemsRes.data.data || []);
       setItemPairs(pairsRes.data.data || []);
       setBehavior(behaviorRes.data.data || []);
       setCategories(categoriesRes.data.data || []);
+      setPriceIndex(priceRes.data.data || []);
+      setElasticity(liftRes.data.data || null);
     } catch (err) {
       console.error("Failed to fetch basket analytics:", err);
     } finally {
@@ -129,7 +136,26 @@ export default function BasketAnalytics() {
     { label: "Avg Items/Receipt", value: stats.avg_item_count || 0, icon: Package, color: "text-green-400" },
     { label: "Avg Item Price", value: `R${stats.avg_item_price || 0}`, icon: DollarSign, color: "text-yellow-400" },
     { label: "Total Baskets", value: stats.total_baskets || 0, icon: Layers, color: "text-cyan-400" },
+    {
+      label: elasticity?.winners_mature
+        ? `Win Lift · ${elasticity.winners_mature} winners, 28d`
+        : "Win Lift (28d)",
+      value: elasticity?.lift_ratio ? `${elasticity.lift_ratio}×` : "—",
+      icon: Trophy, color: "text-fuchsia-400",
+      title: elasticity
+        ? `Receipts per winner: ${elasticity.avg_receipts_28d_before} in the 28 days before their first win → ${elasticity.avg_receipts_28d_after} after`
+        : "Needs completed draws",
+    },
   ];
+
+  const filteredPriceIndex = useMemo(() => {
+    let rows = priceIndex;
+    if (priceSearch) {
+      const q = priceSearch.toLowerCase();
+      rows = rows.filter(r => r.canonical_name?.toLowerCase().includes(q) || r.category?.toLowerCase().includes(q));
+    }
+    return [...rows].sort((a, b) => (b.month || "").localeCompare(a.month || "") || (b.observations || 0) - (a.observations || 0));
+  }, [priceIndex, priceSearch]);
 
   if (loading) {
     return (
@@ -157,11 +183,11 @@ export default function BasketAnalytics() {
       </motion.div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {statCards.map((card, i) => {
           const Icon = card.icon;
           return (
-            <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
+            <motion.div key={i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} title={card.title}>
               <Card className="glass border-white/10">
                 <CardContent className="p-4 flex items-center gap-3">
                   <Icon className={`w-8 h-8 ${card.color}`} />
@@ -183,6 +209,10 @@ export default function BasketAnalytics() {
           <TabsTrigger value="categories">
             <Tag className="w-3.5 h-3.5 mr-1.5" />
             Categories
+          </TabsTrigger>
+          <TabsTrigger value="prices">
+            <LineChart className="w-3.5 h-3.5 mr-1.5" />
+            Price Index
           </TabsTrigger>
           <TabsTrigger value="pairs">Bought Together</TabsTrigger>
           <TabsTrigger value="customers">Customer Behavior</TabsTrigger>
@@ -221,6 +251,77 @@ export default function BasketAnalytics() {
                     <Bar dataKey="frequency" fill="hsl(265, 89%, 66%)" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Price Index Tab */}
+        <TabsContent value="prices">
+          <Card className="glass border-white/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <LineChart className="w-5 h-5 text-primary" />
+                Price Observatory
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Median price per normalised item per month, across branches. Items with at least 2 observations.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {priceIndex.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  No price data yet — needs normalised items with unit prices.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="relative max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search item or category…"
+                      value={priceSearch}
+                      onChange={(e) => setPriceSearch(e.target.value)}
+                      className="pl-9 bg-black/20 border-white/10"
+                    />
+                  </div>
+                  <ScrollArea className="h-[420px]">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-card/95 backdrop-blur">
+                        <tr className="text-left text-xs text-muted-foreground border-b border-white/10">
+                          <th className="py-2 pr-2">Item</th>
+                          <th className="py-2 pr-2">Category</th>
+                          <th className="py-2 pr-2">Month</th>
+                          <th className="py-2 pr-2 text-right">Obs</th>
+                          <th className="py-2 pr-2 text-right">Branches</th>
+                          <th className="py-2 pr-2 text-right">Median</th>
+                          <th className="py-2 pr-2 text-right">Avg</th>
+                          <th className="py-2 text-right">Range</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredPriceIndex.map((r, i) => {
+                          const spread = parseFloat(r.max_price || 0) - parseFloat(r.min_price || 0);
+                          return (
+                            <tr key={i} className="border-b border-white/5 hover:bg-white/5">
+                              <td className="py-2 pr-2 max-w-[220px] truncate">{titleCase(r.canonical_name)}</td>
+                              <td className="py-2 pr-2">
+                                <Badge variant="outline" className="text-[10px] border-white/15">{r.category}</Badge>
+                              </td>
+                              <td className="py-2 pr-2 font-mono text-xs">{r.month}</td>
+                              <td className="py-2 pr-2 text-right font-mono">{r.observations}</td>
+                              <td className="py-2 pr-2 text-right font-mono">{r.branches}</td>
+                              <td className="py-2 pr-2 text-right font-mono text-primary">R{Number(r.median_price).toFixed(2)}</td>
+                              <td className="py-2 pr-2 text-right font-mono">R{Number(r.avg_price).toFixed(2)}</td>
+                              <td className={`py-2 text-right font-mono text-xs ${spread > 0 ? "text-yellow-400" : "text-muted-foreground"}`}>
+                                R{Number(r.min_price).toFixed(2)}–R{Number(r.max_price).toFixed(2)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </ScrollArea>
+                </div>
               )}
             </CardContent>
           </Card>
