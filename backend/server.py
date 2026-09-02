@@ -1472,6 +1472,19 @@ async def get_top_items(limit: int = 20, user: dict = Depends(require_admin)):
     items = await db.get_top_items(limit=limit)
     return {"data": items, "total": len(items)}
 
+@api_router.get("/analytics/price-index")
+async def get_price_index(limit: int = 200, user: dict = Depends(require_admin)):
+    """Price observatory: median/avg price per canonical item per month (ontology: itemPriceIndex)"""
+    rows = await db.get_price_index(limit=limit)
+    return {"data": rows, "total": len(rows),
+            "note": None if rows else "empty — needs migration 005 and normalized items with unit prices"}
+
+@api_router.get("/analytics/incentive-elasticity")
+async def get_incentive_elasticity(user: dict = Depends(require_admin)):
+    """Receipts/user 28d before vs after a first draw win (ontology: incentiveElasticity)"""
+    row = await db.get_incentive_elasticity()
+    return {"data": row, "note": None if row else "empty — needs migration 005"}
+
 @api_router.get("/analytics/item-pairs")
 async def get_item_pairs(limit: int = 20, user: dict = Depends(require_admin)):
     """Get frequently bought together item pairs"""

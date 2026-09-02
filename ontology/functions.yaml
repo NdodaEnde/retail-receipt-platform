@@ -155,7 +155,7 @@ functions:
   suburbSpendIndex:
     bound_to: [suburb]
     computes: "Anonymized suburb-level spend density (aggregated; no per-receipt detail)"
-    reads: [shop.latitude, shop.longitude, receipt.amount]
+    reads: [receipt.geocode_precision, shop.latitude, shop.longitude, receipt.amount]
     output_class: X
     exposure: external
     implemented_by: planned
@@ -188,7 +188,7 @@ functions:
   travelForPurpose:
     bound_to: [suburb]
     computes: "Avg trip distance by category — do people travel further to dine than to buy groceries?"
-    reads: [receipt_item.category, receipt.distance_km, receipt.shop_latitude, receipt.shop_longitude, customer.last_latitude, customer.last_longitude]
+    reads: [receipt.geocode_precision, receipt_item.category, receipt.distance_km, receipt.shop_latitude, receipt.shop_longitude, customer.last_latitude, customer.last_longitude]
     output_class: X
     exposure: external
     implemented_by: planned
@@ -198,7 +198,7 @@ functions:
   categoryDemandBySuburb:
     bound_to: [suburb]
     computes: "Category spend / qty per suburb — what is consumed most in each area"
-    reads: [receipt_item.category, receipt_item.total_price, receipt.shop_latitude, receipt.shop_longitude]
+    reads: [receipt.geocode_precision, receipt_item.category, receipt_item.total_price, receipt.shop_latitude, receipt.shop_longitude]
     output_class: X
     exposure: external
     implemented_by: planned
@@ -208,7 +208,7 @@ functions:
   suburbWalletShare:
     bound_to: [suburb]
     computes: "Cross-retailer share of wallet per suburb — who is winning the basket here"
-    reads: [shop.name, receipt.amount, receipt.shop_latitude, receipt.shop_longitude]
+    reads: [receipt.geocode_precision, shop.name, receipt.amount, receipt.shop_latitude, receipt.shop_longitude]
     output_class: X
     exposure: external
     implemented_by: planned
@@ -218,9 +218,112 @@ functions:
   retailLeakage:                  # the synthesis -> site-opportunity score
     bound_to: [suburb]
     computes: "Out-of-suburb spend by category (demand leaking elsewhere) -> ranked site-opportunity / new-store score"
-    reads: [receipt_item.category, receipt.amount, receipt.shop_latitude, receipt.shop_longitude, customer.last_latitude, customer.last_longitude]
+    reads: [receipt.geocode_precision, receipt_item.category, receipt.amount, receipt.shop_latitude, receipt.shop_longitude, customer.last_latitude, customer.last_longitude]
     output_class: X
     exposure: external
     implemented_by: planned
     min_users: 1000
     phase: 4
+
+  # ── Price observatory (receipt-volume gated, NOT user-volume gated) ───────
+  itemPriceIndex:
+    bound_to: [market]
+    computes: "Median/avg price per canonical item per month across branches — hyperlocal inflation index (CPI complement)"
+    reads: [receipt_item.canonical_name, receipt_item.category, receipt_item.unit_price, receipt.receipt_date, shop.place_id]
+    output_class: X
+    exposure: external
+    implemented_by: view:item_price_index
+    min_users: 0                  # gated by normalization coverage + receipt_date, not users
+    phase: 3
+
+  pricePremiumByBranch:
+    bound_to: [suburb]
+    computes: "Price dispersion for identical canonical items across branches/suburbs — the 'township premium', quantified"
+    reads: [receipt.geocode_precision, receipt_item.canonical_name, receipt_item.unit_price, shop.place_id, shop.latitude, shop.longitude]
+    output_class: X
+    exposure: external
+    implemented_by: planned
+    min_users: 200
+    phase: 4
+
+  promoLift:
+    bound_to: [market]
+    computes: "Price-drop detection per canonical item + basket change around it — campaign attribution for sponsors"
+    reads: [receipt_item.canonical_name, receipt_item.unit_price, receipt.receipt_date]
+    output_class: X
+    exposure: external
+    implemented_by: planned
+    min_users: 200
+    phase: 4
+
+  # ── Behaviour & patronage ─────────────────────────────────────────────────
+  behavioralArchetypes:
+    bound_to: [customer]
+    computes: "Rule-based shopper archetypes (frequency x basket size x category mix) — feeds tiers, churn, targeting"
+    reads: [customer.total_receipts, customer.total_spent, receipt.created_at, receipt.amount]
+    output_class: O
+    exposure: internal
+    implemented_by: planned
+    min_users: 50
+    phase: 3
+
+  shopMissions:
+    bound_to: [shop]
+    computes: "Basket size x category mix per branch -> mission mix (top-up | monthly shop | meal)"
+    reads: [receipt_item.category, receipt.amount, shop.place_id]
+    output_class: X
+    exposure: external
+    implemented_by: planned
+    min_users: 200
+    phase: 4
+
+  coPatronage:
+    bound_to: [suburb]
+    computes: "Branches sharing customers (patronises link) -> competitive adjacency graph, gravity-model input"
+    reads: [receipt.customer, receipt.shop, shop.place_id]
+    output_class: X
+    exposure: external
+    implemented_by: planned
+    min_users: 200
+    phase: 4
+
+  paydayPulse:
+    bound_to: [market]
+    computes: "Spend curve across the month — SASSA grant days vs month-end salaries vs mid-month (generalizes sassaGrantCycleImpact)"
+    reads: [receipt.amount, receipt.receipt_date]
+    output_class: X
+    exposure: external
+    implemented_by: planned
+    min_users: 100
+    phase: 4
+
+  # ── Platform self-measurement (computable now) ────────────────────────────
+  incentiveElasticity:
+    bound_to: [market]
+    computes: "Receipts/user in the 28 days before vs after a first draw win — measures whether the lottery mechanic drives habit (sponsor-pitch number)"
+    reads: [draw.winner_customer, draw.draw_date, receipt.created_at, customer.total_receipts]
+    output_class: X
+    exposure: external
+    implemented_by: view:incentive_elasticity
+    min_users: 0
+    phase: 3
+
+  branchContext:
+    bound_to: [shop]
+    computes: "Enrich branches via place_id from Google Places (rating, price level, opening hours) — utilisation & context joins"
+    reads: [shop.place_id, shop.latitude, shop.longitude]
+    output_class: O
+    exposure: internal
+    implemented_by: planned
+    min_users: 0
+    phase: 3
+
+  ontologyCoverage:
+    bound_to: [market]
+    computes: "Share of rows actually carrying each declared property (normalization %, receipt_date %, geocode precision mix) — the ontology auditing its own honesty"
+    reads: [receipt.geocode_precision, receipt.receipt_date, receipt_item.canonical_name, receipt_item.category]
+    output_class: O
+    exposure: internal
+    implemented_by: app           # scripts/ontology_coverage.py
+    min_users: 0
+    phase: 3

@@ -11,3 +11,4 @@ links:
   normalizes_to: { from: receipt_item, to: product,  cardinality: "N:1", derived_from: model_pipeline }
   entered_in:    { from: receipt,      to: draw,     cardinality: "N:1", derived_from: runDraw }
   won_by:        { from: draw,         to: customer, cardinality: "1:1", derived_from: runDraw }
+  patronises:    { from: customer,     to: shop,     cardinality: "N:M", derived_from: model_pipeline }  # aggregate patronage (frequency/recency) — substrate for coPatronage

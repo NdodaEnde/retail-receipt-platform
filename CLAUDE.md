@@ -294,7 +294,7 @@ TTLs: pending_receipt=15min, customer_location=60min, pending_registration=30min
 
 - **Cross-table analytics use SQL views** — `database.py` can't do JOINs
 - Views created in Supabase SQL Editor, queried as `self.client.table('view_name').select('*')`
-- Current views: `daily_spending`, `shop_performance`, `customer_summary`, `fraud_analysis`, `hourly_distribution`, `top_items`, `item_pairs`, `basket_stats`, `customer_behavior`
+- Current views: `daily_spending`, `shop_performance`, `customer_summary`, `fraud_analysis`, `hourly_distribution`, `top_items`, `item_pairs`, `basket_stats`, `customer_behavior`, `category_spend`, `item_price_index` + `incentive_elasticity` (migration 005 — price observatory + draw-incentive lift; endpoints `/analytics/price-index`, `/analytics/incentive-elasticity`)
 - Basket analytics: `/analytics/top-items`, `/analytics/item-pairs`, `/analytics/basket-stats`, `/analytics/customer-behavior`
 
 ## Data Intelligence Strategy
@@ -334,6 +334,8 @@ with O/P/F/X sensitivity classes on every property. Lives in `ontology/*.yaml`.
   sensitivity class (validator fails on untagged) and declare new insights in
   `functions.yaml`, then re-run the verifier.
 - `product` object is **planned** — the home for the item-normalization bottleneck.
+- **30 declared functions** (Sept 2026): price observatory (`itemPriceIndex` — gated by normalization + receipt_date coverage, NOT user volume), `promoLift`, `shopMissions`, `coPatronage` (new `patronises` link), `behavioralArchetypes`, `paydayPulse`, `incentiveElasticity`, `branchContext` (Google_Places source via shop.place_id), `ontologyCoverage`.
+- **Coverage report**: `python scripts/ontology_coverage.py` — % of rows carrying each declared property, i.e. which functions are honestly computable today. Biggest gates (Sept 2026): registered customers 26%, real item categories 38%, receipt_date 39%.
 
 ## Sprint Roadmap
 

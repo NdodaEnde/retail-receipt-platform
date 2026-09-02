@@ -590,6 +590,26 @@ class Database:
         result = self.client.table('top_items').select('*').limit(limit).execute()
         return self._safe_get(result, [])
 
+    async def get_price_index(self, limit: int = 200) -> List[Dict]:
+        """Price observatory: item_price_index view (migration 005)."""
+        try:
+            result = self.client.table('item_price_index').select('*') \
+                .order('month', desc=True).order('observations', desc=True).limit(limit).execute()
+            return self._safe_get(result, [])
+        except Exception as e:
+            logger.warning(f"item_price_index view unavailable — run migration 005 ({str(e)[:100]})")
+            return []
+
+    async def get_incentive_elasticity(self) -> Optional[Dict]:
+        """Draw-incentive lift: incentive_elasticity view (migration 005)."""
+        try:
+            result = self.client.table('incentive_elasticity').select('*').execute()
+            rows = self._safe_get(result, [])
+            return rows[0] if rows else None
+        except Exception as e:
+            logger.warning(f"incentive_elasticity view unavailable — run migration 005 ({str(e)[:100]})")
+            return None
+
     async def get_item_pairs(self, limit: int = 20) -> List[Dict]:
         """Get frequently bought together item pairs from item_pairs view"""
         result = self.client.table('item_pairs').select('*').limit(limit).execute()

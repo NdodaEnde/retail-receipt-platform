@@ -19,6 +19,7 @@ source_systems:
   WhatsApp_Cloud: { mode: "webhook+api",  frequency: "real_time", direction: "read+write_back" }
   LandingAI_ADE:  { mode: "batch_api",    frequency: "per_receipt", direction: "read_only" }
   Google_Maps:    { mode: "batch_api",    frequency: "per_new_shop", direction: "read_only" }
+  Google_Places:  { mode: "batch_api",    frequency: "per_new_shop", direction: "read_only" }  # branch enrichment via shop.place_id (rating, hours, price level)
   Supabase:       { mode: "native",       frequency: "real_time", direction: "ontology_owned" }
   APScheduler:    { mode: "native",       frequency: "daily_21h_sast", direction: "ontology_owned" }
   model_registry: { mode: "native",       frequency: "on_train", direction: "read_only" }
