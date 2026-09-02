@@ -590,6 +590,59 @@ class Database:
         result = self.client.table('top_items').select('*').limit(limit).execute()
         return self._safe_get(result, [])
 
+    async def get_ontology_coverage(self) -> List[Dict]:
+        """
+        ontologyCoverage — share of rows carrying each declared property.
+        A declared function is only as real as the coverage of what it reads;
+        this is the gate report for the intelligence roadmap.
+        """
+        def n(q):
+            try:
+                return q.limit(1).execute().count or 0
+            except Exception as e:
+                logger.warning(f"coverage count failed: {str(e)[:100]}")
+                return None
+
+        t = lambda name, sel="id": self.client.table(name).select(sel, count="exact")
+        rec_total = n(t("receipts"))
+        item_total = n(t("receipt_items"))
+        checks = [
+            ("Receipt dates (OCR)", "receipt.receipt_date", rec_total,
+             n(t("receipts").not_.is_("receipt_date", "null")),
+             "Payday pulse · SASSA cycle · streaks · today-only draw"),
+            ("Trusted shop locations", "receipt.geocode_precision", rec_total,
+             n(t("receipts").in_("geocode_precision", ["verified", "rooftop", "street", "suburb"])),
+             "All suburb-level geographic intelligence"),
+            ("Receipts on identified branches", "shop.place_id via receipt", rec_total,
+             n(t("receipts", "id,shops!inner(place_id)").not_.is_("shops.place_id", "null")),
+             "Shop missions · co-patronage · branch context"),
+            ("Normalised item names", "receipt_item.canonical_name", item_total,
+             n(t("receipt_items").not_.is_("canonical_name", "null")),
+             "Price index · promo lift · price premium"),
+            ("Real item categories", "receipt_item.category", item_total,
+             n(t("receipt_items").not_.is_("category", "null").not_.in_("category", ["Non-product", "Other"])),
+             "Category spend · basket affinity · shop missions"),
+            ("Item unit prices", "receipt_item.unit_price", item_total,
+             n(t("receipt_items").not_.is_("unit_price", "null")),
+             "Price index"),
+            ("Branches with Place ID", "shop.place_id", n(t("shops")),
+             n(t("shops").not_.is_("place_id", "null")),
+             "Branch context · all branch-level products"),
+            ("Registered customers", "customer.registration_status", n(t("customers")),
+             n(t("customers").eq("registration_status", "registered")),
+             "Behavioural archetypes · tiers · streaks"),
+        ]
+        out = []
+        for label, prop, total, covered, gates in checks:
+            if total is None or covered is None:
+                continue
+            out.append({
+                "label": label, "property": prop, "total": total, "covered": covered,
+                "pct": round(100.0 * covered / total, 1) if total else 0.0,
+                "gates": gates,
+            })
+        return out
+
     async def get_price_index(self, limit: int = 200) -> List[Dict]:
         """Price observatory: item_price_index view (migration 005)."""
         try:

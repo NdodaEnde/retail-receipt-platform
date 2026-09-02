@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Receipt, Map, Trophy, BarChart3, Home, Shield, FileText, LogOut, Lock, UserPlus, ShoppingCart, Wallet } from "lucide-react";
+import { Receipt, Map, Trophy, BarChart3, Home, Shield, FileText, LogOut, Lock, UserPlus, ShoppingCart, Wallet, Gauge } from "lucide-react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
@@ -17,6 +17,7 @@ import AdminInvite from "./pages/AdminInvite";
 import BasketAnalytics from "./pages/BasketAnalytics";
 import MySpending from "./pages/MySpending";
 import MyReport from "./pages/MyReport";
+import DataCoverage from "./pages/DataCoverage";
 import "./App.css";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -36,6 +37,7 @@ const adminNavItems = [
   { path: "/fraud", icon: Shield, label: "Fraud" },
   { path: "/admin/invite", icon: UserPlus, label: "Invite" },
   { path: "/analytics/basket", icon: ShoppingCart, label: "Basket" },
+  { path: "/admin/coverage", icon: Gauge, label: "Coverage" },
 ];
 
 function BottomNav() {
@@ -119,6 +121,7 @@ function AnimatedRoutes() {
           <Route path="/fraud" element={<ProtectedRoute><FraudDetection /></ProtectedRoute>} />
           <Route path="/admin/invite" element={<ProtectedRoute><AdminInvite /></ProtectedRoute>} />
           <Route path="/analytics/basket" element={<ProtectedRoute><BasketAnalytics /></ProtectedRoute>} />
+          <Route path="/admin/coverage" element={<ProtectedRoute><DataCoverage /></ProtectedRoute>} />
         </Routes>
       </motion.div>
     </AnimatePresence>

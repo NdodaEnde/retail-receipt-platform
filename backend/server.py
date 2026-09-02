@@ -1479,6 +1479,12 @@ async def get_price_index(limit: int = 200, user: dict = Depends(require_admin))
     return {"data": rows, "total": len(rows),
             "note": None if rows else "empty — needs migration 005 and normalized items with unit prices"}
 
+@api_router.get("/analytics/ontology-coverage")
+async def get_ontology_coverage(user: dict = Depends(require_admin)):
+    """Data coverage per declared ontology property — which insights are honestly computable (ontology: ontologyCoverage)"""
+    rows = await db.get_ontology_coverage()
+    return {"data": rows, "total": len(rows)}
+
 @api_router.get("/analytics/incentive-elasticity")
 async def get_incentive_elasticity(user: dict = Depends(require_admin)):
     """Receipts/user 28d before vs after a first draw win (ontology: incentiveElasticity)"""
