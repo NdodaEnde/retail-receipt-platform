@@ -327,3 +327,24 @@ functions:
     implemented_by: app           # scripts/ontology_coverage.py
     min_users: 0
     phase: 3
+
+  # ── House brands (private labels): the apples-to-apples axis ─────────────
+  housebrandPriceGap:
+    bound_to: [market]
+    computes: "Same product type + pack size, house label vs house label across chains (Ritebrand vs No Name vs SPAR) — median/avg and per-kg/l price"
+    reads: [receipt_item.type_key, receipt_item.pack_size, receipt_item.pack_unit, receipt_item.brand_owner, receipt_item.brand_tier, receipt_item.unit_price]
+    output_class: X
+    exposure: external
+    implemented_by: view:house_brand_price_gap
+    min_users: 0                  # gated by receipt volume + registry coverage, not users
+    phase: 3
+
+  privateLabelShare:
+    bound_to: [market]
+    computes: "House-brand share of basket value over time and by area — a private-label penetration index (economic-stress signal, pairs with paydayPulse)"
+    reads: [receipt_item.brand_type, receipt_item.total_price, receipt.created_at]
+    output_class: X
+    exposure: external
+    implemented_by: planned
+    min_users: 200
+    phase: 4

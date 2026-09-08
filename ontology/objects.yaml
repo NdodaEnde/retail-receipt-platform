@@ -80,6 +80,13 @@ objects:
       - { name: canonical_name, type: string,   source: function, sensitivity: O }  # itemNormalization
       - { name: category,       type: enum,     source: function, sensitivity: O }  # itemNormalization
       - { name: brand,          type: string,   source: function, sensitivity: O }  # itemNormalization
+      - { name: brand_type,     type: enum,     source: function, sensitivity: O }  # house | national (migration 006)
+      - { name: brand_owner,    type: string,   source: function, sensitivity: O }  # owning chain for house brands (brand_registry)
+      - { name: brand_tier,     type: enum,     source: function, sensitivity: O }  # value | mainstream | premium
+      - { name: pack_size,      type: number,   source: function, sensitivity: O }  # normalized to g / ml / each
+      - { name: pack_unit,      type: enum,     source: function, sensitivity: O }
+      - { name: gtin,           type: string,   source: LandingAI_ADE, sensitivity: O }  # barcode where printed — canonical product identity
+      - { name: type_key,       type: string,   source: function, sensitivity: O }  # brand-independent product key: the apples-to-apples axis
       - { name: product,        type: "link->product", source: function, sensitivity: O }  # future canonical registry
 
   shop:                           # backend/schema.sql shops

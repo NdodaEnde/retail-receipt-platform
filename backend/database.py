@@ -11,6 +11,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 from supabase import create_client, Client
 from item_normalizer import normalize_item
+from brand_registry import infer_chain
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,12 @@ class Database:
 
     # Columns added by migrations that may not have been applied yet. Writes strip
     # them (with a one-time warning) instead of failing the whole insert.
-    OPTIONAL_COLUMNS = {"receipts": ("geocode_precision",), "shops": ("place_id", "phone")}
+    OPTIONAL_COLUMNS = {
+        "receipts": ("geocode_precision",),
+        "shops": ("place_id", "phone"),
+        "receipt_items": ("brand_type", "brand_owner", "brand_tier",
+                          "pack_size", "pack_unit", "gtin", "type_key"),
+    }
     _column_cache: Dict[str, bool] = {}
 
     def _column_exists(self, table: str, column: str) -> bool:
@@ -331,11 +337,12 @@ class Database:
         
         # Insert items
         if items:
+            chain = infer_chain(receipt.get('shop_name'))
             items_data = []
             for item in items:
                 raw = item.get('name', '')
-                norm = normalize_item(raw)  # rules-first, never raises
-                items_data.append({
+                norm = normalize_item(raw, chain=chain)  # rules-first, never raises
+                items_data.append(self._drop_missing_columns('receipt_items', {
                     'id': str(uuid.uuid4()),
                     'receipt_id': receipt['id'],
                     'name': raw,
@@ -345,7 +352,14 @@ class Database:
                     'canonical_name': norm['canonical_name'],
                     'category': norm['category'],
                     'brand': norm['brand'],
-                })
+                    'brand_type': norm['brand_type'],
+                    'brand_owner': norm['brand_owner'],
+                    'brand_tier': norm['brand_tier'],
+                    'pack_size': norm['pack_size'],
+                    'pack_unit': norm['pack_unit'],
+                    'gtin': norm['gtin'],
+                    'type_key': norm['type_key'],
+                }))
             if items_data:
                 try:
                     self.client.table('receipt_items').insert(items_data).execute()

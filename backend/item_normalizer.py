@@ -16,7 +16,9 @@ Public API:
 """
 from __future__ import annotations
 import re
-from typing import Optional
+from typing import Optional, Tuple
+
+from brand_registry import detect_house_brand, OWN_BRAND_CHAINS
 
 UNCATEGORIZED = "Other"
 
@@ -154,6 +156,74 @@ BRANDS = [
 ]
 
 
+# ── Pack size: captured BEFORE _prep strips it, normalized to g / ml / each ──
+# Comparability across shops is (product type + size); per-pack prices lie when
+# packs differ (Ritebrand 2kg vs No Name 2.5kg), so we keep size structured.
+_MULTIPACK_RE = re.compile(
+    r"\b(\d{1,3})\s*[xX]\s*(\d+(?:[.,]\d+)?)\s*(kg|g|gr|gram|grams|ml|l|lt|ltr|litre)s?\b", re.IGNORECASE)
+_MEASURE_RE = re.compile(
+    r"\b(\d+(?:[.,]\d+)?)\s*(kg|g|gr|gram|grams|mg|ml|l|lt|ltr|litre)s?\b", re.IGNORECASE)
+_COUNT_RE = re.compile(r"\b(\d{1,3})\s*(?:'?s\b|pk\b|pack\b|pcs\b|ea\b|doz\b|dozen\b)", re.IGNORECASE)
+
+_UNIT_FACTOR = {  # -> (base unit, multiplier)
+    "kg": ("g", 1000), "g": ("g", 1), "gr": ("g", 1), "gram": ("g", 1), "grams": ("g", 1),
+    "mg": ("g", 0.001),
+    "l": ("ml", 1000), "lt": ("ml", 1000), "ltr": ("ml", 1000), "litre": ("ml", 1000),
+    "ml": ("ml", 1),
+}
+
+
+def parse_pack_size(raw_name: str) -> Tuple[Optional[float], Optional[str]]:
+    """('COKE 6X330ML' -> (1980, 'ml')), ('SUGAR 2.5KG' -> (2500, 'g')),
+    ('EGGS 18S' -> (18, 'each')). (None, None) when nothing printed."""
+    if not raw_name:
+        return None, None
+    m = _MULTIPACK_RE.search(raw_name)
+    if m:
+        count, value, unit = int(m.group(1)), float(m.group(2).replace(",", ".")), m.group(3).lower()
+        base, factor = _UNIT_FACTOR[unit]
+        return round(count * value * factor, 3), base
+    m = _MEASURE_RE.search(raw_name)
+    if m:
+        value, unit = float(m.group(1).replace(",", ".")), m.group(2).lower()
+        base, factor = _UNIT_FACTOR[unit]
+        size = round(value * factor, 3)
+        return (size, base) if size > 0 else (None, None)
+    m = _COUNT_RE.search(raw_name)
+    if m:
+        count = int(m.group(1))
+        if "doz" in m.group(0).lower():
+            count *= 12
+        return (float(count), "each") if count > 0 else (None, None)
+    return None, None
+
+
+# ── GTIN (barcode) — the product world's Place ID, printed on some slips ─────
+_GTIN_CONTEXT = re.compile(r"\b(gtin|ean|barcode|upc)\b", re.IGNORECASE)
+_GTIN_TOKEN = re.compile(r"(?<!\d)(\d{8}|\d{12,14})(?!\d)")
+
+
+def _gs1_check_ok(digits: str) -> bool:
+    total = sum(int(d) * (3 if (len(digits) - i) % 2 == 0 else 1) for i, d in enumerate(digits[:-1]))
+    return (10 - total % 10) % 10 == int(digits[-1])
+
+
+def extract_gtin(raw_name: str) -> Optional[str]:
+    """A GTIN only counts if its check digit validates AND either the line says
+    so (GTIN/EAN/barcode) or it's a 13-digit code with South Africa's GS1
+    prefix (600/601) — a bare number that merely looks long is not identity."""
+    if not raw_name:
+        return None
+    labelled = bool(_GTIN_CONTEXT.search(raw_name))
+    for m in _GTIN_TOKEN.finditer(raw_name):
+        code = m.group(1)
+        if not _gs1_check_ok(code):
+            continue
+        if labelled or (len(code) == 13 and code[:3] in ("600", "601")):
+            return code
+    return None
+
+
 def _word_re(term: str) -> re.Pattern:
     """Whole-word/phrase matcher (case-insensitive). Avoids ICE matching RICE."""
     return re.compile(r"\b" + re.escape(term) + r"\b", re.IGNORECASE)
@@ -234,13 +304,36 @@ def detect_brand(name: str) -> Optional[str]:
     return None
 
 
-def normalize_item(raw_name: str) -> dict:
+def _type_key(canonical_key: Optional[str], brand: Optional[str]) -> Optional[str]:
+    """Brand-independent product key: the canonical_key minus the brand's own
+    tokens. 'Ritebrand White Sugar 2kg' and 'No Name White Sugar' share the
+    type_key 'sugar white' — with pack_size/unit, that's apples to apples."""
+    if not canonical_key:
+        return None
+    if not brand:
+        return canonical_key
+    brand_tokens = {t for t in re.findall(r"[a-z0-9]+", brand.lower()) if len(t) > 1}
+    kept = [t for t in canonical_key.split() if t not in brand_tokens]
+    return " ".join(kept) or None
+
+
+_EMPTY_ATTRS = {"brand": None, "brand_type": None, "brand_owner": None, "brand_tier": None,
+                "pack_size": None, "pack_unit": None, "gtin": None, "type_key": None}
+
+
+def normalize_item(raw_name: str, chain: Optional[str] = None) -> dict:
     """
     Normalize a raw OCR item name into a canonical product descriptor.
 
-    Returns: {raw_name, canonical_name, canonical_key, category, brand}
+    chain — owner group of the shop the receipt came from (brand_registry.infer_chain);
+            guards house-brand detection and enables the Woolworths chain-level rule.
+
+    Returns: {raw_name, canonical_name, canonical_key, type_key, category,
+              brand, brand_type, brand_owner, brand_tier, pack_size, pack_unit, gtin}
       canonical_name — human-readable cleaned label
-      canonical_key  — order-invariant key for grouping variants of one product
+      canonical_key  — order-invariant key grouping variants of one product
+      type_key       — canonical_key minus brand tokens: the cross-shop,
+                       cross-brand comparison key (with pack_size/pack_unit)
     Never raises — callers may use it inline without guarding.
     """
     try:
@@ -248,15 +341,43 @@ def normalize_item(raw_name: str) -> dict:
         if category == NON_PRODUCT:
             # not a product — don't give it a grouping key or brand
             return {"raw_name": raw_name, "canonical_name": None,
-                    "canonical_key": None, "category": NON_PRODUCT, "brand": None}
+                    "canonical_key": None, "category": NON_PRODUCT, **_EMPTY_ATTRS}
         cleaned = _prep(raw_name)
         canonical = cleaned.title() if cleaned else (raw_name or "").strip().title()
+        canonical_key = _canonical_key(cleaned) or None
+        pack_size, pack_unit = parse_pack_size(raw_name)
+
+        house = detect_house_brand(raw_name, chain)
+        if house:
+            brand, brand_type = house["brand"], "house"
+            brand_owner, brand_tier = house["owner"], house["tier"]
+        else:
+            brand = detect_brand(raw_name)
+            brand_type = "national" if brand else None
+            brand_owner = brand_tier = None
+            if brand is None and chain in OWN_BRAND_CHAINS \
+                    and category != UNCATEGORIZED \
+                    and re.search(r"[A-Za-z]{3,}", cleaned or ""):
+                # Woolworths sells essentially only own-brand: an unbranded line
+                # at that chain IS the house brand — but only for lines that are
+                # recognisably products (categorised, with a real word), so OCR
+                # fragments like "S 15.0" don't become Woolworths products.
+                brand, brand_type = OWN_BRAND_CHAINS[chain], "house"
+                brand_owner, brand_tier = chain, "premium"
+
         return {
             "raw_name": raw_name,
             "canonical_name": canonical or None,
-            "canonical_key": _canonical_key(cleaned) or None,
+            "canonical_key": canonical_key,
+            "type_key": _type_key(canonical_key, brand),
             "category": category,
-            "brand": detect_brand(raw_name),
+            "brand": brand,
+            "brand_type": brand_type,
+            "brand_owner": brand_owner,
+            "brand_tier": brand_tier,
+            "pack_size": pack_size,
+            "pack_unit": pack_unit,
+            "gtin": extract_gtin(raw_name),
         }
     except Exception:
         return {
@@ -264,5 +385,5 @@ def normalize_item(raw_name: str) -> dict:
             "canonical_name": (raw_name or "").strip().title() or None,
             "canonical_key": None,
             "category": UNCATEGORIZED,
-            "brand": None,
+            **_EMPTY_ATTRS,
         }

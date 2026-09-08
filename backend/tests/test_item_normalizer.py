@@ -91,6 +91,10 @@ def test_handles_empty_and_none():
 
 def test_full_shape():
     r = normalize_item("Clover Full Cream Milk 2L")
-    assert set(r.keys()) == {"raw_name", "canonical_name", "canonical_key", "category", "brand"}
+    assert {"raw_name", "canonical_name", "canonical_key", "category", "brand",
+            "brand_type", "brand_owner", "brand_tier", "pack_size", "pack_unit",
+            "gtin", "type_key"} <= set(r.keys())
     assert r["category"] == "Dairy & Eggs"
     assert r["brand"] == "Clover"
+    assert r["brand_type"] == "national"
+    assert (r["pack_size"], r["pack_unit"]) == (2000, "ml")

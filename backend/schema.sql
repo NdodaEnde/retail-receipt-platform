@@ -479,3 +479,27 @@ SELECT
                     / SUM(receipts_before) FILTER (WHERE mature), 2)
     END AS lift_ratio
 FROM rates;
+
+-- House-brand price gap (migration 006, ontology: housebrandPriceGap)
+CREATE OR REPLACE VIEW house_brand_price_gap AS
+SELECT
+    ri.type_key,
+    ri.pack_size,
+    ri.pack_unit,
+    ri.brand_owner,
+    ri.brand,
+    ri.brand_tier,
+    COUNT(*) AS observations,
+    ROUND(AVG(ri.unit_price)::numeric, 2) AS avg_price,
+    ROUND((PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ri.unit_price))::numeric, 2) AS median_price,
+    CASE WHEN ri.pack_size > 0 AND ri.pack_unit IN ('g', 'ml')
+         THEN ROUND((AVG(ri.unit_price) / ri.pack_size * 1000)::numeric, 2)
+    END AS avg_price_per_kg_or_l
+FROM receipt_items ri
+JOIN receipts r ON ri.receipt_id = r.id
+WHERE ri.brand_type = 'house'
+  AND ri.type_key IS NOT NULL
+  AND ri.unit_price IS NOT NULL AND ri.unit_price > 0
+  AND r.status != 'rejected'
+GROUP BY ri.type_key, ri.pack_size, ri.pack_unit, ri.brand_owner, ri.brand, ri.brand_tier
+HAVING COUNT(*) >= 2;
