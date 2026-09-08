@@ -8,7 +8,7 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
   ShoppingCart, Package, TrendingUp, Users, DollarSign, Layers,
-  Search, ArrowUpDown, ArrowDown, ArrowUp, List, Tag, Trophy, LineChart
+  Search, ArrowUpDown, ArrowDown, ArrowUp, List, Tag, Trophy, LineChart, Store
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -32,6 +32,7 @@ export default function BasketAnalytics() {
   const [priceIndex, setPriceIndex] = useState([]);
   const [priceSearch, setPriceSearch] = useState("");
   const [elasticity, setElasticity] = useState(null);
+  const [houseBrands, setHouseBrands] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // All Items tab state — lazy loaded
@@ -47,7 +48,7 @@ export default function BasketAnalytics() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [statsRes, itemsRes, pairsRes, behaviorRes, categoriesRes, priceRes, liftRes] = await Promise.all([
+      const [statsRes, itemsRes, pairsRes, behaviorRes, categoriesRes, priceRes, liftRes, houseRes] = await Promise.all([
         api.get("/analytics/basket-stats"),
         api.get("/analytics/top-items?limit=20"),
         api.get("/analytics/item-pairs?limit=20"),
@@ -55,6 +56,7 @@ export default function BasketAnalytics() {
         api.get("/analytics/category-spend"),
         api.get("/analytics/price-index?limit=300"),
         api.get("/analytics/incentive-elasticity"),
+        api.get("/analytics/house-brands"),
       ]);
       setStats(statsRes.data);
       setTopItems(itemsRes.data.data || []);
@@ -63,6 +65,7 @@ export default function BasketAnalytics() {
       setCategories(categoriesRes.data.data || []);
       setPriceIndex(priceRes.data.data || []);
       setElasticity(liftRes.data.data || null);
+      setHouseBrands(houseRes.data.data || []);
     } catch (err) {
       console.error("Failed to fetch basket analytics:", err);
     } finally {
@@ -157,6 +160,26 @@ export default function BasketAnalytics() {
     return [...rows].sort((a, b) => (b.month || "").localeCompare(a.month || "") || (b.observations || 0) - (a.observations || 0));
   }, [priceIndex, priceSearch]);
 
+  // House brands: group rows by product type; a group with 2+ chains is a real
+  // cross-chain comparison (house-brand-ness is a dimension, not a sub-category —
+  // this tab is its standalone lens).
+  const houseGroups = useMemo(() => {
+    const map = new Map();
+    for (const r of houseBrands) {
+      const key = `${r.type_key}|${r.pack_unit || ""}`;
+      if (!map.has(key)) map.set(key, { type_key: r.type_key, rows: [] });
+      map.get(key).rows.push(r);
+    }
+    const groups = [...map.values()];
+    for (const g of groups) {
+      g.owners = new Set(g.rows.map(r => r.brand_owner)).size;
+      const perValues = g.rows.filter(r => r.avg_price_per_kg_or_l != null);
+      g.bestPer = perValues.length >= 2 ? Math.min(...perValues.map(r => parseFloat(r.avg_price_per_kg_or_l))) : null;
+      g.rows.sort((a, b) => (a.brand_owner || "").localeCompare(b.brand_owner || ""));
+    }
+    return groups.sort((a, b) => b.owners - a.owners || b.rows.length - a.rows.length);
+  }, [houseBrands]);
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto p-4 space-y-4">
@@ -213,6 +236,10 @@ export default function BasketAnalytics() {
           <TabsTrigger value="prices">
             <LineChart className="w-3.5 h-3.5 mr-1.5" />
             Price Index
+          </TabsTrigger>
+          <TabsTrigger value="house-brands">
+            <Store className="w-3.5 h-3.5 mr-1.5" />
+            House Brands
           </TabsTrigger>
           <TabsTrigger value="pairs">Bought Together</TabsTrigger>
           <TabsTrigger value="customers">Customer Behavior</TabsTrigger>
@@ -322,6 +349,74 @@ export default function BasketAnalytics() {
                     </table>
                   </ScrollArea>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* House Brands Tab */}
+        <TabsContent value="house-brands">
+          <Card className="glass border-white/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Store className="w-5 h-5 text-primary" />
+                House Brand Comparison
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Private labels (Ritebrand, No Name, PnP, Woolworths…) on the same product type and pack —
+                apples to apples across chains. Cheapest per kg/L is highlighted when chains overlap.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {houseGroups.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  No house-brand data yet — needs migration 006 and the item-attribute backfill.
+                </p>
+              ) : (
+                <ScrollArea className="h-[460px]">
+                  <div className="space-y-5 pr-2">
+                    {houseGroups.map((g) => (
+                      <div key={g.type_key} className="rounded-lg border border-white/10 bg-black/20 overflow-hidden">
+                        <div className="px-3 py-2 flex items-center justify-between bg-white/5">
+                          <span className="font-medium text-sm">{titleCase(g.type_key)}</span>
+                          {g.owners > 1 && (
+                            <Badge className="text-[10px] bg-primary/20 text-primary border-0">
+                              {g.owners} chains — head to head
+                            </Badge>
+                          )}
+                        </div>
+                        <table className="w-full text-sm">
+                          <tbody>
+                            {g.rows.map((r, i) => {
+                              const per = r.avg_price_per_kg_or_l != null ? parseFloat(r.avg_price_per_kg_or_l) : null;
+                              const cheapest = g.bestPer != null && per != null && per <= g.bestPer + 1e-9;
+                              return (
+                                <tr key={i} className="border-t border-white/5">
+                                  <td className="py-2 px-3">
+                                    <span className="font-medium">{r.brand}</span>
+                                    <span className="text-muted-foreground text-xs ml-2">{r.brand_owner}</span>
+                                  </td>
+                                  <td className="py-2 px-2">
+                                    <Badge variant="outline" className="text-[10px] border-white/15">{r.brand_tier}</Badge>
+                                  </td>
+                                  <td className="py-2 px-2 font-mono text-xs text-muted-foreground">
+                                    {r.pack_size ? `${parseFloat(r.pack_size)}${r.pack_unit}` : "—"}
+                                  </td>
+                                  <td className="py-2 px-2 text-right font-mono text-xs text-muted-foreground">n={r.observations}</td>
+                                  <td className="py-2 px-2 text-right font-mono">R{Number(r.median_price).toFixed(2)}</td>
+                                  <td className={`py-2 px-3 text-right font-mono text-xs ${cheapest ? "text-green-400 font-semibold" : "text-muted-foreground"}`}>
+                                    {per != null ? `R${per.toFixed(2)}/${r.pack_unit === "g" ? "kg" : "L"}` : ""}
+                                    {cheapest && " ✓"}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               )}
             </CardContent>
           </Card>

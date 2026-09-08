@@ -1485,6 +1485,13 @@ async def get_ontology_coverage(user: dict = Depends(require_admin)):
     rows = await db.get_ontology_coverage()
     return {"data": rows, "total": len(rows)}
 
+@api_router.get("/analytics/house-brands")
+async def get_house_brands(limit: int = 500, user: dict = Depends(require_admin)):
+    """House-brand price comparison across chains, same product type + pack (ontology: housebrandPriceGap)"""
+    rows = await db.get_house_brand_gap(limit=limit)
+    return {"data": rows, "total": len(rows),
+            "note": None if rows else "empty — needs migration 006 and the item-attribute backfill"}
+
 @api_router.get("/analytics/incentive-elasticity")
 async def get_incentive_elasticity(user: dict = Depends(require_admin)):
     """Receipts/user 28d before vs after a first draw win (ontology: incentiveElasticity)"""

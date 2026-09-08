@@ -128,6 +128,8 @@ NON_ITEM_PATTERNS = [
     re.compile(r"\((?:part|partial|text|visible|word|background|dark|blurred|cut)", re.IGNORECASE),
     re.compile(r"^\s*\d+([.,]\d+)?\s*%\s*$"),                       # "15.0%"
     re.compile(r"\b(carrier|checkout|plastic|shopping)\s+bag\b", re.IGNORECASE),
+    re.compile(r"\b(100%|\d+\s*lt?r?)\s+bag\b", re.IGNORECASE),  # "CLICKS 100% 12LT BAG" = carrier bag
+    re.compile(r"\bbag\s+(levy|fee)\b", re.IGNORECASE),
     re.compile(r"\b(rounding|round\s*off)\b", re.IGNORECASE),
     re.compile(r"^\s*[-=*.]+\s*$"),                                  # separator rows
 ]

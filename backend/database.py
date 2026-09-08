@@ -677,6 +677,16 @@ class Database:
             logger.warning(f"incentive_elasticity view unavailable — run migration 005 ({str(e)[:100]})")
             return None
 
+    async def get_house_brand_gap(self, limit: int = 500) -> List[Dict]:
+        """House-brand price comparison: house_brand_price_gap view (migration 006)."""
+        try:
+            result = self.client.table('house_brand_price_gap').select('*') \
+                .order('type_key').order('brand_owner').limit(limit).execute()
+            return self._safe_get(result, [])
+        except Exception as e:
+            logger.warning(f"house_brand_price_gap view unavailable — run migration 006 ({str(e)[:100]})")
+            return []
+
     async def get_item_pairs(self, limit: int = 20) -> List[Dict]:
         """Get frequently bought together item pairs from item_pairs view"""
         result = self.client.table('item_pairs').select('*').limit(limit).execute()
