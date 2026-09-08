@@ -373,50 +373,74 @@ export default function BasketAnalytics() {
                   No house-brand data yet — needs migration 006 and the item-attribute backfill.
                 </p>
               ) : (
-                <ScrollArea className="h-[460px]">
-                  <div className="space-y-5 pr-2">
-                    {houseGroups.map((g) => (
-                      <div key={g.type_key} className="rounded-lg border border-white/10 bg-black/20 overflow-hidden">
-                        <div className="px-3 py-2 flex items-center justify-between bg-white/5">
-                          <span className="font-medium text-sm">{titleCase(g.type_key)}</span>
-                          {g.owners > 1 && (
-                            <Badge className="text-[10px] bg-primary/20 text-primary border-0">
-                              {g.owners} chains — head to head
-                            </Badge>
-                          )}
+                <div>
+                  {/* One shared header + identical fixed column grid in every group
+                      table, so values align vertically across the whole tab. */}
+                  <table className="w-full table-fixed text-sm">
+                    <colgroup>
+                      <col className="w-[32%]" /><col className="w-[13%]" /><col className="w-[13%]" />
+                      <col className="w-[8%]" /><col className="w-[15%]" /><col className="w-[19%]" />
+                    </colgroup>
+                    <thead>
+                      <tr className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-white/10">
+                        <th className="py-2 px-3 text-left font-medium">Brand · Chain</th>
+                        <th className="py-2 px-2 text-left font-medium">Tier</th>
+                        <th className="py-2 px-2 text-right font-medium">Pack</th>
+                        <th className="py-2 px-2 text-right font-medium">Obs</th>
+                        <th className="py-2 px-2 text-right font-medium">Median</th>
+                        <th className="py-2 px-3 text-right font-medium">Per kg/L</th>
+                      </tr>
+                    </thead>
+                  </table>
+                  <ScrollArea className="h-[430px] mt-3">
+                    <div className="space-y-4 pr-1">
+                      {houseGroups.map((g) => (
+                        <div key={g.type_key} className="rounded-lg border border-white/10 bg-black/20 overflow-hidden">
+                          <div className="px-3 py-2 flex items-center justify-between bg-white/5">
+                            <span className="font-medium text-sm">{titleCase(g.type_key)}</span>
+                            {g.owners > 1 && (
+                              <Badge className="text-[10px] bg-primary/20 text-primary border-0">
+                                {g.owners} chains — head to head
+                              </Badge>
+                            )}
+                          </div>
+                          <table className="w-full table-fixed text-sm">
+                            <colgroup>
+                              <col className="w-[32%]" /><col className="w-[13%]" /><col className="w-[13%]" />
+                              <col className="w-[8%]" /><col className="w-[15%]" /><col className="w-[19%]" />
+                            </colgroup>
+                            <tbody>
+                              {g.rows.map((r, i) => {
+                                const per = r.avg_price_per_kg_or_l != null ? parseFloat(r.avg_price_per_kg_or_l) : null;
+                                const cheapest = g.bestPer != null && per != null && per <= g.bestPer + 1e-9;
+                                return (
+                                  <tr key={i} className="border-t border-white/5">
+                                    <td className="py-2 px-3 truncate">
+                                      <span className="font-medium">{r.brand}</span>
+                                      <span className="text-muted-foreground text-xs ml-2">{r.brand_owner}</span>
+                                    </td>
+                                    <td className="py-2 px-2">
+                                      <Badge variant="outline" className="text-[10px] border-white/15">{r.brand_tier}</Badge>
+                                    </td>
+                                    <td className="py-2 px-2 text-right font-mono text-xs text-muted-foreground tabular-nums">
+                                      {r.pack_size ? `${parseFloat(r.pack_size)} ${r.pack_unit}` : "—"}
+                                    </td>
+                                    <td className="py-2 px-2 text-right font-mono text-xs text-muted-foreground tabular-nums">{r.observations}</td>
+                                    <td className="py-2 px-2 text-right font-mono tabular-nums">R{Number(r.median_price).toFixed(2)}</td>
+                                    <td className={`py-2 px-3 text-right font-mono text-xs tabular-nums ${cheapest ? "text-green-400 font-semibold" : "text-muted-foreground"}`}>
+                                      {per != null ? `R${per.toFixed(2)}/${r.pack_unit === "g" ? "kg" : "L"}` : "—"}
+                                      <span className="inline-block w-3 text-left">{cheapest ? "✓" : ""}</span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
                         </div>
-                        <table className="w-full text-sm">
-                          <tbody>
-                            {g.rows.map((r, i) => {
-                              const per = r.avg_price_per_kg_or_l != null ? parseFloat(r.avg_price_per_kg_or_l) : null;
-                              const cheapest = g.bestPer != null && per != null && per <= g.bestPer + 1e-9;
-                              return (
-                                <tr key={i} className="border-t border-white/5">
-                                  <td className="py-2 px-3">
-                                    <span className="font-medium">{r.brand}</span>
-                                    <span className="text-muted-foreground text-xs ml-2">{r.brand_owner}</span>
-                                  </td>
-                                  <td className="py-2 px-2">
-                                    <Badge variant="outline" className="text-[10px] border-white/15">{r.brand_tier}</Badge>
-                                  </td>
-                                  <td className="py-2 px-2 font-mono text-xs text-muted-foreground">
-                                    {r.pack_size ? `${parseFloat(r.pack_size)}${r.pack_unit}` : "—"}
-                                  </td>
-                                  <td className="py-2 px-2 text-right font-mono text-xs text-muted-foreground">n={r.observations}</td>
-                                  <td className="py-2 px-2 text-right font-mono">R{Number(r.median_price).toFixed(2)}</td>
-                                  <td className={`py-2 px-3 text-right font-mono text-xs ${cheapest ? "text-green-400 font-semibold" : "text-muted-foreground"}`}>
-                                    {per != null ? `R${per.toFixed(2)}/${r.pack_unit === "g" ? "kg" : "L"}` : ""}
-                                    {cheapest && " ✓"}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
               )}
             </CardContent>
           </Card>
