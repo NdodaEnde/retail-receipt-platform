@@ -239,3 +239,8 @@
     border-top-color: inherit;
     border-bottom-color: inherit;
 }
+
+/* Activity map: darken OpenStreetMap raster tiles to match the dark UI (no API key needed) */
+.klp-dark-tiles {
+  filter: invert(100%) hue-rotate(180deg) brightness(92%) contrast(88%) saturate(55%);
+}

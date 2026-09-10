@@ -235,9 +235,12 @@ export default function MapView() {
                 </div>
               ) : (
                 <MapContainer center={[-28.48, 24.67]} zoom={5} style={{ height: "100%", width: "100%" }} className="rounded-2xl">
+                  {/* OSM tiles (key-free) darkened with a CSS filter — CARTO's dark
+                      basemap now serves an "API Required" placeholder without a key. */}
                   <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    className="klp-dark-tiles"
                   />
                   <FitBounds points={boundsPoints} />
 
