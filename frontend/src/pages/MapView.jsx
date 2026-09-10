@@ -23,7 +23,10 @@ const CATEGORY_COLORS = {
   "Snacks & Sweets": "#ec4899", "Cleaning & Household": "#a3e635", "Toiletries & Health": "#c084fc",
   "Dining & Takeaways": "#fb923c", "Alcohol": "#7c3aed", "Other": "#9ca3af",
 };
-const TRUSTED = new Set(["verified", "rooftop", "street", "suburb"]);
+// "Trusted" here means the *position* is reliable. `biased` results are real
+// establishments found near the customer — accurate on a map, only weak as fraud
+// evidence — so they belong in. Excluded: city-level guesses and unresolved.
+const TRUSTED = new Set(["verified", "rooftop", "biased", "street", "suburb"]);
 const chainColor = (c) => CHAIN_COLORS[c] || OTHER_CHAIN;
 const catColor = (c) => CATEGORY_COLORS[c] || CATEGORY_COLORS.Other;
 
@@ -108,12 +111,13 @@ export default function MapView() {
     (!trustedOnly || !isAdmin || TRUSTED.has(s.precision) || s.precision === "legacy")
   ), [shops, chain, trustedOnly, isAdmin]);
 
-  const visibleTrips = useMemo(() => trips.filter(t =>
+  const filteredTrips = useMemo(() => trips.filter(t =>
     t.upload_latitude != null && t.shop_latitude != null &&
     (chain === "all" || t.chain === chain) &&
-    (category === "all" || t.category === category) &&
-    (!trustedOnly || TRUSTED.has(t.precision))
-  ), [trips, chain, category, trustedOnly]);
+    (category === "all" || t.category === category)
+  ), [trips, chain, category]);
+  const visibleTrips = useMemo(() => filteredTrips.filter(t => !trustedOnly || TRUSTED.has(t.precision)), [filteredTrips, trustedOnly]);
+  const hiddenByTrust = filteredTrips.length - visibleTrips.length;
 
   const spendPoints = useMemo(() => trips.filter(t =>
     t.upload_latitude != null &&
@@ -156,7 +160,11 @@ export default function MapView() {
               <Chip active={showBranches} onClick={() => setShowBranches(v => !v)} icon={Store}>Branches</Chip>
               <Chip active={isAdmin && showTrips} onClick={() => setShowTrips(v => !v)} icon={Route} disabled={!isAdmin}>Trips</Chip>
               <Chip active={isAdmin && showSpend} onClick={() => setShowSpend(v => !v)} icon={Flame} disabled={!isAdmin}>Spend density</Chip>
-              <Chip active={trustedOnly} onClick={() => setTrustedOnly(v => !v)} icon={ShieldCheck}>Trusted locations</Chip>
+              <span title="Hide branches/trips whose location is only city-level or unresolved">
+                <Chip active={trustedOnly} onClick={() => setTrustedOnly(v => !v)} icon={ShieldCheck}>
+                  Trusted locations{isAdmin && trustedOnly && hiddenByTrust > 0 ? ` · ${hiddenByTrust} hidden` : ""}
+                </Chip>
+              </span>
             </div>
           </div>
 
@@ -198,7 +206,10 @@ export default function MapView() {
               <>
                 <Card className="stat-card-green rounded-2xl"><CardContent className="p-4 flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center"><Route className="w-6 h-6 text-secondary" /></div>
-                  <div><p className="font-mono text-2xl font-bold">{tripStats?.count ?? 0}</p><p className="text-xs text-muted-foreground">Trips</p></div>
+                  <div>
+                    <p className="font-mono text-2xl font-bold">{tripStats?.count ?? 0}</p>
+                    <p className="text-xs text-muted-foreground">Trips{hiddenByTrust > 0 && trustedOnly ? ` · ${hiddenByTrust} hidden by trust filter` : ""}</p>
+                  </div>
                 </CardContent></Card>
                 <Card className="glass rounded-2xl"><CardContent className="p-4 flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center"><MapPin className="w-6 h-6 text-accent" /></div>
