@@ -297,6 +297,8 @@ TTLs: pending_receipt=15min, customer_location=60min, pending_registration=30min
 - Views created in Supabase SQL Editor, queried as `self.client.table('view_name').select('*')`
 - Current views: `daily_spending`, `shop_performance`, `customer_summary`, `fraud_analysis`, `hourly_distribution`, `top_items`, `item_pairs`, `basket_stats`, `customer_behavior`, `category_spend`, `item_price_index` + `incentive_elasticity` (migration 005 — price observatory + draw-incentive lift; endpoints `/analytics/price-index`, `/analytics/incentive-elasticity`)
 - Basket analytics: `/analytics/top-items`, `/analytics/item-pairs`, `/analytics/basket-stats`, `/analytics/customer-behavior`
+- **Activity Map** (`/map`, Leaflet + CARTO dark tiles): public `/map/shops` returns X-class only (name, coords, chain); `/map/shops/detail` and `/map/receipts` (trips: upload point → branch, amount, distance, fraud flag, precision, dominant basket category) are **admin-only** — customer upload coordinates are P-class and were previously served unauthenticated. Layers: branches (colour = chain, size = receipts), trip arcs (colour = category, weight = amount, dashed = flagged), spend density; filters: chain, category, trusted locations. Phase B (500+ users): deck.gl over MapLibre with hex aggregation as the anonymised B2B surface.
+- `database.py` filter idiom: `{"col": {"$ne": None}}` means IS NOT NULL (fixed Sept 2026 — `neq(col, None)` sent the string "None" and 500'd both map layers).
 
 ## Data Intelligence Strategy
 

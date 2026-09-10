@@ -246,7 +246,9 @@ class Database:
         if filter:
             for key, value in filter.items():
                 if isinstance(value, dict):
-                    if '$ne' in value:
+                    if '$ne' in value and value['$ne'] is None:
+                        query = query.not_.is_(key, 'null')   # IS NOT NULL, never the string "None"
+                    elif '$ne' in value:
                         query = query.neq(key, value['$ne'])
                     elif '$exists' in value and value['$exists']:
                         query = query.not_.is_(key, 'null')
@@ -411,7 +413,10 @@ class Database:
                 elif key == 'fraud_flag' and isinstance(value, dict) and '$in' in value:
                     query = query.in_('fraud_flag', value['$in'])
                 elif isinstance(value, dict) and '$ne' in value:
-                    query = query.neq(key, value['$ne'])
+                    if value['$ne'] is None:
+                        query = query.not_.is_(key, 'null')   # "IS NOT NULL", never the string "None"
+                    else:
+                        query = query.neq(key, value['$ne'])
                 else:
                     query = query.eq(key, value)
         
@@ -676,6 +681,25 @@ class Database:
         except Exception as e:
             logger.warning(f"incentive_elasticity view unavailable — run migration 005 ({str(e)[:100]})")
             return None
+
+    async def get_receipt_categories(self, receipt_ids: List[str]) -> Dict[str, str]:
+        """Dominant real category per receipt (by line value), for the trips map."""
+        totals: Dict[str, Dict[str, float]] = {}
+        for i in range(0, len(receipt_ids), 200):
+            chunk = receipt_ids[i:i + 200]
+            try:
+                rows = self.client.table('receipt_items').select('receipt_id,category,total_price') \
+                    .in_('receipt_id', chunk).execute().data or []
+            except Exception as e:
+                logger.warning(f"receipt categories lookup failed: {str(e)[:100]}")
+                rows = []
+            for r in rows:
+                cat = r.get('category')
+                if not cat or cat in ('Non-product', 'Other'):
+                    continue
+                totals.setdefault(r['receipt_id'], {})
+                totals[r['receipt_id']][cat] = totals[r['receipt_id']].get(cat, 0) + float(r.get('total_price') or 0)
+        return {rid: max(cats, key=cats.get) for rid, cats in totals.items() if cats}
 
     async def get_house_brand_gap(self, limit: int = 500) -> List[Dict]:
         """House-brand price comparison: house_brand_price_gap view (migration 006)."""

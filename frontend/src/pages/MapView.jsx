@@ -1,167 +1,231 @@
-import { useState, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from "react-leaflet";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Badge } from "../components/ui/badge";
+import { useState, useEffect, useMemo } from "react";
+import { MapContainer, TileLayer, Popup, CircleMarker, Polyline, useMap } from "react-leaflet";
+import { Card, CardContent } from "../components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { Store, MapPin, Receipt, Users } from "lucide-react";
+import { Store, MapPin, Route, Flame, Lock, ShieldCheck } from "lucide-react";
 import axios from "axios";
-import { API } from "../App";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { API } from "../App";
+import api from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 
-// Fix Leaflet default marker icon issue
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
-});
+// ── palettes ────────────────────────────────────────────────────────────────
+// Branches are coloured by owning chain; trips by the basket's dominant category.
+const CHAIN_COLORS = {
+  "Shoprite Group": "#ef4444", "Pick n Pay Group": "#3b82f6", "Woolworths": "#111827",
+  "SPAR": "#16a34a", "Makro": "#f59e0b", "Clicks": "#db2777", "Dis-Chem": "#0891b2",
+};
+const OTHER_CHAIN = "#8b5cf6";
+const CATEGORY_COLORS = {
+  "Staples & Grocery": "#f59e0b", "Dairy & Eggs": "#60a5fa", "Meat & Poultry": "#ef4444",
+  "Fresh Produce": "#22c55e", "Bread & Bakery": "#d97706", "Beverages": "#06b6d4",
+  "Snacks & Sweets": "#ec4899", "Cleaning & Household": "#a3e635", "Toiletries & Health": "#c084fc",
+  "Dining & Takeaways": "#fb923c", "Alcohol": "#7c3aed", "Other": "#9ca3af",
+};
+const TRUSTED = new Set(["verified", "rooftop", "street", "suburb"]);
+const chainColor = (c) => CHAIN_COLORS[c] || OTHER_CHAIN;
+const catColor = (c) => CATEGORY_COLORS[c] || CATEGORY_COLORS.Other;
 
-// Custom icons
-const shopIcon = new L.DivIcon({
-  className: "custom-marker",
-  html: `<div style="background: linear-gradient(135deg, #8b5cf6, #a855f7); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-      <polyline points="9,22 9,12 15,12 15,22"/>
-    </svg>
-  </div>`,
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
-  popupAnchor: [0, -32],
-});
+// Quadratic-bezier arc between two points (lat/lng space is fine at city scale).
+function arcPoints(a, b, bend = 0.18, steps = 24) {
+  const [alat, alng] = a, [blat, blng] = b;
+  const mlat = (alat + blat) / 2, mlng = (alng + blng) / 2;
+  const dlat = blat - alat, dlng = blng - alng;
+  const clat = mlat - dlng * bend, clng = mlng + dlat * bend;   // control point, perpendicular
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps, u = 1 - t;
+    pts.push([u * u * alat + 2 * u * t * clat + t * t * blat, u * u * alng + 2 * u * t * clng + t * t * blng]);
+  }
+  return pts;
+}
 
-const receiptIcon = new L.DivIcon({
-  className: "custom-marker",
-  html: `<div style="background: linear-gradient(135deg, #00ff80, #00cc66); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 15px rgba(0, 255, 128, 0.5);">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2">
-      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-      <polyline points="14,2 14,8 20,8"/>
-    </svg>
-  </div>`,
-  iconSize: [24, 24],
-  iconAnchor: [12, 24],
-  popupAnchor: [0, -24],
-});
+function FitBounds({ points }) {
+  const map = useMap();
+  useEffect(() => {
+    if (points.length === 0) return;
+    const b = L.latLngBounds(points);
+    if (b.isValid()) map.fitBounds(b.pad(0.15), { maxZoom: 13 });
+  }, [points, map]);
+  return null;
+}
+
+const Chip = ({ active, onClick, icon: Icon, children, disabled }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm border transition-colors
+      ${active ? "bg-primary/20 border-primary/40 text-foreground" : "glass border-white/10 text-muted-foreground hover:text-foreground"}
+      ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+  >
+    <Icon className="w-4 h-4" />
+    {children}
+  </button>
+);
 
 export default function MapView() {
+  const { session } = useAuth();
+  const isAdmin = !!session;
+
   const [shops, setShops] = useState([]);
-  const [receipts, setReceipts] = useState([]);
-  const [viewMode, setViewMode] = useState("shops");
+  const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ total_shops: 0, total_receipts: 0 });
+  const [showBranches, setShowBranches] = useState(true);
+  const [showTrips, setShowTrips] = useState(true);
+  const [showSpend, setShowSpend] = useState(false);
+  const [chain, setChain] = useState("all");
+  const [category, setCategory] = useState("all");
+  const [trustedOnly, setTrustedOnly] = useState(true);
 
   useEffect(() => {
-    fetchMapData();
-  }, []);
+    const load = async () => {
+      setLoading(true);
+      try {
+        if (isAdmin) {
+          const [s, r] = await Promise.all([api.get("/map/shops/detail"), api.get("/map/receipts")]);
+          setShops(s.data.shops || []);
+          setTrips(r.data.receipts || []);
+        } else {
+          const s = await axios.get(`${API}/map/shops`);
+          setShops(s.data.shops || []);
+          setTrips([]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch map data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [isAdmin]);
 
-  const fetchMapData = async () => {
-    setLoading(true);
-    try {
-      const [shopsRes, receiptsRes] = await Promise.all([
-        axios.get(`${API}/map/shops`),
-        axios.get(`${API}/map/receipts`)
-      ]);
-      
-      setShops(shopsRes.data.shops);
-      setReceipts(receiptsRes.data.receipts);
-      setStats({
-        total_shops: shopsRes.data.shops.length,
-        total_receipts: receiptsRes.data.receipts.length
-      });
-    } catch (error) {
-      console.error("Failed to fetch map data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const chains = useMemo(() => [...new Set(shops.map(s => s.chain).filter(Boolean))].sort(), [shops]);
+  const categories = useMemo(() => [...new Set(trips.map(t => t.category).filter(Boolean))].sort(), [trips]);
 
-  // Calculate center from data or use default
-  const getCenter = () => {
-    if (viewMode === "shops" && shops.length > 0) {
-      const lat = shops.reduce((sum, s) => sum + s.latitude, 0) / shops.length;
-      const lng = shops.reduce((sum, s) => sum + s.longitude, 0) / shops.length;
-      return [lat, lng];
-    }
-    if (viewMode === "receipts" && receipts.length > 0) {
-      const lat = receipts.reduce((sum, r) => sum + r.upload_latitude, 0) / receipts.length;
-      const lng = receipts.reduce((sum, r) => sum + r.upload_longitude, 0) / receipts.length;
-      return [lat, lng];
-    }
-    return [-28.4793, 24.6727]; // Center of South Africa
-  };
+  const visibleShops = useMemo(() => shops.filter(s =>
+    (chain === "all" || s.chain === chain) &&
+    (!trustedOnly || !isAdmin || TRUSTED.has(s.precision) || s.precision === "legacy")
+  ), [shops, chain, trustedOnly, isAdmin]);
+
+  const visibleTrips = useMemo(() => trips.filter(t =>
+    t.upload_latitude != null && t.shop_latitude != null &&
+    (chain === "all" || t.chain === chain) &&
+    (category === "all" || t.category === category) &&
+    (!trustedOnly || TRUSTED.has(t.precision))
+  ), [trips, chain, category, trustedOnly]);
+
+  const spendPoints = useMemo(() => trips.filter(t =>
+    t.upload_latitude != null &&
+    (chain === "all" || t.chain === chain) &&
+    (category === "all" || t.category === category)
+  ), [trips, chain, category]);
+
+  const tripStats = useMemo(() => {
+    const d = visibleTrips.map(t => parseFloat(t.distance_km)).filter(x => !isNaN(x)).sort((a, b) => a - b);
+    if (!d.length) return null;
+    return {
+      count: visibleTrips.length,
+      avg: d.reduce((a, b) => a + b, 0) / d.length,
+      median: d[Math.floor(d.length / 2)],
+      spend: visibleTrips.reduce((a, t) => a + (t.amount || 0), 0),
+    };
+  }, [visibleTrips]);
+
+  const boundsPoints = useMemo(() => {
+    const pts = [];
+    if (showBranches) visibleShops.forEach(s => pts.push([s.latitude, s.longitude]));
+    if (isAdmin && (showTrips || showSpend)) visibleTrips.forEach(t => pts.push([t.upload_latitude, t.upload_longitude]));
+    return pts;
+  }, [visibleShops, visibleTrips, showBranches, showTrips, showSpend, isAdmin]);
+
+  const maxCount = Math.max(1, ...visibleShops.map(s => s.receipt_count || 0));
 
   return (
     <div className="min-h-screen" data-testid="map-view">
-      {/* Header */}
       <div className="p-6 pt-8 pb-4">
         <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5">
             <div>
-              <h1 className="font-heading text-3xl font-bold tracking-tight mb-2">Activity Map</h1>
-              <p className="text-muted-foreground">Visualize shops and customer activity</p>
+              <h1 className="font-heading text-3xl font-bold tracking-tight mb-1">Activity Map</h1>
+              <p className="text-muted-foreground">
+                {isAdmin ? "Branches, shopping trips and spend density" : "Verified retail branches on the platform"}
+              </p>
             </div>
-            
-            <Select value={viewMode} onValueChange={setViewMode}>
-              <SelectTrigger className="w-[180px] glass border-white/10" data-testid="view-mode-select">
-                <SelectValue placeholder="View mode" />
-              </SelectTrigger>
-              <SelectContent className="glass border-white/10">
-                <SelectItem value="shops">
-                  <div className="flex items-center gap-2">
-                    <Store className="w-4 h-4 text-primary" />
-                    Shops
-                  </div>
-                </SelectItem>
-                <SelectItem value="receipts">
-                  <div className="flex items-center gap-2">
-                    <Receipt className="w-4 h-4 text-secondary" />
-                    Receipts
-                  </div>
-                </SelectItem>
-                <SelectItem value="both">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-accent" />
-                    All Activity
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap gap-2">
+              <Chip active={showBranches} onClick={() => setShowBranches(v => !v)} icon={Store}>Branches</Chip>
+              <Chip active={isAdmin && showTrips} onClick={() => setShowTrips(v => !v)} icon={Route} disabled={!isAdmin}>Trips</Chip>
+              <Chip active={isAdmin && showSpend} onClick={() => setShowSpend(v => !v)} icon={Flame} disabled={!isAdmin}>Spend density</Chip>
+              <Chip active={trustedOnly} onClick={() => setTrustedOnly(v => !v)} icon={ShieldCheck}>Trusted locations</Chip>
+            </div>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <Card className="stat-card-purple rounded-2xl">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
-                  <Store className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <p className="font-mono text-2xl font-bold">{stats.total_shops}</p>
-                  <p className="text-xs text-muted-foreground">Shops Tracked</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="stat-card-green rounded-2xl">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center">
-                  <MapPin className="w-6 h-6 text-secondary" />
-                </div>
-                <div>
-                  <p className="font-mono text-2xl font-bold">{stats.total_receipts}</p>
-                  <p className="text-xs text-muted-foreground">Upload Locations</p>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3 mb-5">
+            <Select value={chain} onValueChange={setChain}>
+              <SelectTrigger className="w-[190px] glass border-white/10"><SelectValue placeholder="Chain" /></SelectTrigger>
+              <SelectContent className="glass border-white/10">
+                <SelectItem value="all">All chains</SelectItem>
+                {chains.map(c => (
+                  <SelectItem key={c} value={c}>
+                    <span className="inline-block w-2.5 h-2.5 rounded-full mr-2" style={{ background: chainColor(c) }} />{c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isAdmin && (
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="w-[210px] glass border-white/10"><SelectValue placeholder="Category" /></SelectTrigger>
+                <SelectContent className="glass border-white/10">
+                  <SelectItem value="all">All categories</SelectItem>
+                  {categories.map(c => (
+                    <SelectItem key={c} value={c}>
+                      <span className="inline-block w-2.5 h-2.5 rounded-full mr-2" style={{ background: catColor(c) }} />{c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* Stats */}
+          <div className={`grid gap-4 mb-6 ${isAdmin ? "grid-cols-2 md:grid-cols-4" : "grid-cols-1 md:grid-cols-2"}`}>
+            <Card className="stat-card-purple rounded-2xl"><CardContent className="p-4 flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center"><Store className="w-6 h-6 text-primary" /></div>
+              <div><p className="font-mono text-2xl font-bold">{visibleShops.length}</p><p className="text-xs text-muted-foreground">Branches</p></div>
+            </CardContent></Card>
+            {isAdmin ? (
+              <>
+                <Card className="stat-card-green rounded-2xl"><CardContent className="p-4 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-secondary/20 flex items-center justify-center"><Route className="w-6 h-6 text-secondary" /></div>
+                  <div><p className="font-mono text-2xl font-bold">{tripStats?.count ?? 0}</p><p className="text-xs text-muted-foreground">Trips</p></div>
+                </CardContent></Card>
+                <Card className="glass rounded-2xl"><CardContent className="p-4 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center"><MapPin className="w-6 h-6 text-accent" /></div>
+                  <div>
+                    <p className="font-mono text-2xl font-bold">{tripStats ? `${tripStats.median.toFixed(1)} km` : "—"}</p>
+                    <p className="text-xs text-muted-foreground">Median trip{tripStats ? ` · avg ${tripStats.avg.toFixed(1)} km` : ""}</p>
+                  </div>
+                </CardContent></Card>
+                <Card className="glass rounded-2xl"><CardContent className="p-4 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-yellow-400/20 flex items-center justify-center"><Flame className="w-6 h-6 text-yellow-400" /></div>
+                  <div><p className="font-mono text-2xl font-bold">R{tripStats ? Math.round(tripStats.spend).toLocaleString("en-ZA") : 0}</p><p className="text-xs text-muted-foreground">Spend on map</p></div>
+                </CardContent></Card>
+              </>
+            ) : (
+              <Card className="glass rounded-2xl"><CardContent className="p-4 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center"><Lock className="w-6 h-6 text-muted-foreground" /></div>
+                <div><p className="text-sm font-medium">Trips & spend density</p><p className="text-xs text-muted-foreground">Admin sign-in required — customer locations are personal data</p></div>
+              </CardContent></Card>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Map Container */}
       <div className="px-6 pb-24">
         <div className="max-w-6xl mx-auto">
           <Card className="glass-card overflow-hidden rounded-2xl">
-            <div className="h-[500px] relative" data-testid="map-container">
+            <div className="h-[560px] relative" data-testid="map-container">
               {loading ? (
                 <div className="absolute inset-0 flex items-center justify-center bg-card">
                   <div className="text-center">
@@ -170,68 +234,71 @@ export default function MapView() {
                   </div>
                 </div>
               ) : (
-                <MapContainer
-                  center={getCenter()}
-                  zoom={4}
-                  style={{ height: "100%", width: "100%" }}
-                  className="rounded-2xl"
-                >
+                <MapContainer center={[-28.48, 24.67]} zoom={5} style={{ height: "100%", width: "100%" }} className="rounded-2xl">
                   <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                   />
-                  
-                  {/* Shop Markers */}
-                  {(viewMode === "shops" || viewMode === "both") && shops.map((shop) => (
-                    <Marker
-                      key={shop.id}
-                      position={[shop.latitude, shop.longitude]}
-                      icon={shopIcon}
-                    >
-                      <Popup className="custom-popup">
-                        <div className="p-2 min-w-[200px]">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Store className="w-4 h-4 text-primary" />
-                            <span className="font-semibold">{shop.name}</span>
-                          </div>
-                          {shop.address && (
-                            <p className="text-xs text-muted-foreground mb-2">{shop.address}</p>
-                          )}
-                          <div className="flex justify-between text-xs">
-                            <span>Receipts: {shop.receipt_count}</span>
-                            <span className="font-mono">R{shop.total_sales?.toFixed(2)}</span>
-                          </div>
-                        </div>
-                      </Popup>
-                    </Marker>
+                  <FitBounds points={boundsPoints} />
+
+                  {/* Spend density: soft discs at upload points, area ∝ amount */}
+                  {isAdmin && showSpend && spendPoints.map(t => (
+                    <CircleMarker
+                      key={`s-${t.id}`}
+                      center={[t.upload_latitude, t.upload_longitude]}
+                      radius={6 + Math.sqrt(t.amount || 0) * 0.9}
+                      pathOptions={{ fillColor: "#facc15", fillOpacity: 0.16, color: "#facc15", opacity: 0.25, weight: 1 }}
+                      interactive={false}
+                    />
                   ))}
 
-                  {/* Receipt Markers */}
-                  {(viewMode === "receipts" || viewMode === "both") && receipts.map((receipt) => (
-                    <CircleMarker
-                      key={receipt.id}
-                      center={[receipt.upload_latitude, receipt.upload_longitude]}
-                      radius={8}
+                  {/* Trips: customer -> branch arcs, colour by category, weight by amount */}
+                  {isAdmin && showTrips && visibleTrips.map(t => (
+                    <Polyline
+                      key={`t-${t.id}`}
+                      positions={arcPoints([t.upload_latitude, t.upload_longitude], [t.shop_latitude, t.shop_longitude])}
                       pathOptions={{
-                        fillColor: "#00ff80",
-                        fillOpacity: 0.7,
-                        color: "#00cc66",
-                        weight: 2
+                        color: catColor(t.category),
+                        weight: 1.2 + Math.min(3, Math.sqrt(t.amount || 0) / 8),
+                        opacity: t.fraud_flag === "valid" ? 0.7 : 0.35,
+                        dashArray: t.fraud_flag === "valid" ? null : "4 6",
                       }}
                     >
                       <Popup>
-                        <div className="p-2 min-w-[180px]">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Receipt className="w-4 h-4 text-secondary" />
-                            <span className="font-semibold">{receipt.shop_name || "Receipt"}</span>
+                        <div className="p-1 min-w-[190px] text-sm">
+                          <div className="font-semibold mb-1">{t.shop_name || "Shop"}</div>
+                          <div className="flex justify-between text-xs"><span>Basket</span><span style={{ color: catColor(t.category) }}>{t.category}</span></div>
+                          <div className="flex justify-between text-xs"><span>Amount</span><span className="font-mono">R{t.amount.toFixed(2)}</span></div>
+                          <div className="flex justify-between text-xs"><span>Trip</span><span className="font-mono">{t.distance_km != null ? `${Number(t.distance_km).toFixed(1)} km` : "—"}</span></div>
+                          <div className="flex justify-between text-xs"><span>Location</span><span>{t.precision}{t.fraud_flag !== "valid" ? ` · ${t.fraud_flag}` : ""}</span></div>
+                        </div>
+                      </Popup>
+                    </Polyline>
+                  ))}
+
+                  {/* Branches: colour by chain, size by receipt count (admin) */}
+                  {showBranches && visibleShops.map(s => (
+                    <CircleMarker
+                      key={s.id}
+                      center={[s.latitude, s.longitude]}
+                      radius={isAdmin ? 5 + 9 * Math.sqrt((s.receipt_count || 0) / maxCount) : 6}
+                      pathOptions={{ fillColor: chainColor(s.chain), fillOpacity: 0.85, color: "#ffffff", weight: 1.2, opacity: 0.9 }}
+                    >
+                      <Popup>
+                        <div className="p-1 min-w-[200px] text-sm">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: chainColor(s.chain) }} />
+                            <span className="font-semibold">{s.name}</span>
                           </div>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span>Amount:</span>
-                            <span className="font-mono font-bold">R{receipt.amount?.toFixed(2)}</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(receipt.created_at).toLocaleString()}
-                          </p>
+                          {s.chain && <div className="text-xs text-muted-foreground mb-1">{s.chain}</div>}
+                          {isAdmin && (
+                            <>
+                              {s.address && <div className="text-xs text-muted-foreground mb-1">{s.address}</div>}
+                              <div className="flex justify-between text-xs"><span>Receipts</span><span className="font-mono">{s.receipt_count}</span></div>
+                              <div className="flex justify-between text-xs"><span>Revenue</span><span className="font-mono">R{s.total_sales.toFixed(2)}</span></div>
+                              <div className="flex justify-between text-xs"><span>Location</span><span>{s.precision}{s.place_id ? " · Place ID" : ""}</span></div>
+                            </>
+                          )}
                         </div>
                       </Popup>
                     </CircleMarker>
@@ -242,18 +309,21 @@ export default function MapView() {
           </Card>
 
           {/* Legend */}
-          <div className="mt-4 flex flex-wrap gap-4 justify-center">
-            {(viewMode === "shops" || viewMode === "both") && (
-              <div className="flex items-center gap-2 glass px-4 py-2 rounded-full">
-                <div className="w-4 h-4 rounded-full bg-primary" />
-                <span className="text-sm">Shops</span>
-              </div>
-            )}
-            {(viewMode === "receipts" || viewMode === "both") && (
-              <div className="flex items-center gap-2 glass px-4 py-2 rounded-full">
-                <div className="w-4 h-4 rounded-full bg-secondary" />
-                <span className="text-sm">Receipt Uploads</span>
-              </div>
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 justify-center text-xs">
+            {showBranches && chains.map(c => (
+              <span key={c} className="flex items-center gap-1.5 glass px-3 py-1 rounded-full">
+                <span className="w-3 h-3 rounded-full border border-white/60" style={{ background: chainColor(c) }} />{c}
+              </span>
+            ))}
+            {isAdmin && showTrips && categories.map(c => (
+              <span key={c} className="flex items-center gap-1.5 glass px-3 py-1 rounded-full">
+                <span className="w-4 h-0.5 rounded" style={{ background: catColor(c) }} />{c}
+              </span>
+            ))}
+            {isAdmin && showTrips && (
+              <span className="flex items-center gap-1.5 glass px-3 py-1 rounded-full text-muted-foreground">
+                <span className="w-4 h-0.5 rounded border-t border-dashed border-muted-foreground" />flagged / review trips dashed
+              </span>
             )}
           </div>
         </div>

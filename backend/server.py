@@ -34,6 +34,7 @@ from vector_store import get_receipt_vector_store
 from whatsapp_cloud import get_whatsapp_client, parse_webhook_message, WHATSAPP_VERIFY_TOKEN
 from geocoding import get_geocoding_service, precision_rank, is_sa_centroid, SA_LOCATIONS
 from extraction_verifier import sanitize_shop_name
+from brand_registry import infer_chain
 from shop_resolver import resolve_shop, display_name_from_ocr_address
 from database import get_database
 from storage_helper import get_storage
@@ -1390,24 +1391,64 @@ async def get_customer_wins(phone_number: str):
 
 # --- Map Data Endpoints ---
 
+GOOD_PRECISION_SET = {"verified", "rooftop", "street", "suburb"}
+
+
 @api_router.get("/map/shops")
 async def get_map_shops():
-    """Get all shops with coordinates for map display"""
-    shops = await db.shops_find(
-        {"latitude": {"$ne": None, "$exists": True}},
-        limit=1000
-    )
-    return {"shops": shops}
+    """Public map: branches only, X-class fields (name, coordinates, chain). No money, no counts."""
+    shops = await db.shops_find({"latitude": {"$ne": None, "$exists": True}}, limit=1000)
+    return {"shops": [{
+        "id": s["id"], "name": s.get("name"),
+        "latitude": s.get("latitude"), "longitude": s.get("longitude"),
+        "chain": infer_chain(s.get("name")),
+    } for s in shops if not is_sa_centroid(s.get("latitude"), s.get("longitude"))]}
+
+
+@api_router.get("/map/shops/detail")
+async def get_map_shops_detail(user: dict = Depends(require_admin)):
+    """Admin map: branches with receipt counts, revenue, precision and chain."""
+    shops = await db.shops_find({"latitude": {"$ne": None, "$exists": True}}, limit=1000)
+    return {"shops": [{
+        "id": s["id"], "name": s.get("name"), "address": s.get("address"),
+        "latitude": s.get("latitude"), "longitude": s.get("longitude"),
+        "chain": infer_chain(s.get("name")),
+        "receipt_count": s.get("receipt_count") or 0,
+        "total_sales": float(s.get("total_sales") or 0),
+        "precision": s.get("geocode_confidence") or ("none" if s.get("latitude") is None else "legacy"),
+        "place_id": s.get("place_id"),
+    } for s in shops if not is_sa_centroid(s.get("latitude"), s.get("longitude"))]}
+
 
 @api_router.get("/map/receipts")
-async def get_map_receipts(date: Optional[str] = None):
-    """Get receipt upload locations for map display"""
+async def get_map_receipts(date: Optional[str] = None, user: dict = Depends(require_admin)):
+    """
+    Admin-only trips: customer upload point -> resolved branch, with amount,
+    distance, fraud flag, location precision and the basket's dominant category.
+    Customer upload coordinates are Personal (P) data: never served unauthenticated,
+    and no phone / image / OCR text leaves the server here.
+    """
     query = {"upload_latitude": {"$ne": None}}
     if date:
         query["created_at"] = {"$gte": f"{date}T00:00:00", "$lte": f"{date}T23:59:59"}
-    
-    receipts = await db.receipts_find(query, limit=1000)
-    return {"receipts": receipts}
+    receipts = await db.receipts_find(query, limit=2000)
+    categories = await db.get_receipt_categories([r["id"] for r in receipts])
+    trips = []
+    for r in receipts:
+        trips.append({
+            "id": r["id"],
+            "upload_latitude": r.get("upload_latitude"), "upload_longitude": r.get("upload_longitude"),
+            "shop_latitude": r.get("shop_latitude"), "shop_longitude": r.get("shop_longitude"),
+            "shop_id": r.get("shop_id"), "shop_name": r.get("shop_name"),
+            "chain": infer_chain(r.get("shop_name")),
+            "amount": float(r.get("amount") or 0),
+            "distance_km": r.get("distance_km"),
+            "fraud_flag": r.get("fraud_flag"),
+            "precision": r.get("geocode_precision") or "none",
+            "category": categories.get(r["id"], "Other"),
+            "created_at": r.get("created_at"),
+        })
+    return {"receipts": trips}
 
 # --- Analytics Endpoints ---
 
