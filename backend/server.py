@@ -1499,6 +1499,25 @@ async def get_receipts_by_hour(user: dict = Depends(require_admin)):
     hour_data = {int(r.get("hour", 0)): int(r.get("receipt_count", 0)) for r in data}
     return {"data": [{"hour": h, "count": hour_data.get(h, 0)} for h in range(24)]}
 
+@api_router.get("/analytics/shops")
+async def get_analytics_shops(user: dict = Depends(require_admin)):
+    """All shops for the searchable Shops table: chain, precision, counts, revenue, avg basket."""
+    shops = await db.shops_find({}, sort=("total_sales", -1), limit=1000)
+    out = []
+    for s in shops:
+        count = int(s.get("receipt_count") or 0)
+        sales = float(s.get("total_sales") or 0)
+        out.append({
+            "id": s["id"], "name": s.get("name"), "address": s.get("address"),
+            "chain": infer_chain(s.get("name")),
+            "receipt_count": count, "total_sales": round(sales, 2),
+            "avg_basket": round(sales / count, 2) if count else None,
+            "precision": s.get("geocode_confidence") or ("none" if s.get("latitude") is None else "legacy"),
+            "place_id": s.get("place_id"),
+            "latitude": s.get("latitude"), "longitude": s.get("longitude"),
+        })
+    return {"data": out, "total": len(out)}
+
 @api_router.get("/analytics/spending-by-shop")
 async def get_spending_by_shop(limit: int = 10, user: dict = Depends(require_admin)):
     """Get total spending by shop"""

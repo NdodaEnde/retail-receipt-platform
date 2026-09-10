@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { ScrollArea } from "../components/ui/scroll-area";
+import { Input } from "../components/ui/input";
+import { Badge } from "../components/ui/badge";
 import { 
   BarChart3, TrendingUp, Store, Users, Receipt, DollarSign, 
-  Clock, Calendar, Trophy, PieChart 
+  Clock, Calendar, Trophy, PieChart, Search, ArrowUp, ArrowDown, ArrowUpDown
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -19,6 +21,9 @@ export default function AdminAnalytics() {
   const [overview, setOverview] = useState({});
   const [spendingByDay, setSpendingByDay] = useState([]);
   const [popularShops, setPopularShops] = useState([]);
+  const [allShops, setAllShops] = useState([]);
+  const [shopSearch, setShopSearch] = useState("");
+  const [shopSort, setShopSort] = useState({ field: "total_sales", dir: "desc" });
   const [topSpenders, setTopSpenders] = useState([]);
   const [receiptsByHour, setReceiptsByHour] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,17 +35,19 @@ export default function AdminAnalytics() {
   const fetchAllAnalytics = async () => {
     setLoading(true);
     try {
-      const [overviewRes, spendingRes, shopsRes, spendersRes, hoursRes] = await Promise.all([
+      const [overviewRes, spendingRes, shopsRes, spendersRes, hoursRes, allShopsRes] = await Promise.all([
         api.get("/analytics/overview"),
         api.get("/analytics/spending-by-day?days=14"),
         api.get("/analytics/popular-shops?limit=8"),
         api.get("/analytics/top-spenders?limit=8"),
-        api.get("/analytics/receipts-by-hour")
+        api.get("/analytics/receipts-by-hour"),
+        api.get("/analytics/shops")
       ]);
       
       setOverview(overviewRes.data);
       setSpendingByDay(spendingRes.data.data);
       setPopularShops(shopsRes.data.shops);
+      setAllShops(allShopsRes.data.data || []);
       setTopSpenders(spendersRes.data.customers);
       setReceiptsByHour(hoursRes.data.data);
     } catch (error) {
@@ -49,6 +56,27 @@ export default function AdminAnalytics() {
       setLoading(false);
     }
   };
+
+  const filteredShops = useMemo(() => {
+    const q = shopSearch.trim().toLowerCase();
+    let rows = allShops.filter(s => !q || [s.name, s.chain, s.address].some(v => (v || "").toLowerCase().includes(q)));
+    const { field, dir } = shopSort;
+    rows = [...rows].sort((a, b) => {
+      const av = a[field], bv = b[field];
+      if (typeof av === "string" || typeof bv === "string") {
+        return dir === "asc" ? String(av || "").localeCompare(String(bv || "")) : String(bv || "").localeCompare(String(av || ""));
+      }
+      return dir === "asc" ? (av || 0) - (bv || 0) : (bv || 0) - (av || 0);
+    });
+    return rows;
+  }, [allShops, shopSearch, shopSort]);
+
+  const toggleShopSort = (field) => setShopSort(prev => ({
+    field, dir: prev.field === field && prev.dir === "desc" ? "asc" : "desc",
+  }));
+  const ShopSortIcon = ({ field }) => shopSort.field !== field
+    ? <ArrowUpDown className="w-3 h-3 ml-1 opacity-40 inline" />
+    : (shopSort.dir === "desc" ? <ArrowDown className="w-3 h-3 ml-1 text-primary inline" /> : <ArrowUp className="w-3 h-3 ml-1 text-primary inline" />);
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -287,6 +315,71 @@ export default function AdminAnalytics() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* All shops — searchable, sortable */}
+            <Card className="glass-card rounded-2xl mt-6">
+              <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 space-y-0">
+                <CardTitle className="font-heading flex items-center gap-2">
+                  <Store className="w-5 h-5 text-primary" />
+                  All Shops
+                  <span className="text-xs font-normal text-muted-foreground ml-1">{filteredShops.length} of {allShops.length}</span>
+                </CardTitle>
+                <div className="relative w-full md:w-72">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search shop, chain or address…"
+                    value={shopSearch}
+                    onChange={(e) => setShopSearch(e.target.value)}
+                    className="pl-9 bg-black/20 border-white/10"
+                    data-testid="shop-search"
+                  />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[420px]">
+                  <table className="w-full table-fixed text-sm">
+                    <colgroup>
+                      <col className="w-[34%]" /><col className="w-[16%]" /><col className="w-[11%]" />
+                      <col className="w-[14%]" /><col className="w-[13%]" /><col className="w-[12%]" />
+                    </colgroup>
+                    <thead className="sticky top-0 bg-card/95 backdrop-blur">
+                      <tr className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-white/10">
+                        <th className="py-2 px-2 text-left font-medium cursor-pointer select-none" onClick={() => toggleShopSort("name")}>Shop<ShopSortIcon field="name" /></th>
+                        <th className="py-2 px-2 text-left font-medium cursor-pointer select-none" onClick={() => toggleShopSort("chain")}>Chain<ShopSortIcon field="chain" /></th>
+                        <th className="py-2 px-2 text-right font-medium cursor-pointer select-none" onClick={() => toggleShopSort("receipt_count")}>Receipts<ShopSortIcon field="receipt_count" /></th>
+                        <th className="py-2 px-2 text-right font-medium cursor-pointer select-none" onClick={() => toggleShopSort("total_sales")}>Revenue<ShopSortIcon field="total_sales" /></th>
+                        <th className="py-2 px-2 text-right font-medium cursor-pointer select-none" onClick={() => toggleShopSort("avg_basket")}>Avg basket<ShopSortIcon field="avg_basket" /></th>
+                        <th className="py-2 px-2 text-left font-medium">Location</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredShops.map((s) => (
+                        <tr key={s.id} className="border-b border-white/5 hover:bg-white/5">
+                          <td className="py-2 px-2">
+                            <div className="truncate font-medium">{s.name}</div>
+                            {s.address && <div className="truncate text-[11px] text-muted-foreground">{s.address}</div>}
+                          </td>
+                          <td className="py-2 px-2 truncate text-muted-foreground">{s.chain || "—"}</td>
+                          <td className="py-2 px-2 text-right font-mono tabular-nums">{s.receipt_count}</td>
+                          <td className={`py-2 px-2 text-right font-mono tabular-nums ${s.receipt_count && !s.total_sales ? "text-yellow-400" : ""}`}>
+                            R{Number(s.total_sales).toLocaleString("en-ZA", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-2 px-2 text-right font-mono tabular-nums text-muted-foreground">{s.avg_basket != null ? `R${Number(s.avg_basket).toFixed(2)}` : "—"}</td>
+                          <td className="py-2 px-2">
+                            <Badge variant="outline" className={`text-[10px] border-white/15 ${["verified", "rooftop"].includes(s.precision) ? "text-green-400" : s.precision === "biased" ? "text-yellow-400" : "text-muted-foreground"}`}>
+                              {s.precision}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredShops.length === 0 && (
+                        <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">No shops match "{shopSearch}"</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Customers Tab */}
