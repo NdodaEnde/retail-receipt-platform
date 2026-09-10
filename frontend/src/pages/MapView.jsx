@@ -235,12 +235,11 @@ export default function MapView() {
                 </div>
               ) : (
                 <MapContainer center={[-28.48, 24.67]} zoom={5} style={{ height: "100%", width: "100%" }} className="rounded-2xl">
-                  {/* OSM tiles (key-free) darkened with a CSS filter — CARTO's dark
-                      basemap now serves an "API Required" placeholder without a key. */}
+                  {/* Key-free OSM tiles; index.css already inverts .leaflet-tile-pane for
+                      the dark theme (CARTO's dark basemap needs an API key now). */}
                   <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    className="klp-dark-tiles"
                   />
                   <FitBounds points={boundsPoints} />
 
