@@ -134,7 +134,9 @@ or upgrade to Starter ($7/mo) for always-on.
 - All DB writes use Supabase. MongoDB packages in old migration scripts only.
 - Currency is ZAR. Amounts stored as float.
 - Phone numbers stored WITHOUT `+` prefix in WhatsApp API calls, WITH `+` in DB.
-- Draw prize = random % of total daily amount (see `run_daily_draw` in `server.py`)
+- Draw prize = the winning receipt's full amount (see `run_daily_draw` in `server.py`)
+- **API is admin-only by default** (Oct 2026): every route takes `user: dict = Depends(require_admin)` except `/`, `/health`, `/stats/public` (3 aggregate totals for the homepage), `/map/shops` (X-class), `/portal/*` + `/portal/pair` (token-gated customer report) and the WhatsApp webhook. Customer-facing pages must use the portal token, never a phone-number lookup. Frontend admin calls go through `lib/api.js` (attaches the Supabase JWT) — plain `axios` sends no auth
+- Public site = homepage only (no bottom nav for visitors); Upload/Spending/Map/Draws/Dashboard are prototype staff tools behind `ProtectedRoute`
 
 ---
 

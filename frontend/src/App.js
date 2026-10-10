@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Receipt, Map, Trophy, BarChart3, Home, Shield, FileText, LogOut, Lock, UserPlus, ShoppingCart, Wallet, Gauge } from "lucide-react";
+import { Receipt, Map, Trophy, BarChart3, Home, Shield, FileText, LogOut, UserPlus, ShoppingCart, Wallet, Gauge } from "lucide-react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
@@ -24,7 +24,8 @@ import "./App.css";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
 
-const publicNavItems = [
+// Internal tools from the prototype — staff only, never shown to customers.
+const internalNavItems = [
   { path: "/", icon: Home, label: "Home" },
   { path: "/upload", icon: Receipt, label: "Upload" },
   { path: "/spending", icon: Wallet, label: "Spending" },
@@ -49,9 +50,9 @@ function BottomNav() {
   // Hide nav on portal pages (standalone WhatsApp experience)
   if (location.pathname === "/my" || location.pathname.startsWith("/my/")) return null;
 
-  const items = session
-    ? [...publicNavItems, ...adminNavItems]
-    : [...publicNavItems, { path: "/login", icon: Lock, label: "Login" }];
+  // Customers and visitors get no app nav: the site is the marketing page, the app lives at app.klpit.co.za
+  if (!session) return null;
+  const items = [...internalNavItems, ...adminNavItems];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10" data-testid="bottom-nav">
@@ -110,13 +111,13 @@ function AnimatedRoutes() {
       >
         <Routes location={location}>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/upload" element={<UploadReceipt />} />
-          <Route path="/dashboard" element={<CustomerDashboard />} />
-          <Route path="/spending" element={<MySpending />} />
+          <Route path="/upload" element={<ProtectedRoute><UploadReceipt /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><CustomerDashboard /></ProtectedRoute>} />
+          <Route path="/spending" element={<ProtectedRoute><MySpending /></ProtectedRoute>} />
           <Route path="/my" element={<MyLauncher />} />
           <Route path="/my/:token" element={<MyReport />} />
-          <Route path="/map" element={<MapView />} />
-          <Route path="/draws" element={<DrawsPage />} />
+          <Route path="/map" element={<ProtectedRoute><MapView /></ProtectedRoute>} />
+          <Route path="/draws" element={<ProtectedRoute><DrawsPage /></ProtectedRoute>} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/admin/receipts" element={<ProtectedRoute><AdminReceipts /></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />

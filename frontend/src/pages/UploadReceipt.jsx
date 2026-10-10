@@ -9,9 +9,8 @@ import {
   Upload, Camera, CheckCircle, Loader2, MapPin, 
   Receipt, Phone, Store, Package, Trophy, AlertTriangle
 } from "lucide-react";
-import axios from "axios";
+import api from "../lib/api";
 import { toast } from "sonner";
-import { API } from "../App";
 
 export default function UploadReceipt() {
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -147,7 +146,7 @@ export default function UploadReceipt() {
       reader.onload = async (e) => {
         const base64 = e.target.result.split(",")[1];
         
-        const response = await axios.post(`${API}/receipts/process-image`, {
+        const response = await api.post(`/receipts/process-image`, {
           phone_number: formatPhoneNumber(phoneNumber),
           image_data: base64,
           mime_type: image.type,

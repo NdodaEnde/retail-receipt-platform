@@ -1,15 +1,19 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Receipt, MapPin, Trophy, Smartphone, ArrowRight, Sparkles } from "lucide-react";
 import axios from "axios";
-import { toast } from "sonner";
 import { API } from "../App";
 
+// Keeps the stat tiles one line wide on small phones as totals grow: 9 850, 37k, 1.2m
+const shortRand = (v) =>
+  v >= 1e6 ? `${(v / 1e6).toFixed(1)}m` : v >= 1e4 ? `${Math.round(v / 1e3)}k` : Math.round(v).toLocaleString("en-ZA");
+
+// "Hi" starts the bot's sign-up (first name → surname), same as the invite QR code.
+const JOIN_WHATSAPP_URL = "https://wa.me/27655615874?text=Hi";
+
 export default function LandingPage() {
-  const navigate = useNavigate();
   const [stats, setStats] = useState({ total_receipts: 0, total_customers: 0, total_winnings: 0 });
   const [loading, setLoading] = useState(true);
 
@@ -19,25 +23,12 @@ export default function LandingPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get(`${API}/analytics/overview`);
+      const response = await axios.get(`${API}/stats/public`);
       setStats(response.data);
     } catch (error) {
       console.error("Failed to fetch stats:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const seedDemo = async () => {
-    try {
-      toast.loading("Seeding demo data...");
-      await axios.post(`${API}/demo/seed`);
-      toast.dismiss();
-      toast.success("Demo data created!");
-      fetchStats();
-    } catch (error) {
-      toast.dismiss();
-      toast.error("Failed to seed demo data");
     }
   };
 
@@ -99,21 +90,11 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 data-testid="get-started-btn"
-                onClick={() => navigate("/dashboard")}
+                onClick={() => { window.location.href = JOIN_WHATSAPP_URL; }}
                 className="rounded-full px-8 py-6 text-lg font-bold glow-primary hover:scale-105 transition-transform"
               >
                 Get Started
                 <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-              
-              <Button
-                size="lg"
-                variant="outline"
-                data-testid="seed-demo-btn"
-                onClick={seedDemo}
-                className="rounded-full px-8 py-6 text-lg border-white/20 hover:bg-white/5"
-              >
-                Load Demo Data
               </Button>
             </div>
           </motion.div>
@@ -123,18 +104,18 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-16 grid grid-cols-3 gap-6"
+            className="mt-16 grid grid-cols-3 gap-3 sm:gap-6"
           >
-            <div className="glass-card rounded-2xl p-6">
-              <p className="font-mono text-3xl font-bold text-primary">{stats.total_receipts.toLocaleString()}</p>
+            <div className="glass-card rounded-2xl px-2 py-4 min-[400px]:p-4 sm:p-6">
+              <p className="font-mono text-xl min-[400px]:text-2xl sm:text-3xl font-bold text-primary">{stats.total_receipts.toLocaleString('en-ZA')}</p>
               <p className="text-sm text-muted-foreground mt-1">Receipts Processed</p>
             </div>
-            <div className="glass-card rounded-2xl p-6">
-              <p className="font-mono text-3xl font-bold text-secondary">{stats.total_customers.toLocaleString()}</p>
+            <div className="glass-card rounded-2xl px-2 py-4 min-[400px]:p-4 sm:p-6">
+              <p className="font-mono text-xl min-[400px]:text-2xl sm:text-3xl font-bold text-secondary">{stats.total_customers.toLocaleString('en-ZA')}</p>
               <p className="text-sm text-muted-foreground mt-1">Happy Customers</p>
             </div>
-            <div className="glass-card rounded-2xl p-6">
-              <p className="font-mono text-3xl font-bold text-accent">R{stats.total_winnings.toLocaleString()}</p>
+            <div className="glass-card rounded-2xl px-2 py-4 min-[400px]:p-4 sm:p-6">
+              <p className="font-mono text-xl min-[400px]:text-2xl sm:text-3xl font-bold text-accent">R{shortRand(stats.total_winnings)}</p>
               <p className="text-sm text-muted-foreground mt-1">Won Back</p>
             </div>
           </motion.div>
@@ -192,7 +173,7 @@ export default function LandingPage() {
               Ready to Start Winning?
             </h2>
             <p className="text-muted-foreground mb-8 max-w-xl mx-auto">
-              Join thousands of smart shoppers who are already winning back their purchases.
+              Join shoppers across South Africa who are already winning back their purchases.
             </p>
             
             <div className="glass inline-block rounded-2xl p-8">

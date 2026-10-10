@@ -10,9 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../components/ui/dialog";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Receipt, Upload, Trophy, MapPin, Clock, DollarSign, Store, Plus, Phone, Eye, Image, Package, User, Shield } from "lucide-react";
-import axios from "axios";
+import api from "../lib/api";
 import { toast } from "sonner";
-import { API } from "../App";
 
 export default function CustomerDashboard() {
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -73,15 +72,15 @@ export default function CustomerDashboard() {
     setLoading(true);
     try {
       // Get or create customer
-      const customerRes = await axios.post(`${API}/customers`, { phone_number: formattedPhone });
+      const customerRes = await api.post(`/customers`, { phone_number: formattedPhone });
       setCustomer(customerRes.data);
       
       // Get receipts
-      const receiptsRes = await axios.get(`${API}/receipts/customer/${formattedPhone}`);
+      const receiptsRes = await api.get(`/receipts/customer/${formattedPhone}`);
       setReceipts(receiptsRes.data.receipts);
       
       // Get wins
-      const winsRes = await axios.get(`${API}/draws/winner/${formattedPhone}`);
+      const winsRes = await api.get(`/draws/winner/${formattedPhone}`);
       setWins(winsRes.data.wins);
       
     } catch (error) {
@@ -109,7 +108,7 @@ export default function CustomerDashboard() {
         formData.append("longitude", userLocation.longitude);
       }
 
-      await axios.post(`${API}/receipts/upload`, formData);
+      await api.post(`/receipts/upload`, formData);
       toast.success("Receipt uploaded successfully!");
       setUploadOpen(false);
       setUploadData({ shop_name: "", amount: "", receipt_text: "" });
@@ -131,7 +130,7 @@ export default function CustomerDashboard() {
   const fetchReceiptDetail = async (receiptId) => {
     setLoadingDetail(true);
     try {
-      const response = await axios.get(`${API}/receipts/${receiptId}/full`);
+      const response = await api.get(`/receipts/${receiptId}/full`);
       setReceiptDetail(response.data);
       setDetailDialogOpen(true);
     } catch (error) {

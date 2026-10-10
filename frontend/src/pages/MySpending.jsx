@@ -16,9 +16,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart as RechartsPie, Pie, Cell, AreaChart, Area
 } from "recharts";
-import axios from "axios";
+import api from "../lib/api";
 import { toast } from "sonner";
-import { API } from "../App";
 
 const COLORS = [
   'hsl(265, 89%, 66%)', 'hsl(150, 100%, 50%)', 'hsl(300, 100%, 50%)',
@@ -66,9 +65,9 @@ export default function MySpending() {
     setLoading(true);
     try {
       const [spendRes, receiptsRes, itemsRes] = await Promise.all([
-        axios.get(`${API}/customers/${formatted}/spending`),
-        axios.get(`${API}/receipts/customer/${formatted}?limit=200&include_items=true`),
-        axios.get(`${API}/customers/${formatted}/items`),
+        api.get(`/customers/${formatted}/spending`),
+        api.get(`/receipts/customer/${formatted}?limit=200&include_items=true`),
+        api.get(`/customers/${formatted}/items`),
       ]);
       setData(spendRes.data);
       setReceipts(receiptsRes.data.receipts || []);
@@ -82,7 +81,7 @@ export default function MySpending() {
 
   const viewReceipt = async (id) => {
     try {
-      const res = await axios.get(`${API}/receipts/${id}/full`);
+      const res = await api.get(`/receipts/${id}/full`);
       setReceiptDetail(res.data);
       setDetailOpen(true);
     } catch {

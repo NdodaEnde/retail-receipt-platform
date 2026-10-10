@@ -749,25 +749,25 @@ async def health_check():
 # --- Customer Endpoints ---
 
 @api_router.post("/customers", response_model=dict)
-async def create_customer(data: CustomerCreate):
+async def create_customer(data: CustomerCreate, user: dict = Depends(require_admin)):
     customer = await get_or_create_customer(data.phone_number, data.name)
     return customer
 
 @api_router.get("/customers/{phone_number}")
-async def get_customer(phone_number: str):
+async def get_customer(phone_number: str, user: dict = Depends(require_admin)):
     customer = await db.customers_find_one({"phone_number": phone_number})
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     return customer
 
 @api_router.get("/customers")
-async def list_customers(skip: int = 0, limit: int = 50):
+async def list_customers(skip: int = 0, limit: int = 50, user: dict = Depends(require_admin)):
     customers = await db.customers_find({}, skip=skip, limit=limit)
     total = await db.customers_count({})
     return {"customers": customers, "total": total}
 
 @api_router.post("/customers/location")
-async def update_customer_location(data: dict):
+async def update_customer_location(data: dict, user: dict = Depends(require_admin)):
     """Update customer's last known location"""
     phone_number = data.get("phone_number")
     latitude = data.get("latitude")
@@ -794,7 +794,7 @@ class ReceiptImageRequest(BaseModel):
     longitude: Optional[float] = None
 
 @api_router.post("/receipts/process-image")
-async def process_receipt_image(request: ReceiptImageRequest):
+async def process_receipt_image(request: ReceiptImageRequest, user: dict = Depends(require_admin)):
     """
     Process a receipt image from WhatsApp using LandingAI ADE
     This is the main endpoint called by the WhatsApp service
@@ -980,7 +980,7 @@ async def upload_receipt(
     image: Optional[UploadFile] = File(None),
     receipt_text: Optional[str] = Form(None),
     amount: Optional[float] = Form(None),
-    shop_name: Optional[str] = Form(None)
+    shop_name: Optional[str] = Form(None), user: dict = Depends(require_admin)
 ):
     """Upload a receipt image or text with geolocation"""
     
@@ -1081,7 +1081,7 @@ async def upload_receipt(
     return {"success": True, "receipt": response_receipt}
 
 @api_router.get("/receipts/customer/{phone_number}")
-async def get_customer_receipts(phone_number: str, skip: int = 0, limit: int = 50, include_items: bool = False):
+async def get_customer_receipts(phone_number: str, skip: int = 0, limit: int = 50, include_items: bool = False, user: dict = Depends(require_admin)):
     receipts = await db.receipts_find(
         {"customer_phone": phone_number},
         sort=("created_at", -1),
@@ -1103,14 +1103,14 @@ async def get_customer_receipts(phone_number: str, skip: int = 0, limit: int = 5
     return {"receipts": receipts, "total": total}
 
 @api_router.get("/receipts/{receipt_id}")
-async def get_receipt(receipt_id: str):
+async def get_receipt(receipt_id: str, user: dict = Depends(require_admin)):
     receipt = await db.receipts_find_one({"id": receipt_id})
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
     return receipt
 
 @api_router.get("/receipts/{receipt_id}/full")
-async def get_receipt_full(receipt_id: str):
+async def get_receipt_full(receipt_id: str, user: dict = Depends(require_admin)):
     """Get full receipt details including image data and all items"""
     receipt = await db.receipts_find_one({"id": receipt_id})
     if not receipt:
@@ -1169,7 +1169,7 @@ class SearchQuery(BaseModel):
     limit: int = 10
 
 @api_router.post("/receipts/search")
-async def search_receipts_semantic(search: SearchQuery):
+async def search_receipts_semantic(search: SearchQuery, user: dict = Depends(require_admin)):
     """
     Semantic search for receipts using vector store
     Examples: "milk purchases", "Woolworths receipts", "snacks in December"
@@ -1188,7 +1188,7 @@ async def search_receipts_semantic(search: SearchQuery):
         return {"results": [], "total": 0, "error": str(e)}
 
 @api_router.get("/vector-store/stats")
-async def get_vector_store_stats():
+async def get_vector_store_stats(user: dict = Depends(require_admin)):
     """Get vector store statistics"""
     try:
         vector_store = get_receipt_vector_store()
@@ -1281,13 +1281,13 @@ async def get_fraud_thresholds(user: dict = Depends(require_admin)):
 # --- Shop Endpoints ---
 
 @api_router.get("/shops")
-async def list_shops(skip: int = 0, limit: int = 100):
+async def list_shops(skip: int = 0, limit: int = 100, user: dict = Depends(require_admin)):
     shops = await db.shops_find({}, sort=("receipt_count", -1), skip=skip, limit=limit)
     total = await db.shops_count({})
     return {"shops": shops, "total": total}
 
 @api_router.get("/shops/{shop_id}")
-async def get_shop(shop_id: str):
+async def get_shop(shop_id: str, user: dict = Depends(require_admin)):
     shop = await db.shops_find_one({"id": shop_id})
     if not shop:
         raise HTTPException(status_code=404, detail="Shop not found")
@@ -1296,7 +1296,7 @@ async def get_shop(shop_id: str):
 # --- Draw Endpoints ---
 
 @api_router.post("/draws/run")
-async def run_daily_draw(draw_date: Optional[str] = None):
+async def run_daily_draw(draw_date: Optional[str] = None, user: dict = Depends(require_admin)):
     """Run daily draw for a specific date (defaults to today)"""
     if not draw_date:
         draw_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -1388,20 +1388,20 @@ async def run_daily_draw(draw_date: Optional[str] = None):
     }
 
 @api_router.get("/draws")
-async def list_draws(skip: int = 0, limit: int = 30):
+async def list_draws(skip: int = 0, limit: int = 30, user: dict = Depends(require_admin)):
     draws = await db.draws_find({}, sort=("draw_date", -1), skip=skip, limit=limit)
     total = await db.draws_count({})
     return {"draws": draws, "total": total}
 
 @api_router.get("/draws/{draw_date}")
-async def get_draw(draw_date: str):
+async def get_draw(draw_date: str, user: dict = Depends(require_admin)):
     draw = await db.draws_find_one({"draw_date": draw_date})
     if not draw:
         raise HTTPException(status_code=404, detail="Draw not found")
     return draw
 
 @api_router.get("/draws/winner/{phone_number}")
-async def get_customer_wins(phone_number: str):
+async def get_customer_wins(phone_number: str, user: dict = Depends(require_admin)):
     wins = await db.draws_find(
         {"winner_customer_phone": phone_number},
         sort=("draw_date", -1),
@@ -1471,6 +1471,16 @@ async def get_map_receipts(date: Optional[str] = None, user: dict = Depends(requ
     return {"receipts": trips}
 
 # --- Analytics Endpoints ---
+
+@api_router.get("/stats/public")
+async def get_public_stats():
+    """Homepage totals — aggregate counts only (X-class), safe to show anyone."""
+    return {
+        "total_receipts": await db.receipts_count({}),
+        "total_customers": await db.customers_count({}),
+        "total_winnings": round(await db.customers_aggregate_sum('total_winnings') or 0, 2),
+    }
+
 
 @api_router.get("/analytics/overview")
 async def get_analytics_overview(user: dict = Depends(require_admin)):
@@ -1627,7 +1637,7 @@ async def get_category_spend(user: dict = Depends(require_admin)):
 # ============== CUSTOMER SPEND ANALYTICS (public, phone-based) ==============
 
 @api_router.get("/customers/{phone_number}/spending")
-async def get_customer_spending(phone_number: str):
+async def get_customer_spending(phone_number: str, user: dict = Depends(require_admin)):
     """Get customer's personal spend analytics — monthly breakdown, shop split, summary"""
     # Receipts table stores customer_phone without + prefix
     phone = phone_number.lstrip("+")
@@ -1672,7 +1682,7 @@ async def get_customer_spending(phone_number: str):
 # ============== CUSTOMER ITEM ANALYTICS (public, phone-based) ==============
 
 @api_router.get("/customers/{phone_number}/items")
-async def get_customer_items(phone_number: str):
+async def get_customer_items(phone_number: str, user: dict = Depends(require_admin)):
     """Get customer's item-level analytics — top items, monthly item breakdown"""
     phone = phone_number.lstrip("+")
     top_items = await db.get_customer_top_items(phone)
@@ -1820,7 +1830,7 @@ async def get_portal_shop_receipts(token: str, shop: str = "", limit: int = 50):
 # ============== GEOCODING ENDPOINTS ==============
 
 @api_router.post("/geocode/shop/{shop_id}")
-async def geocode_single_shop(shop_id: str):
+async def geocode_single_shop(shop_id: str, user: dict = Depends(require_admin)):
     """Geocode a single shop by its ID"""
     shop = await db.shops_find_one({"id": shop_id})
     if not shop:
@@ -1855,7 +1865,7 @@ async def geocode_single_shop(shop_id: str):
         }
 
 @api_router.post("/geocode/shops/batch")
-async def geocode_shops_batch(limit: int = 50):
+async def geocode_shops_batch(limit: int = 50, user: dict = Depends(require_admin)):
     """Geocode all shops that don't have coordinates yet"""
     # Find shops without coordinates
     shops_without_coords = await db.shops_find(
@@ -1907,7 +1917,7 @@ async def geocode_shops_batch(limit: int = 50):
     return results
 
 @api_router.get("/geocode/stats")
-async def get_geocoding_stats():
+async def get_geocoding_stats(user: dict = Depends(require_admin)):
     """Get statistics on shop geocoding status"""
     total_shops = await db.shops_count({})
     geocoded = await db.shops_count({"latitude": {"$ne": None, "$exists": True}})
@@ -1931,7 +1941,7 @@ async def get_geocoding_stats():
     }
 
 @api_router.post("/geocode/address")
-async def geocode_address_endpoint(address: str = None, shop_name: str = None):
+async def geocode_address_endpoint(address: str = None, shop_name: str = None, user: dict = Depends(require_admin)):
     """Test geocoding for a specific address"""
     if not address and not shop_name:
         raise HTTPException(status_code=400, detail="Either address or shop_name is required")
@@ -2601,7 +2611,7 @@ async def handle_text_command(phone_number: str, command: str, wa):
         )
 
 @api_router.get("/whatsapp/status")
-async def get_whatsapp_status():
+async def get_whatsapp_status(user: dict = Depends(require_admin)):
     """Get WhatsApp Cloud API connection status"""
     wa = get_whatsapp_client()
     
@@ -2616,7 +2626,7 @@ async def get_whatsapp_status():
     }
 
 @api_router.post("/whatsapp/send")
-async def send_whatsapp_message(data: dict):
+async def send_whatsapp_message(data: dict, user: dict = Depends(require_admin)):
     """Send message via WhatsApp Cloud API"""
     wa = get_whatsapp_client()
     
@@ -2630,7 +2640,7 @@ async def send_whatsapp_message(data: dict):
     return result
 
 @api_router.post("/whatsapp/test")
-async def test_whatsapp_connection(phone_number: str):
+async def test_whatsapp_connection(phone_number: str, user: dict = Depends(require_admin)):
     """Test WhatsApp connection by sending a test message"""
     wa = get_whatsapp_client()
     result = await wa.send_text_message(phone_number, "🎰 Test message from Retail Rewards SA!")
@@ -2877,7 +2887,7 @@ async def seed_demo_data(user: dict = Depends(require_admin)):
 
 # Scheduler status endpoint
 @api_router.get("/scheduler/status")
-async def get_scheduler_status():
+async def get_scheduler_status(user: dict = Depends(require_admin)):
     """Get scheduler status and next run times"""
     jobs = []
     for job in scheduler.get_jobs():
