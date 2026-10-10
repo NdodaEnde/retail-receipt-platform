@@ -47,7 +47,7 @@ const FAQ = [
   ["Is it really free?", "Yes. Entering costs nothing. You only need WhatsApp and a till slip from your shopping."],
   ["How is the winner chosen?", "Every night at 21:00 our system picks one receipt at random from that day's valid entries. Each receipt is one entry, so every receipt has the same chance."],
   ["How much can I win?", "The full amount of your winning receipt — what you spent comes back to you."],
-  ["Why does KlpIT ask where I am when I send a receipt?", "When you send a receipt, WhatsApp shows a button to share your location for that receipt only. We use it to check the receipt is genuine, which keeps the draw fair for everyone. KlpIT does not follow your location, and it is never shown publicly."],
+  ["Why does KlpIT ask where I am when I send a receipt?", "When you send a receipt, WhatsApp shows a button to share your location for that receipt only. We use it to check the receipt is genuine, which keeps the draw fair for everyone. Your location is never shown publicly."],
   ["What happens to my information?", "We use your name, number and receipts to run the draw and to show you your own spending. Your details are never shown publicly, and your report opens only with a private link or code sent to your own WhatsApp. Our privacy policy explains this in full."],
   ["How do I see my receipts and spending?", "Send REPORT to KlpIT on WhatsApp and open the link, or open the KlpIT app if you've added it to your home screen."],
 ];

@@ -2307,8 +2307,7 @@ async def process_receipt_from_whatsapp(phone_number: str, media_id: str, mime_t
                 phone_number,
                 f"✅ Receipt from *{shop_name or 'shop'}* (R{amount:.2f}) processed!\n\n"
                 f"📍 Tap the button below to share your location for *this receipt only*. "
-                f"It confirms the receipt is genuine and completes your entry into today's draw. "
-                f"KlpIT does not follow your location."
+                f"It confirms the receipt is genuine and completes your entry into today's draw."
             )
 
         logger.info(f"✅ OCR done for {phone_number}: {shop_name}, R{amount}")
