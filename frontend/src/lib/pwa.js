@@ -1,9 +1,9 @@
 // Installable-app (PWA) helpers.
 //
-// The installed app opens at /my, which forwards to the customer's last report
-// link. Report tokens expire after 24h (portal_token.py), so an expired link
-// lands on the "send REPORT on WhatsApp" screen — on Android, tapping the fresh
-// link WhatsApp sends opens straight back inside the installed app.
+// The installed app opens at /my, which forwards to the report token saved on
+// this device. iPhone home-screen apps never receive WhatsApp links (they open in
+// Safari, whose storage is separate), so the app signs in with the 6-digit code
+// the REPORT reply includes (POST /portal/pair → 30-day token).
 
 import { useEffect, useState } from "react";
 
@@ -16,6 +16,10 @@ export function saveReportToken(token) {
 
 export function getReportToken() {
   try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+}
+
+export function clearReportToken() {
+  try { localStorage.removeItem(TOKEN_KEY); } catch { /* private mode */ }
 }
 
 export function isStandalone() {

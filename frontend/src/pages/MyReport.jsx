@@ -19,7 +19,8 @@ import {
 import axios from "axios";
 import { API } from "../App";
 import InstallAppBanner from "../components/InstallAppBanner";
-import { saveReportToken, WHATSAPP_REPORT_URL } from "../lib/pwa";
+import PairCodeCard from "../components/PairCodeCard";
+import { saveReportToken, getReportToken, clearReportToken, isStandalone, WHATSAPP_REPORT_URL } from "../lib/pwa";
 
 const COLORS = [
   'hsl(265, 89%, 66%)', 'hsl(150, 100%, 50%)', 'hsl(300, 100%, 50%)',
@@ -78,6 +79,7 @@ export default function MyReport() {
         saveReportToken(token);
       } catch (err) {
         if (err.response?.status === 401) {
+          if (getReportToken() === token) clearReportToken();
           setError("expired");
         } else {
           setError("failed");
@@ -207,9 +209,11 @@ export default function MyReport() {
               <AlertCircle className="w-12 h-12 text-yellow-400 mx-auto" />
               {error === "expired" ? (
                 <>
-                  <h2 className="font-heading text-xl font-bold">Link Expired</h2>
+                  <h2 className="font-heading text-xl font-bold">{isStandalone() ? "Signed Out" : "Link Expired"}</h2>
                   <p className="text-muted-foreground">
-                    This report link has expired. Send <strong>REPORT</strong> on WhatsApp to get a fresh link.
+                    {isStandalone()
+                      ? "Your app sign-in has expired. Get a new code to open your report again."
+                      : <>This report link has expired. Send <strong>REPORT</strong> on WhatsApp to get a fresh link.</>}
                   </p>
                 </>
               ) : (
@@ -220,13 +224,17 @@ export default function MyReport() {
                   </p>
                 </>
               )}
-              <a
-                href={WHATSAPP_REPORT_URL}
-                className="inline-flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2.5 font-semibold text-black"
-                data-testid="refresh-report-whatsapp"
-              >
-                Get a fresh link on WhatsApp
-              </a>
+              {isStandalone() ? (
+                <PairCodeCard />
+              ) : (
+                <a
+                  href={WHATSAPP_REPORT_URL}
+                  className="inline-flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2.5 font-semibold text-black"
+                  data-testid="refresh-report-whatsapp"
+                >
+                  Get a fresh link on WhatsApp
+                </a>
+              )}
               <p className="text-sm text-muted-foreground/60">WhatsApp: +27 65 561 5874</p>
             </CardContent>
           </Card>
@@ -822,9 +830,19 @@ export default function MyReport() {
         <p className="text-xs text-muted-foreground/50">
           Powered by KlpIT &middot; Report generated {new Date().toLocaleDateString('en-ZA')}
         </p>
-        <p className="text-xs text-muted-foreground/40 mt-1">
-          This link expires after 24 hours. Send REPORT on WhatsApp for a new one.
-        </p>
+        {isStandalone() ? (
+          <button
+            onClick={() => { clearReportToken(); navigate("/my", { replace: true }); }}
+            className="text-xs text-muted-foreground/60 underline mt-2"
+            data-testid="sign-out-app"
+          >
+            Sign out of this phone
+          </button>
+        ) : (
+          <p className="text-xs text-muted-foreground/40 mt-1">
+            This link expires after 24 hours. Send REPORT on WhatsApp for a new one.
+          </p>
+        )}
       </div>
     </div>
   );

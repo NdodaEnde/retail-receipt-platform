@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Query, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Query, Depends, Request
 from auth import require_admin
 from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.middleware.cors import CORSMiddleware
@@ -17,6 +17,8 @@ from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 import random
+import secrets
+import time
 import base64
 import json
 import httpx
@@ -66,6 +68,24 @@ def get_portal_url(phone: str) -> str:
     """Generate a portal URL with signed token for a customer."""
     token = generate_portal_token(phone, hours=24)
     return f"{FRONTEND_URL}/my/{token}"
+
+
+# App pairing: iPhone home-screen apps never receive links (they open in Safari, with
+# separate storage), so the installed app signs in with a one-time code sent on WhatsApp.
+PAIR_CODE_TTL_MINUTES = 10
+PAIR_SESSION_HOURS = 24 * 30          # installed app stays signed in for 30 days
+PAIR_MAX_ATTEMPTS_PER_IP = 10         # per PAIR_CODE_TTL_MINUTES window
+_pair_attempts: Dict[str, List[float]] = {}
+
+
+async def create_pairing_code(phone: str) -> str:
+    """Single-use 6-digit code (stored in pending_state, keyed by the code) that pairs the app."""
+    for _ in range(5):
+        code = f"{secrets.randbelow(10**6):06d}"
+        if not await db.pending_state_get("pairing_code", code):
+            break
+    await db.pending_state_upsert("pairing_code", code, {"phone": phone.lstrip("+")}, ttl_minutes=PAIR_CODE_TTL_MINUTES)
+    return code
 
 # Lifespan context manager for startup/shutdown
 @asynccontextmanager
@@ -1675,11 +1695,36 @@ async def get_customer_items(phone_number: str):
 # ============== CUSTOMER PORTAL (token-based, no auth) ==============
 
 @api_router.get("/portal/token/{phone_number}")
-async def generate_customer_portal_token(phone_number: str):
-    """Generate a portal access token for a customer (called internally by WhatsApp handler)"""
+async def generate_customer_portal_token(phone_number: str, user: dict = Depends(require_admin)):
+    """Generate a portal access token for a customer (admin only — it unlocks their report)"""
     phone = phone_number.lstrip("+")
     token = generate_portal_token(phone, hours=24)
     return {"token": token, "phone": phone}
+
+
+class PairRequest(BaseModel):
+    code: str
+
+
+@api_router.post("/portal/pair")
+async def pair_portal_device(body: PairRequest, request: Request):
+    """Exchange a WhatsApp pairing code for a 30-day report token (installed app sign-in)."""
+    ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "")).split(",")[0].strip()
+    now = time.time()
+    window = PAIR_CODE_TTL_MINUTES * 60
+    recent = [t for t in _pair_attempts.get(ip, []) if now - t < window]
+    if len(recent) >= PAIR_MAX_ATTEMPTS_PER_IP:
+        raise HTTPException(status_code=429, detail="Too many attempts. Wait a few minutes and try again.")
+    _pair_attempts[ip] = recent + [now]
+
+    code = re.sub(r"\D", "", body.code)
+    data = await db.pending_state_get("pairing_code", code) if len(code) == 6 else None
+    if not data:
+        logger.info(f"portal pair: rejected code from {ip}")
+        raise HTTPException(status_code=401, detail="That code is wrong or has expired. Send REPORT on WhatsApp for a new one.")
+    await db.pending_state_delete("pairing_code", code)
+    logger.info(f"portal pair: paired app for {data['phone'][-4:]}")
+    return {"token": generate_portal_token(data["phone"], hours=PAIR_SESSION_HOURS)}
 
 
 @api_router.get("/portal/{token}")
@@ -2537,11 +2582,15 @@ async def handle_text_command(phone_number: str, command: str, wa):
 
     elif command == "report":
         portal_url = get_portal_url(phone_number)
+        code = await create_pairing_code(phone_number)
         msg = (
             f"📊 *Your Spending Report*\n\n"
             f"View your full spending history, top items, shop breakdown, and receipts:\n\n"
             f"👉 {portal_url}\n\n"
-            f"_This link is valid for 24 hours._"
+            f"_This link is valid for 24 hours._\n\n"
+            f"📱 *Using the KlpIT app?* Enter this code in the app:\n"
+            f"*{code[:3]} {code[3:]}*\n"
+            f"_Valid for {PAIR_CODE_TTL_MINUTES} minutes. Never share it._"
         )
         await wa.send_text_message(phone_number, msg)
 
