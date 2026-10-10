@@ -44,8 +44,8 @@ class Database:
     # Columns added by migrations that may not have been applied yet. Writes strip
     # them (with a one-time warning) instead of failing the whole insert.
     OPTIONAL_COLUMNS = {
-        "receipts": ("geocode_precision",),
-        "shops": ("place_id", "phone"),
+        "receipts": ("geocode_precision", "upload_suburb", "upload_locality"),
+        "shops": ("place_id", "phone", "chain"),
         "receipt_items": ("brand_type", "brand_owner", "brand_tier",
                           "pack_size", "pack_unit", "gtin", "type_key"),
     }

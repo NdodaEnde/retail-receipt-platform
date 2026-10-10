@@ -38,6 +38,7 @@ from geocoding import get_geocoding_service, precision_rank, is_sa_centroid, SA_
 from extraction_verifier import sanitize_shop_name, sanitize_item_amounts
 from customer_totals import compute_customer_totals
 from brand_registry import infer_chain
+from wallet_share import compute_wallet_share, round_coord
 from shop_resolver import resolve_shop, display_name_from_ocr_address
 from database import get_database
 from storage_helper import get_storage
@@ -63,6 +64,30 @@ if not FRONTEND_URL:
             break
 if not FRONTEND_URL:
     FRONTEND_URL = 'https://www.klpit.co.za'
+
+
+# Suburb/city of the upload point, for share-of-wallet by suburb (migration 007).
+# A home proxy, so P-class: stored on the receipt, only ever served aggregated to admins.
+# Looked up on coordinates rounded to ~110 m (cached), so Google never gets the exact point
+# and repeat uploads from the same place cost nothing.
+_upload_area_cache: Dict[tuple, Optional[Dict]] = {}
+
+
+async def upload_area_fields(lat, lon) -> Dict:
+    """{"upload_suburb", "upload_locality"} for a receipt, or {} — never raises."""
+    key = round_coord(lat, lon)
+    if key is None:
+        return {}
+    if key not in _upload_area_cache:
+        if len(_upload_area_cache) > 5000:
+            _upload_area_cache.clear()
+        try:
+            _upload_area_cache[key] = await get_geocoding_service().reverse_geocode_area(*key)
+        except Exception as e:
+            logger.warning(f"upload area lookup failed: {e}")
+            return {}
+    area = _upload_area_cache[key]
+    return {"upload_suburb": area["suburb"], "upload_locality": area["locality"]} if area else {}
 
 
 def get_portal_url(phone: str) -> str:
@@ -659,6 +684,7 @@ async def get_or_create_shop(shop_name: str, address: Optional[str] = None,
     shop_obj = Shop(name=canonical, address=address, place_id=place_id, phone=phone, **location_fields)
     shop = shop_obj.model_dump()
     shop['created_at'] = shop['created_at'].isoformat()
+    shop['chain'] = infer_chain(canonical)  # migration 007; stripped if the column isn't there yet
     shop = await db.shops_insert_one(shop)
     await db.shop_alias_add(shop["id"], shop_name)
     logger.info(f"🆕 Shop created {canonical!r} place_id={place_id} [{precision}]")
@@ -910,6 +936,7 @@ async def process_receipt_image(request: ReceiptImageRequest, user: dict = Depen
         )
 
         receipt_dict = receipt.model_dump()
+        receipt_dict.update(await upload_area_fields(receipt_dict.get('upload_latitude'), receipt_dict.get('upload_longitude')))
         receipt_dict['created_at'] = receipt_dict['created_at'].isoformat()
         if receipt_dict.get('receipt_date'):
             receipt_dict['receipt_date'] = receipt_dict['receipt_date'].isoformat()
@@ -1045,6 +1072,7 @@ async def upload_receipt(
     )
     
     receipt_dict = receipt.model_dump()
+    receipt_dict.update(await upload_area_fields(receipt_dict.get('upload_latitude'), receipt_dict.get('upload_longitude')))
     receipt_dict['created_at'] = receipt_dict['created_at'].isoformat()
     if receipt_dict.get('receipt_date'):
         receipt_dict['receipt_date'] = receipt_dict['receipt_date'].isoformat()
@@ -1514,6 +1542,28 @@ async def get_spending_by_day(days: int = 30, user: dict = Depends(require_admin
     # Use the daily_spending view
     data = await db.get_daily_spending(days)
     return {"data": [{"date": r.get("date"), "amount": r.get("total_amount", 0), "receipts": r.get("receipt_count", 0)} for r in data]}
+
+@api_router.get("/analytics/wallet-share")
+async def get_wallet_share(user: dict = Depends(require_admin)):
+    """Share of wallet by the customer's suburb: how each suburb's submitted spend splits
+    across branches and chains. Admin-only — suburbs under the k-floor are flagged `thin`;
+    anything external must go through wallet_share.suppress_thin (ontology: suburbWalletShare)."""
+    cols = "upload_suburb,upload_locality,upload_latitude,upload_longitude,shop_id,shop_name,amount,customer_phone,status"
+    try:
+        receipts, start = [], 0
+        while True:
+            batch = db.client.table('receipts').select(cols).range(start, start + 999).execute().data or []
+            receipts += batch
+            if len(batch) < 1000:
+                break
+            start += 1000
+        shops = db.client.table('shops').select('id,name,chain').execute().data or []
+    except Exception as e:
+        if "upload_suburb" in str(e) or "chain" in str(e):
+            return {"migration_needed": True, "suburbs": [], "unassigned": 0, "k_floor": 0}
+        raise
+    return compute_wallet_share(receipts, shops)
+
 
 @api_router.get("/analytics/popular-shops")
 async def get_popular_shops(limit: int = 10, user: dict = Depends(require_admin)):
@@ -2411,6 +2461,7 @@ async def finalise_receipt_with_location(
         )
 
         receipt_dict = receipt.model_dump()
+        receipt_dict.update(await upload_area_fields(receipt_dict.get('upload_latitude'), receipt_dict.get('upload_longitude')))
         receipt_dict['created_at'] = receipt_dict['created_at'].isoformat()
         if receipt_dict.get('receipt_date'):
             receipt_dict['receipt_date'] = receipt_dict['receipt_date'].isoformat()

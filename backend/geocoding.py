@@ -326,9 +326,10 @@ class GeocodingService:
         
         return None
     
-    async def reverse_geocode(self, lat: float, lon: float) -> Optional[str]:
-        """Reverse geocode coordinates to get suburb/area name for search disambiguation.
-        Returns a simple string like 'Douglasdale' or 'Sandton', NOT a dict."""
+    async def reverse_geocode_area(self, lat: float, lon: float) -> Optional[Dict]:
+        """Suburb + city of a point, for wallet-share bucketing and search disambiguation.
+        Returns {"suburb": "Douglasdale", "locality": "Sandton"} (suburb may equal
+        locality in small towns that have no sublocalities); None on failure."""
         if not self.google_api_key:
             return None
         try:
@@ -342,22 +343,19 @@ class GeocodingService:
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("status") == "OK" and data.get("results"):
-                        # Look for suburb/locality in address components
-                        for component in data["results"][0].get("address_components", []):
-                            types = component.get("types", [])
-                            if "sublocality" in types or "sublocality_level_1" in types:
-                                area = component["long_name"]
-                                logger.info(f"Reverse geocoded ({lat},{lon}) -> {area}")
-                                return area
-                            if "locality" in types:
-                                area = component["long_name"]
-                                logger.info(f"Reverse geocoded ({lat},{lon}) -> {area}")
-                                return area
-                        # Fallback: first part of formatted address
-                        formatted = data["results"][0].get("formatted_address", "")
-                        if formatted:
-                            area = formatted.split(",")[0].strip()
-                            logger.info(f"Reverse geocoded ({lat},{lon}) -> {area} (fallback)")
+                        suburb, locality = None, None
+                        # The sublocality result comes first when there is one; scan all
+                        # results so a locality-only point still gets its town.
+                        for result in data["results"]:
+                            for component in result.get("address_components", []):
+                                types = component.get("types", [])
+                                if suburb is None and ("sublocality" in types or "sublocality_level_1" in types):
+                                    suburb = component["long_name"]
+                                if locality is None and "locality" in types:
+                                    locality = component["long_name"]
+                        if suburb or locality:
+                            area = {"suburb": suburb or locality, "locality": locality or suburb}
+                            logger.info(f"Reverse geocoded ({lat},{lon}) -> {area['suburb']}, {area['locality']}")
                             return area
         except Exception as e:
             logger.warning(f"Reverse geocode failed: {e}")

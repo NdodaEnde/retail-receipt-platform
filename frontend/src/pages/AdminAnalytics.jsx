@@ -7,13 +7,14 @@ import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { 
   BarChart3, TrendingUp, Store, Users, Receipt, DollarSign, 
-  Clock, Calendar, Trophy, PieChart, Search, ArrowUp, ArrowDown, ArrowUpDown
+  Clock, Calendar, Trophy, PieChart, Search, ArrowUp, ArrowDown, ArrowUpDown, MapPinned
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart as RePieChart, Pie, Cell, AreaChart, Area
 } from "recharts";
 import api from "../lib/api";
+import WalletShareTab from "../components/WalletShareTab";
 
 const COLORS = ['hsl(265, 89%, 66%)', 'hsl(150, 100%, 50%)', 'hsl(300, 100%, 50%)', 'hsl(190, 100%, 50%)', 'hsl(40, 100%, 50%)'];
 
@@ -164,38 +165,46 @@ export default function AdminAnalytics() {
       {/* Charts */}
       <div className="max-w-7xl mx-auto">
         <Tabs defaultValue="spending" className="w-full">
-          <TabsList className="w-full glass border-white/10 p-1 rounded-xl mb-6 grid grid-cols-4">
+          <TabsList className="w-full glass border-white/10 p-1 rounded-xl mb-6 grid grid-cols-5">
             <TabsTrigger 
               value="spending" 
               data-testid="spending-tab"
               className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              <TrendingUp className="w-4 h-4 mr-2" />
-              Spending
+              <TrendingUp className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Spending</span>
             </TabsTrigger>
             <TabsTrigger 
               value="shops" 
               data-testid="shops-tab"
               className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              <Store className="w-4 h-4 mr-2" />
-              Shops
+              <Store className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Shops</span>
             </TabsTrigger>
             <TabsTrigger 
               value="customers" 
               data-testid="customers-tab"
               className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              <Users className="w-4 h-4 mr-2" />
-              Customers
+              <Users className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Customers</span>
             </TabsTrigger>
             <TabsTrigger 
               value="time" 
               data-testid="time-tab"
               className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              <Clock className="w-4 h-4 mr-2" />
-              Time
+              <Clock className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Time</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="suburbs"
+              data-testid="suburbs-tab"
+              className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              <MapPinned className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Suburbs</span>
             </TabsTrigger>
           </TabsList>
 
@@ -430,6 +439,11 @@ export default function AdminAnalytics() {
                 </ScrollArea>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Suburbs Tab — share of wallet (admin-only, P-class source) */}
+          <TabsContent value="suburbs" data-testid="suburbs-content">
+            <WalletShareTab />
           </TabsContent>
 
           {/* Time Tab */}

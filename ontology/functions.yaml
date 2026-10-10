@@ -208,10 +208,10 @@ functions:
   suburbWalletShare:
     bound_to: [suburb]
     computes: "Cross-retailer share of wallet per suburb — who is winning the basket here"
-    reads: [receipt.geocode_precision, shop.name, receipt.amount, receipt.shop_latitude, receipt.shop_longitude]
-    output_class: X
-    exposure: external
-    implemented_by: planned
+    reads: [receipt.upload_suburb, receipt.upload_locality, shop.name, shop.chain, receipt.amount]
+    output_class: X               # external form = wallet_share.suppress_thin (k-floor 5, no per-branch customer counts, no coords)
+    exposure: external            # admin view today: /analytics/wallet-share (Analytics → Suburbs); not released before min_users
+    implemented_by: app           # backend/wallet_share.py — migration 007 + scripts/backfill_suburbs.py
     min_users: 500
     phase: 4
 

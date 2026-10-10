@@ -50,6 +50,8 @@ objects:
       - { name: raw_text,       type: text,     source: LandingAI_ADE, sensitivity: P }  # OCR text can contain PII
       - { name: upload_latitude,  type: geo,    source: WhatsApp_Cloud, sensitivity: P }
       - { name: upload_longitude, type: geo,    source: WhatsApp_Cloud, sensitivity: P }
+      - { name: upload_suburb,    type: string, source: Google_Maps,    sensitivity: P }  # suburb of the upload point — home proxy (migration 007)
+      - { name: upload_locality,  type: string, source: Google_Maps,    sensitivity: P }  # city/town of the upload point (migration 007)
       - { name: shop_latitude,  type: geo,      source: Google_Maps,   sensitivity: O }
       - { name: shop_longitude, type: geo,      source: Google_Maps,   sensitivity: O }
       - { name: shop_address,   type: string,   source: LandingAI_ADE, sensitivity: O }
@@ -105,6 +107,7 @@ objects:
       - { name: geocode_confidence, type: enum,     source: Google_Maps, sensitivity: O }  # same enum as receipt.geocode_precision
       - { name: place_id,           type: string,   source: Google_Maps, sensitivity: X }  # Google Place ID — canonical branch identity (migration 004); public identifier
       - { name: phone,              type: string,   source: LandingAI_ADE, sensitivity: X }  # branch's published number as printed on slips
+      - { name: chain,              type: string,   source: function,    sensitivity: X }  # owning group via brand_registry.infer_chain (migration 007)
       - { name: aliases,            type: string,   source: LandingAI_ADE, sensitivity: O }  # shop_aliases table — names seen on receipts
       - { name: receipt_count,      type: number,   source: Supabase,    sensitivity: O }
       - { name: total_sales,        type: currency, source: function,    sensitivity: F }  # shop revenue — commercially sensitive
