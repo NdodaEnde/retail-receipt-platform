@@ -18,6 +18,8 @@ import {
 } from "recharts";
 import axios from "axios";
 import { API } from "../App";
+import InstallAppBanner from "../components/InstallAppBanner";
+import { saveReportToken, WHATSAPP_REPORT_URL } from "../lib/pwa";
 
 const COLORS = [
   'hsl(265, 89%, 66%)', 'hsl(150, 100%, 50%)', 'hsl(300, 100%, 50%)',
@@ -73,6 +75,7 @@ export default function MyReport() {
       try {
         const res = await axios.get(`${API}/portal/${token}`);
         setData(res.data);
+        saveReportToken(token);
       } catch (err) {
         if (err.response?.status === 401) {
           setError("expired");
@@ -217,6 +220,13 @@ export default function MyReport() {
                   </p>
                 </>
               )}
+              <a
+                href={WHATSAPP_REPORT_URL}
+                className="inline-flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2.5 font-semibold text-black"
+                data-testid="refresh-report-whatsapp"
+              >
+                Get a fresh link on WhatsApp
+              </a>
               <p className="text-sm text-muted-foreground/60">WhatsApp: +27 65 561 5874</p>
             </CardContent>
           </Card>
@@ -246,6 +256,8 @@ export default function MyReport() {
           </div>
         </div>
       </motion.div>
+
+      <InstallAppBanner />
 
       {/* Summary Cards */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
