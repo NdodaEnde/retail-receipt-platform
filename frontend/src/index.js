@@ -2,13 +2,19 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "@/index.css";
 import App from "@/App";
+import { hostRedirect } from "@/lib/hosts";
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-);
+const target = hostRedirect(window.location);
+if (target) {
+  window.location.replace(target);
+} else {
+  const root = ReactDOM.createRoot(document.getElementById("root"));
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  );
+}
 
 // Installable app (PWA). Production only — a dev-server SW would cache hot-reload assets.
 if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {

@@ -104,6 +104,18 @@ In-memory state:
 5. After frontend deploys → set `CORS_ORIGINS` in backend service
 6. Update Meta WhatsApp webhook URL → `https://klpit-api.onrender.com/api/whatsapp/webhook`
 
+### Domains (Oct 2026)
+| Address | Serves |
+|---------|--------|
+| `www.klpit.co.za` (+ apex) | Marketing site + admin/stats |
+| `app.klpit.co.za` | Customer app — `/my` reports, home-screen app (PWA), WhatsApp code sign-in |
+| `klpit-web.onrender.com` | Render origin — never shown to customers |
+
+- All three serve the **same build**; `frontend/src/lib/hosts.js` routes before render: `app./` → `/my`; `/my/*` anywhere → `app.`; every other path on `app.`, the apex or onrender → `www.`
+- Afrihost DNS: `app` CNAME → `klpit-web.onrender.com` (overrides the `*` wildcard — leave the wildcard alone)
+- Backend `FRONTEND_URL=https://app.klpit.co.za` builds WhatsApp report links; `CORS_ORIGINS` is split on `,` with **no trimming** — no spaces
+- PWA: manifest `scope`/`start_url` = `/my`. iPhone home-screen apps never receive links (they open in Safari, separate storage) → the app signs in with the 6-digit code in the REPORT reply (`POST /api/portal/pair`, single-use, 10 min, 10 tries/IP) → 30-day portal token
+
 **Render free tier note**: backend sleeps after 15 min inactivity.
 Use UptimeRobot to ping `https://klpit-api.onrender.com/api/health` every 10 min,
 or upgrade to Starter ($7/mo) for always-on.
