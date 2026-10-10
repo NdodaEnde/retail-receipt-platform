@@ -1474,10 +1474,10 @@ async def get_map_receipts(date: Optional[str] = None, user: dict = Depends(requ
 
 @api_router.get("/stats/public")
 async def get_public_stats():
-    """Homepage totals — aggregate counts only (X-class), safe to show anyone."""
+    """Homepage totals — aggregate counts only (X-class), safe to show anyone.
+    Customer count is deliberately excluded (competitive info) — admins see it in /analytics/overview."""
     return {
         "total_receipts": await db.receipts_count({}),
-        "total_customers": await db.customers_count({}),
         "total_winnings": round(await db.customers_aggregate_sum('total_winnings') or 0, 2),
     }
 

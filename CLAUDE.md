@@ -135,7 +135,7 @@ or upgrade to Starter ($7/mo) for always-on.
 - Currency is ZAR. Amounts stored as float.
 - Phone numbers stored WITHOUT `+` prefix in WhatsApp API calls, WITH `+` in DB.
 - Draw prize = the winning receipt's full amount (see `run_daily_draw` in `server.py`)
-- **API is admin-only by default** (Oct 2026): every route takes `user: dict = Depends(require_admin)` except `/`, `/health`, `/stats/public` (3 aggregate totals for the homepage), `/map/shops` (X-class), `/portal/*` + `/portal/pair` (token-gated customer report) and the WhatsApp webhook. Customer-facing pages must use the portal token, never a phone-number lookup. Frontend admin calls go through `lib/api.js` (attaches the Supabase JWT) — plain `axios` sends no auth
+- **API is admin-only by default** (Oct 2026): every route takes `user: dict = Depends(require_admin)` except `/`, `/health`, `/stats/public` (receipts + won-back totals for the homepage — customer count is admin-only, competitive info), `/map/shops` (X-class), `/portal/*` + `/portal/pair` (token-gated customer report) and the WhatsApp webhook. Customer-facing pages must use the portal token, never a phone-number lookup. Frontend admin calls go through `lib/api.js` (attaches the Supabase JWT) — plain `axios` sends no auth
 - Public site = homepage only (no bottom nav for visitors); Upload/Spending/Map/Draws/Dashboard are prototype staff tools behind `ProtectedRoute`
 
 ---

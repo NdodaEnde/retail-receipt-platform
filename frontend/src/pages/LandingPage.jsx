@@ -14,7 +14,7 @@ const shortRand = (v) =>
 const JOIN_WHATSAPP_URL = "https://wa.me/27655615874?text=Hi";
 
 export default function LandingPage() {
-  const [stats, setStats] = useState({ total_receipts: 0, total_customers: 0, total_winnings: 0 });
+  const [stats, setStats] = useState({ total_receipts: 0, total_winnings: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -104,15 +104,11 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-16 grid grid-cols-3 gap-3 sm:gap-6"
+            className="mt-16 grid grid-cols-2 gap-3 sm:gap-6 max-w-md mx-auto"
           >
             <div className="glass-card rounded-2xl px-2 py-4 min-[400px]:p-4 sm:p-6">
               <p className="font-mono text-xl min-[400px]:text-2xl sm:text-3xl font-bold text-primary">{stats.total_receipts.toLocaleString('en-ZA')}</p>
               <p className="text-sm text-muted-foreground mt-1">Receipts Processed</p>
-            </div>
-            <div className="glass-card rounded-2xl px-2 py-4 min-[400px]:p-4 sm:p-6">
-              <p className="font-mono text-xl min-[400px]:text-2xl sm:text-3xl font-bold text-secondary">{stats.total_customers.toLocaleString('en-ZA')}</p>
-              <p className="text-sm text-muted-foreground mt-1">Happy Customers</p>
             </div>
             <div className="glass-card rounded-2xl px-2 py-4 min-[400px]:p-4 sm:p-6">
               <p className="font-mono text-xl min-[400px]:text-2xl sm:text-3xl font-bold text-accent">R{shortRand(stats.total_winnings)}</p>
