@@ -411,3 +411,40 @@ def verify_extraction(raw_text: str, proposal: Optional[Dict] = None) -> Dict:
         "suburb": suburb,
         "evidence": evidence,
     }
+
+
+# ── Item amounts ────────────────────────────────────────────────────────────
+# OCR sometimes reads a barcode digit or a price ("24,00") into the quantity
+# column: one slip produced "DORITOS SUPREME  qty 24000 × R99.99 = R2 399 760".
+# A till line can't sell more than MAX_LINE_QTY units, and with qty > 1 it can't
+# cost more than the whole slip. Single-unit lines above the total are left alone:
+# they are usually pre-discount prices on slips with a discount line.
+MAX_LINE_QTY = 99
+
+
+def _num(v) -> Optional[float]:
+    try:
+        return float(v) if v is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def sanitize_item_amounts(items: Optional[List[Dict]], receipt_total) -> List[Dict]:
+    """Return items with impossible quantities reset to one unit. Never raises."""
+    total = _num(receipt_total) or 0.0
+    clean = []
+    for item in items or []:
+        item = dict(item)
+        qty = _num(item.get("quantity"))
+        unit = _num(item.get("unit_price"))
+        line = _num(item.get("total_price") if item.get("total_price") is not None else item.get("price"))
+        too_many = qty is not None and (qty <= 0 or qty > MAX_LINE_QTY)
+        over_slip = qty is not None and qty > 1 and total > 0 and line is not None and line > total * 1.05 + 1
+        if too_many or over_slip:
+            logger.info(f"verify: item {item.get('name')!r} qty {qty} × {unit} = {line} on a R{total} slip "
+                        f"— impossible, reset to 1 unit")
+            item["quantity"] = 1
+            if unit is not None:
+                item["total_price"] = unit
+        clean.append(item)
+    return clean

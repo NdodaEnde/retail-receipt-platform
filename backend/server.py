@@ -35,7 +35,7 @@ from receipt_processor import get_receipt_processor
 from vector_store import get_receipt_vector_store
 from whatsapp_cloud import get_whatsapp_client, parse_webhook_message, WHATSAPP_VERIFY_TOKEN
 from geocoding import get_geocoding_service, precision_rank, is_sa_centroid, SA_LOCATIONS
-from extraction_verifier import sanitize_shop_name
+from extraction_verifier import sanitize_shop_name, sanitize_item_amounts
 from brand_registry import infer_chain
 from shop_resolver import resolve_shop, display_name_from_ocr_address
 from database import get_database
@@ -925,6 +925,7 @@ async def process_receipt_image(request: ReceiptImageRequest, user: dict = Depen
                 receipt_dict['image_path'] = image_path
                 logger.info(f"✅ Image uploaded to storage: {image_path}")
 
+        receipt_dict["items"] = sanitize_item_amounts(receipt_dict.get("items"), receipt_dict.get("amount"))
         await db.receipts_insert_one(receipt_dict.copy())
         
         # Add to vector store for semantic search
@@ -1046,6 +1047,7 @@ async def upload_receipt(
     if receipt_dict.get('receipt_date'):
         receipt_dict['receipt_date'] = receipt_dict['receipt_date'].isoformat()
     
+    receipt_dict["items"] = sanitize_item_amounts(receipt_dict.get("items"), receipt_dict.get("amount"))
     await db.receipts_insert_one(receipt_dict.copy())  # Use copy to prevent _id mutation
     
     # Update customer stats
@@ -1748,9 +1750,10 @@ async def get_portal_data(token: str):
     spending_task = db.client.table('customer_spend_summary').select('*').eq('customer_phone', phone).execute()
     monthly_task = db.client.table('customer_monthly_spend').select('*').eq('customer_phone', phone).order('month', desc=True).execute()
     shop_task = db.client.table('customer_shop_spend').select('*').eq('customer_phone', phone).order('total_spent', desc=True).execute()
-    top_items_task = db.client.table('customer_top_items').select('*').eq('customer_phone', phone).order('total_spent', desc=True).limit(50).execute()
+    top_items_task = db.client.table('customer_top_items').select('*').eq('customer_phone', phone).order('total_spent', desc=True, nullsfirst=False).limit(500).execute()  # all items: the Items tab counts and sums these
     receipts = await db.receipts_find({"customer_phone": phone}, sort=("created_at", -1), limit=20)
-    customer = await db.customers_find_one({"phone_number": f"+{phone}"})
+    customer = await db.customers_find_one({"phone_number": phone}) \
+        or await db.customers_find_one({"phone_number": f"+{phone}"})
 
     # Extract results
     summary_rows = db._safe_get(spending_task, [])
@@ -2420,6 +2423,7 @@ async def finalise_receipt_with_location(
                 receipt_dict['image_path'] = image_path
                 logger.info(f"✅ Image uploaded to storage: {image_path}")
 
+        receipt_dict["items"] = sanitize_item_amounts(receipt_dict.get("items"), receipt_dict.get("amount"))
         await db.receipts_insert_one(receipt_dict.copy())
 
         # Update customer stats
