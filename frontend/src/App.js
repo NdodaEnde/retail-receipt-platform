@@ -19,6 +19,7 @@ import MySpending from "./pages/MySpending";
 import MyReport from "./pages/MyReport";
 import MyLauncher from "./pages/MyLauncher";
 import DataCoverage from "./pages/DataCoverage";
+import LegalPage from "./pages/LegalPage";
 import "./App.css";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -98,6 +99,7 @@ function BottomNav() {
 
 function AnimatedRoutes() {
   const location = useLocation();
+  const { session } = useAuth(); // logged-in staff get the bottom nav, which needs pb-20
 
   return (
     <AnimatePresence mode="wait">
@@ -107,7 +109,7 @@ function AnimatedRoutes() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="min-h-screen pb-20"
+        className={session ? "min-h-screen pb-20" : "min-h-screen"}
       >
         <Routes location={location}>
           <Route path="/" element={<LandingPage />} />
@@ -119,6 +121,8 @@ function AnimatedRoutes() {
           <Route path="/map" element={<ProtectedRoute><MapView /></ProtectedRoute>} />
           <Route path="/draws" element={<ProtectedRoute><DrawsPage /></ProtectedRoute>} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/rules" element={<LegalPage page="rules" />} />
+          <Route path="/privacy" element={<LegalPage page="privacy" />} />
           <Route path="/admin/receipts" element={<ProtectedRoute><AdminReceipts /></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
           <Route path="/fraud" element={<ProtectedRoute><FraudDetection /></ProtectedRoute>} />

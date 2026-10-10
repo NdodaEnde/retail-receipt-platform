@@ -253,12 +253,12 @@ class WhatsAppCloudAPI:
     async def send_welcome_message(self, to: str) -> Dict[str, Any]:
         """Send welcome/help message"""
         message = (
-            "🎰 *Welcome to Retail Rewards SA!*\n\n"
+            "🎰 *Welcome to KlpIT!*\n\n"
             "Win back what you spend at SA retailers!\n\n"
             "*How it works:*\n"
             "1️⃣ Shop at any SA retailer\n"
             "2️⃣ Send us a photo of your receipt\n"
-            "3️⃣ Share your location 📍\n"
+            "3️⃣ Tap the button to confirm it (shares your location for that receipt only)\n"
             "4️⃣ Enter the daily draw automatically!\n\n"
             "*Commands:*\n"
             "• RECEIPTS - View your uploads\n"
