@@ -133,8 +133,10 @@ or upgrade to Starter ($7/mo) for always-on.
 - Always use `database.py` (`get_database()`) for DB operations — NOT `supabase_db.py`
 - All DB writes use Supabase. MongoDB packages in old migration scripts only.
 - Currency is ZAR. Amounts stored as float.
-- Phone numbers stored WITHOUT `+` prefix in WhatsApp API calls, WITH `+` in DB.
+- Phone numbers: real customers are stored WITHOUT `+` everywhere (customers, receipts, WhatsApp API). The only `+` rows are the January demo seed (6 fake customers + 87 receipts). Look customers up by bare phone, fall back to `+phone`.
 - Draw prize = the winning receipt's full amount (see `run_daily_draw` in `server.py`)
+- Both draw queries require `amount > 0`; receipts whose total OCR couldn't read (R0) are saved with `draw_eligible=false` and the customer is told why
+- `customers.total_*` counters drift (only +/- on insert/delete). Show live numbers via `customer_totals.compute_customer_totals()`; resync with `python scripts/recompute_customer_totals.py [--apply]`
 - **API is admin-only by default** (Oct 2026): every route takes `user: dict = Depends(require_admin)` except `/`, `/health`, `/stats/public` (receipts + won-back totals for the homepage — customer count is admin-only, competitive info), `/map/shops` (X-class), `/portal/*` + `/portal/pair` (token-gated customer report) and the WhatsApp webhook. Customer-facing pages must use the portal token, never a phone-number lookup. Frontend admin calls go through `lib/api.js` (attaches the Supabase JWT) — plain `axios` sends no auth
 - Public site = homepage only (no bottom nav for visitors); Upload/Spending/Map/Draws/Dashboard are prototype staff tools behind `ProtectedRoute`
 
@@ -237,7 +239,7 @@ Access tokens and API keys are in `backend/.env` only.
 
 | Source | Format | Example |
 |--------|--------|---------|
-| `customers` table | With `+` prefix | `+27769695462` |
+| `customers` table | Without `+` (WhatsApp-created; `+` only on demo seed rows) | `27769695462` |
 | `receipts` table | Without `+` prefix | `27769695462` |
 | Frontend input | User enters `076...` | Converted to `27769695462` |
 | WhatsApp API | Without `+` prefix | `27769695462` |

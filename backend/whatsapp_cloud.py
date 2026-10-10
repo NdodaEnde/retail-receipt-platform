@@ -226,11 +226,18 @@ class WhatsAppCloudAPI:
         amount: float,
         items_count: int,
         fraud_flag: str,
-        portal_url: str = None
+        portal_url: str = None,
+        not_in_draw_reason: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Send receipt processing confirmation"""
+        """Send receipt processing confirmation.
+        not_in_draw_reason: "no_total" | "not_today" when the receipt is saved but not entered."""
 
-        if fraud_flag == "valid":
+        if not_in_draw_reason == "no_total":
+            status_msg = ("⚠️ We couldn't read the total on this slip, so it isn't in today's draw. "
+                          "Please send a clearer photo of the whole slip.")
+        elif not_in_draw_reason == "not_today":
+            status_msg = "📅 This slip isn't from today, so it isn't in today's draw. It's still saved with your receipts."
+        elif fraud_flag == "valid":
             status_msg = "✅ You're entered in today's draw! Good luck!"
         elif fraud_flag == "review":
             status_msg = "⏳ Your receipt is being reviewed. We'll notify you once approved."

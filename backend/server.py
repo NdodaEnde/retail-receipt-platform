@@ -36,6 +36,7 @@ from vector_store import get_receipt_vector_store
 from whatsapp_cloud import get_whatsapp_client, parse_webhook_message, WHATSAPP_VERIFY_TOKEN
 from geocoding import get_geocoding_service, precision_rank, is_sa_centroid, SA_LOCATIONS
 from extraction_verifier import sanitize_shop_name, sanitize_item_amounts
+from customer_totals import compute_customer_totals
 from brand_registry import infer_chain
 from shop_resolver import resolve_shop, display_name_from_ocr_address
 from database import get_database
@@ -392,6 +393,7 @@ async def run_scheduled_daily_draw():
             .neq('status', 'won') \
             .eq('fraud_flag', 'valid') \
             .eq('draw_eligible', True) \
+            .gt('amount', 0) \
             .limit(10000) \
             .execute()
         receipts = db._safe_get(result, [])
@@ -904,7 +906,7 @@ async def process_receipt_image(request: ReceiptImageRequest, user: dict = Depen
             fraud_reason=fraud_assessment["fraud_reason"],
             status=receipt_status,
             receipt_date=datetime.fromisoformat(receipt_date_parsed) if receipt_date_parsed else None,
-            draw_eligible=check_draw_eligibility(receipt_date_parsed)
+            draw_eligible=check_draw_eligibility(receipt_date_parsed) and (extracted.get("amount") or 0) > 0  # R0 = total not read
         )
 
         receipt_dict = receipt.model_dump()
@@ -1319,6 +1321,7 @@ async def run_daily_draw(draw_date: Optional[str] = None, user: dict = Depends(r
         .neq('status', 'won') \
         .eq('fraud_flag', 'valid') \
         .eq('draw_eligible', True) \
+        .gt('amount', 0) \
         .limit(10000) \
         .execute()
     receipts = db._safe_get(result, [])
@@ -2404,7 +2407,7 @@ async def finalise_receipt_with_location(
             fraud_reason=fraud_assessment["fraud_reason"],
             status=receipt_status,
             receipt_date=datetime.fromisoformat(receipt_date_parsed) if receipt_date_parsed else None,
-            draw_eligible=check_draw_eligibility(receipt_date_parsed)
+            draw_eligible=check_draw_eligibility(receipt_date_parsed) and (amount or 0) > 0  # R0 = total not read
         )
 
         receipt_dict = receipt.model_dump()
@@ -2447,7 +2450,8 @@ async def finalise_receipt_with_location(
             amount,
             len(items),
             fraud_assessment["fraud_flag"],
-            portal_url=portal_url
+            portal_url=portal_url,
+            not_in_draw_reason=None if receipt_dict.get("draw_eligible") else ("no_total" if not amount else "not_today"),
         )
 
         logger.info(f"✅ Receipt finalised for {phone_number}: {shop_display_name}, R{amount}")
@@ -2582,14 +2586,15 @@ async def handle_text_command(phone_number: str, command: str, wa):
             await wa.send_text_message(phone_number, msg)
             
     elif command == "balance":
-        customer = await db.customers_find_one({"phone_number": phone_number})
-        if customer:
+        # Live totals from receipts + draws — the counters on `customers` drift
+        totals = compute_customer_totals(db.client, phone_number)
+        if totals["total_receipts"]:
             msg = (
                 f"📊 *Your Stats*\n\n"
-                f"📋 Receipts: {customer.get('total_receipts', 0)}\n"
-                f"💵 Total Spent: R{customer.get('total_spent', 0):.2f}\n"
-                f"🏆 Wins: {customer.get('total_wins', 0)}\n"
-                f"💰 Won Back: R{customer.get('total_winnings', 0):.2f}"
+                f"📋 Receipts: {totals['total_receipts']}\n"
+                f"💵 Total Spent: R{totals['total_spent']:.2f}\n"
+                f"🏆 Wins: {totals['total_wins']}\n"
+                f"💰 Won Back: R{totals['total_winnings']:.2f}"
             )
             await wa.send_text_message(phone_number, msg)
         else:
