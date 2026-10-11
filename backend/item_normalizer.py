@@ -114,6 +114,90 @@ CATEGORY_RULES: list[tuple[str, list[str]]] = [
     ]),
 ]
 
+# Checked BEFORE the ordered rules: phrases where the first matching keyword in
+# CATEGORY_RULES would be wrong ("Water Air Rush Chewing Gum" is not water;
+# "Double Buffels & Coke" is a spirit served with a mixer, not a cold drink).
+PRIORITY_RULES: list[tuple[str, re.Pattern]] = [
+    ("Snacks & Sweets", re.compile(r"\b(chewing|bubble)\s*gum\b", re.IGNORECASE)),
+    ("Alcohol", re.compile(r"\b(double|single|tot|dbl)\b.*?(&|\band\b|\+)\s*"
+                           r"(coke|cola|sprite|soda|tonic|lemonade|ginger ale|dry lemon)\b", re.IGNORECASE)),
+]
+
+# ── Sub-categories: the drill-down level a brand client asks about first
+#    ("which kind of beverage?"). Ordered within each category, first hit wins.
+#    A category without rules, or a line no rule matches, gets UNSPLIT — shown
+#    honestly as unsplit rather than guessed.
+UNSPLIT = "Not sub-classified"
+SUBCATEGORY_RULES: dict[str, list[tuple[str, list[str]]]] = {
+    "Beverages": [
+        ("Energy & sports", ["energy", "energy drink", "red bull", "monster", "powerade", "play",
+                             "dragon", "switch", "lucozade", "score", "reboost"]),
+        ("Iced tea", ["iced tea", "ice tea", "lipton"]),
+        ("Mageu", ["mageu", "maheu", "magou", "mahewu"]),
+        ("Juice & cordial", ["juice", "oros", "cordial", "squash", "nectar", "liqui fruit", "liquifruit",
+                             "ceres", "minute maid", "fruitree", "clover krush", "krush"]),
+        ("Coffee", ["coffee", "ricoffy", "nescafe", "jacobs", "frisco", "cappucino", "cappuccino",
+                    "espresso", "latte", "americano"]),
+        ("Tea", ["tea", "teabags", "tea bags", "rooibos", "five roses", "joko", "freshpak", "glen",
+                 "laager", "chai"]),
+        ("Soft drinks & mixers", ["coke", "coca cola", "cola", "fanta", "sprite", "stoney", "soda",
+                                  "cream soda", "creme soda", "tonic", "lemonade", "ginger ale",
+                                  "cold drink", "cooldrink", "pepsi", "schweppes", "appletiser",
+                                  "grapetiser", "sparletta", "twist", "bashew", "dry lemon"]),
+        ("Water", ["water", "still", "sparkling", "mineral", "aquazania", "la vie", "valpre",
+                   "bonaqua", "aquelle", "spring"]),
+    ],
+    "Alcohol": [
+        ("Spirits & mixed drinks", ["brandy", "vodka", "whisky", "whiskey", "gin", "rum", "klipdrift",
+                                    "viceroy", "spirits", "tequila", "jagermeister", "amarula",
+                                    "buffels", "richelieu", "double", "tot"]),
+        ("Cider & RTD", ["cider", "savanna", "hunters", "flying fish", "brutal fruit", "smirnoff storm",
+                         "bernini", "esprit"]),
+        ("Wine & bubbly", ["wine", "sauvignon", "merlot", "shiraz", "chardonnay", "pinotage",
+                           "cabernet", "chenin", "rose", "bubbly", "champagne", "mcc", "cap classique"]),
+        ("Beer", ["beer", "lager", "black label", "castle", "hansa", "carling", "amstel", "heineken",
+                  "corona", "windhoek", "stella", "draught", "ale"]),
+    ],
+    "Dairy & Eggs": [
+        ("Amasi", ["amasi", "maas"]),
+        ("Yoghurt", ["yoghurt", "yogurt"]),
+        ("Cheese", ["cheese"]),
+        ("Butter & margarine", ["butter", "margarine", "rama", "stork"]),
+        ("Eggs", ["egg", "eggs"]),
+        ("Cream & custard", ["cream", "custard"]),
+        ("Milk", ["milk"]),
+    ],
+    "Snacks & Sweets": [
+        ("Chips & crisps", ["chips", "crisps", "nik naks", "niknaks", "simba", "lays", "doritos",
+                            "popcorn", "fritos", "willards"]),
+        ("Chocolate", ["chocolate", "choc", "cadbury", "lunch bar", "bar one", "kitkat", "aero"]),
+        ("Biscuits & cookies", ["biscuit", "biscuits", "cookies", "bakers", "romany", "tennis",
+                                "marie", "eet-sum-mor"]),
+        ("Sweets & gum", ["sweets", "chappies", "gum", "lollipop", "jelly", "wine gums", "mints"]),
+    ],
+    "Meat & Poultry": [
+        ("Processed meat", ["polony", "vienna", "viennas", "russian", "russians", "wors", "boerewors",
+                            "sausage", "biltong", "bacon", "ham", "salami"]),
+        ("Chicken", ["chicken", "drumstick", "drumsticks", "gizzard", "wings", "thighs"]),
+        ("Fish", ["fish", "hake", "tuna", "pilchards"]),
+        ("Pork", ["pork", "ribs"]),
+        ("Lamb & mutton", ["lamb", "mutton"]),
+        ("Beef", ["beef", "mince", "steak", "liver", "braai pack", "chop", "chops"]),
+    ],
+    "Staples & Grocery": [
+        ("Maize meal & samp", ["maize meal", "mealie meal", "mealiemeal", "mealie", "iwisa",
+                               "white star", "ace", "samp"]),
+        ("Rice & pasta", ["rice", "tastic", "pasta", "macaroni", "spaghetti"]),
+        ("Flour & baking", ["flour", "baking", "yeast"]),
+        ("Sugar & salt", ["sugar", "salt", "huletts", "selati"]),
+        ("Cooking oil", ["oil", "cooking oil"]),
+        ("Tinned food", ["beans", "baked beans", "lucky star", "koo", "pilchards", "tin", "tinned"]),
+        ("Sauces, soups & spices", ["sauce", "tomato sauce", "soup", "spice", "stock", "knorr",
+                                    "maggi", "rajah", "aromat", "all gold", "vinegar", "jam"]),
+        ("Breakfast cereal", ["oats", "instant oats", "cereal", "weetbix", "pronutro", "corn flakes"]),
+    ],
+}
+
 # ── Non-product rows: subtotals, department headers, VAT/rounding lines, bags,
 #    and LandingAI OCR-description fragments. These are NOT products and must be
 #    EXCLUDED from category analytics, not lumped into 'Other'.
@@ -234,6 +318,8 @@ def _word_re(term: str) -> re.Pattern:
 # Precompile for speed
 _CATEGORY_PATTERNS = [(cat, [_word_re(k) for k in kws]) for cat, kws in CATEGORY_RULES]
 _BRAND_PATTERNS = [(b, _word_re(b)) for b in BRANDS]
+_SUBCATEGORY_PATTERNS = {cat: [(sub, [_word_re(k) for k in kws]) for sub, kws in rules]
+                         for cat, rules in SUBCATEGORY_RULES.items()}
 
 
 def _expand(name: str) -> str:
@@ -290,10 +376,26 @@ def categorize(name: str) -> str:
     if is_non_item(name):
         return NON_PRODUCT
     hay = _prep(name) or name
+    for category, pattern in PRIORITY_RULES:
+        if pattern.search(hay):
+            return category
     for category, patterns in _CATEGORY_PATTERNS:
         if any(p.search(hay) for p in patterns):
             return category
     return UNCATEGORIZED
+
+
+def subcategorize(category: Optional[str], name: str) -> str:
+    """Sub-category within `category` (e.g. Beverages -> Water / Soft drinks & mixers),
+    or UNSPLIT when the category has no rules or no rule matches."""
+    patterns = _SUBCATEGORY_PATTERNS.get(category or "")
+    if not patterns or not name:
+        return UNSPLIT
+    hay = _prep(name) or name
+    for sub, pats in patterns:
+        if any(p.search(hay) for p in pats):
+            return sub
+    return UNSPLIT
 
 
 def detect_brand(name: str) -> Optional[str]:

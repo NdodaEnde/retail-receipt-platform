@@ -39,6 +39,7 @@ from extraction_verifier import sanitize_shop_name, sanitize_item_amounts
 from customer_totals import compute_customer_totals
 from brand_registry import infer_chain
 from wallet_share import compute_wallet_share, round_coord
+from category_drilldown import compute_category_drilldown
 from shop_resolver import resolve_shop, display_name_from_ocr_address
 from database import get_database
 from storage_helper import get_storage
@@ -1688,6 +1689,45 @@ async def get_category_spend(user: dict = Depends(require_admin)):
         c["pct"] = round(100 * c["total_spent"] / total, 1) if total else 0
         c["total_spent"] = round(c["total_spent"], 2)
     return {"data": cats, "total_spent": round(total, 2)}
+
+
+def _fetch_all(table: str, cols: str, **eq) -> list:
+    """Page through a table (Supabase caps a select at 1 000 rows)."""
+    rows, start = [], 0
+    while True:
+        q = db.client.table(table).select(cols)
+        for col, val in eq.items():
+            q = q.eq(col, val)
+        batch = q.range(start, start + 999).execute().data or []
+        rows += batch
+        if len(batch) < 1000:
+            return rows
+        start += 1000
+
+
+@api_router.get("/analytics/category-drilldown")
+async def get_category_drilldown(category: str = Query(..., min_length=1), user: dict = Depends(require_admin)):
+    """One category broken down: sub-category -> brand -> product + pack, each level with
+    spend, units, receipts, distinct shoppers, chain split and customer-suburb split.
+    Admin-only; nodes under the k-floor are flagged `thin` (ontology: categoryDrilldown)."""
+    item_cols = ("receipt_id,name,quantity,unit_price,total_price,canonical_name,category,"
+                 "brand,brand_type,pack_size,pack_unit,type_key")
+    items = _fetch_all('receipt_items', item_cols, category=category) if category != 'Other' \
+        else [i for i in _fetch_all('receipt_items', item_cols) if not i.get('category')
+              or i.get('category') == 'Other']
+    receipt_ids = {i['receipt_id'] for i in items}
+    try:
+        receipts = _fetch_all('receipts', 'id,status,customer_phone,shop_id,shop_name,upload_suburb')
+    except Exception as e:
+        if "upload_suburb" not in str(e):
+            raise
+        receipts = _fetch_all('receipts', 'id,status,customer_phone,shop_id,shop_name')  # pre-migration 007
+    receipts = [r for r in receipts if r['id'] in receipt_ids]
+    try:
+        shops = db.client.table('shops').select('id,name,chain').execute().data or []
+    except Exception:
+        shops = db.client.table('shops').select('id,name').execute().data or []
+    return compute_category_drilldown(category, items, receipts, shops, chain_of=infer_chain)
 
 # ============== CUSTOMER SPEND ANALYTICS (public, phone-based) ==============
 

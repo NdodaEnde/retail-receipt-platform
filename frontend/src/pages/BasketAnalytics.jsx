@@ -15,6 +15,7 @@ import {
   ScatterChart, Scatter, Cell
 } from "recharts";
 import api from "../lib/api";
+import CategoryDrilldown from "../components/CategoryDrilldown";
 
 const COLORS = ['hsl(265, 89%, 66%)', 'hsl(150, 100%, 50%)', 'hsl(300, 100%, 50%)', 'hsl(190, 100%, 50%)', 'hsl(40, 100%, 50%)'];
 
@@ -29,6 +30,7 @@ export default function BasketAnalytics() {
   const [itemPairs, setItemPairs] = useState([]);
   const [behavior, setBehavior] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [drillCategory, setDrillCategory] = useState(null);
   const [priceIndex, setPriceIndex] = useState([]);
   const [priceSearch, setPriceSearch] = useState("");
   const [elasticity, setElasticity] = useState(null);
@@ -455,11 +457,13 @@ export default function BasketAnalytics() {
                 Spend by Category
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Product categories from item normalization &middot; subtotals, VAT &amp; bags excluded
+                Product categories from item normalization &middot; subtotals, VAT &amp; bags excluded &middot; tap a category to drill down
               </p>
             </CardHeader>
             <CardContent>
-              {categories.length === 0 ? (
+              {drillCategory ? (
+                <CategoryDrilldown category={drillCategory} onBack={() => setDrillCategory(null)} />
+              ) : categories.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">No category data yet. Upload more receipts to see the breakdown.</p>
               ) : (
                 <>
@@ -472,7 +476,7 @@ export default function BasketAnalytics() {
                         contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
                         formatter={(value) => [`R${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Spend']}
                       />
-                      <Bar dataKey="total_spent" radius={[0, 4, 4, 0]}>
+                      <Bar dataKey="total_spent" radius={[0, 4, 4, 0]} cursor="pointer" onClick={(d) => { const c = d?.category || d?.payload?.category; if (c) setDrillCategory(c); }}>
                         {categories.map((_, i) => (
                           <Cell key={i} fill={COLORS[i % COLORS.length]} />
                         ))}
@@ -482,7 +486,8 @@ export default function BasketAnalytics() {
 
                   <div className="mt-4 space-y-2">
                     {categories.map((c, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5">
+                      <button key={i} onClick={() => setDrillCategory(c.category)}
+                        className="w-full text-left flex items-center justify-between p-3 bg-black/20 rounded-lg border border-white/5 hover:border-primary/40 hover:bg-primary/5 transition-colors">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
                           <div className="min-w-0">
@@ -496,7 +501,7 @@ export default function BasketAnalytics() {
                           </p>
                           <p className="text-xs text-muted-foreground">{c.pct}% of spend</p>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </>

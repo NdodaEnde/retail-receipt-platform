@@ -329,6 +329,16 @@ functions:
     phase: 3
 
   # ── House brands (private labels): the apples-to-apples axis ─────────────
+  categoryDrilldown:              # Basket → Categories → tap a category
+    bound_to: [market]
+    computes: "One category broken down sub-category -> brand -> product + pack size; each level with spend, units, receipts, distinct shoppers, chain split and shoppers'-suburb split, plus brand/pack coverage"
+    reads: [receipt_item.category, receipt_item.name, receipt_item.brand, receipt_item.brand_type, receipt_item.type_key, receipt_item.pack_size, receipt_item.pack_unit, receipt_item.quantity, receipt_item.unit_price, receipt_item.total_price, receipt.upload_suburb, shop.chain]
+    output_class: P               # per-suburb rows with 1-2 shoppers are quasi-identifying; nodes under k-floor 5 are flagged `thin`
+    exposure: internal            # admin /analytics/category-drilldown; a brand-client (X) form must drop thin nodes + suburb customer counts
+    implemented_by: app           # backend/category_drilldown.py; sub-categories = item_normalizer.subcategorize (rules, derived at read time)
+    min_users: 200
+    phase: 3
+
   housebrandPriceGap:
     bound_to: [market]
     computes: "Same product type + pack size, house label vs house label across chains (Ritebrand vs No Name vs SPAR) — median/avg and per-kg/l price"
