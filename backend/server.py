@@ -41,6 +41,8 @@ from brand_registry import infer_chain
 from wallet_share import compute_wallet_share, round_coord
 from category_drilldown import compute_category_drilldown
 from trip_category import trip_category
+import duplicate_guard
+from duplicate_guard import image_dhash
 from shop_resolver import resolve_shop, display_name_from_ocr_address
 from database import get_database
 from storage_helper import get_storage
@@ -946,6 +948,11 @@ async def process_receipt_image(request: ReceiptImageRequest, user: dict = Depen
         
         # Store grounding data from LandingAI
         receipt_dict['grounding'] = extracted.get('grounding', {})
+        try:
+            image_bytes = base64.b64decode(request.image_data)
+        except Exception:
+            image_bytes = None
+        mark_if_duplicate(receipt_dict, image_bytes, extracted)
 
         # Upload image to Supabase Storage
         if image_to_store:
@@ -1078,7 +1085,8 @@ async def upload_receipt(
     receipt_dict['created_at'] = receipt_dict['created_at'].isoformat()
     if receipt_dict.get('receipt_date'):
         receipt_dict['receipt_date'] = receipt_dict['receipt_date'].isoformat()
-    
+    mark_if_duplicate(receipt_dict, content)
+
     receipt_dict["items"] = sanitize_item_amounts(receipt_dict.get("items"), receipt_dict.get("amount"))
     await db.receipts_insert_one(receipt_dict.copy())  # Use copy to prevent _id mutation
     
@@ -1099,7 +1107,8 @@ async def upload_receipt(
                 parsed_data["amount"],
                 len(parsed_data["items"]),
                 "valid",  # Web uploads are auto-approved
-                portal_url=portal_url
+                portal_url=portal_url,
+                not_in_draw_reason="duplicate" if receipt_dict.get("duplicate_of") else None,
             )
             logger.info(f"WhatsApp confirmation sent to {phone_number}")
         except Exception as e:
@@ -1269,14 +1278,15 @@ async def review_receipt(receipt_id: str, action: str, reason: Optional[str] = N
         raise HTTPException(status_code=404, detail="Receipt not found")
     
     if action == "approve":
-        await db.receipts_update_one(
-            {"id": receipt_id},
-            {"$set": {
-                "fraud_flag": "valid",
-                "status": "processed",
-                "fraud_reason": f"Manually approved: {reason}" if reason else "Manually approved by admin"
-            }}
-        )
+        update = {
+            "fraud_flag": "valid",
+            "status": "processed",
+            "fraud_reason": f"Manually approved: {reason}" if reason else "Manually approved by admin"
+        }
+        if receipt.get("duplicate_kind") and receipt.get("duplicate_kind") != "cleared":
+            # admin judged it a different slip: enter it (duplicate_of kept for the audit trail)
+            update.update({"duplicate_kind": "cleared", "draw_eligible": float(receipt.get("amount") or 0) > 0})
+        await db.receipts_update_one({"id": receipt_id}, {"$set": update})
         return {"success": True, "message": "Receipt approved and added to draw pool"}
     
     elif action == "reject":
@@ -1296,6 +1306,25 @@ async def review_receipt(receipt_id: str, action: str, reason: Optional[str] = N
     
     else:
         raise HTTPException(status_code=400, detail="Action must be 'approve' or 'reject'")
+
+@api_router.get("/fraud/duplicates")
+async def get_duplicate_signals(days: int = 90, user: dict = Depends(require_admin)):
+    """Duplicate-slip signals: phones linked by shared slips (clusters), per-phone resend /
+    cross-customer counts, and the latest events. P-class (phones, upload points): admin-only."""
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    try:
+        signals = db.client.table('fraud_signals').select('*').gte('created_at', since) \
+            .order('created_at', desc=True).limit(5000).execute().data or []
+    except Exception as e:
+        if "fraud_signals" in str(e):
+            return {"migration_needed": True, "clusters": [], "phones": [], "signals": 0, "recent": []}
+        raise
+    summary = duplicate_guard.summarize_signals(signals)
+    summary["recent"] = [{k: s.get(k) for k in ("created_at", "kind", "customer_phone", "matched_phone",
+                                                  "match_kind", "receipt_id", "matched_receipt_id", "details")}
+                         for s in signals[:50]]
+    return summary
+
 
 @api_router.get("/fraud/thresholds")
 async def get_fraud_thresholds(user: dict = Depends(require_admin)):
@@ -1561,25 +1590,46 @@ async def get_spending_by_day(days: int = 30, user: dict = Depends(require_admin
     return {"data": [{"date": r.get("date"), "amount": r.get("total_amount", 0), "receipts": r.get("receipt_count", 0)} for r in data]}
 
 @api_router.get("/analytics/wallet-share")
-async def get_wallet_share(user: dict = Depends(require_admin)):
-    """Share of wallet by the customer's suburb: how each suburb's submitted spend splits
-    across branches and chains. Admin-only — suburbs under the k-floor are flagged `thin`;
-    anything external must go through wallet_share.suppress_thin (ontology: suburbWalletShare)."""
-    cols = "upload_suburb,upload_locality,upload_latitude,upload_longitude,shop_id,shop_name,amount,customer_phone,status"
-    try:
-        receipts, start = [], 0
+async def get_wallet_share(by: str = "home", user: dict = Depends(require_admin)):
+    """Share of wallet by suburb: how each suburb's spend splits across branches and chains.
+      by=home   — the home area customers chose to share (migration 008)
+      by=upload — the suburb each receipt was sent from (migration 007)
+    Admin-only — suburbs under the k-floor are flagged `thin`; anything external must go
+    through wallet_share.suppress_thin (ontology: suburbWalletShare)."""
+    if by not in ("home", "upload"):
+        raise HTTPException(status_code=400, detail="by must be 'home' or 'upload'")
+    cols = "shop_id,shop_name,amount,customer_phone,status"
+    if by == "upload":
+        cols += ",upload_suburb,upload_locality,upload_latitude,upload_longitude"
+
+    def all_rows(table, columns):
+        out, start = [], 0
         while True:
-            batch = db.client.table('receipts').select(cols).range(start, start + 999).execute().data or []
-            receipts += batch
+            batch = db.client.table(table).select(columns).range(start, start + 999).execute().data or []
+            out += batch
             if len(batch) < 1000:
-                break
+                return out
             start += 1000
-        shops = db.client.table('shops').select('id,name,chain').execute().data or []
+
+    try:
+        receipts = all_rows('receipts', cols)
+        shops = all_rows('shops', 'id,name,chain')
+        homes, customers_total = None, None
+        if by == "home":
+            customers = all_rows('customers', 'phone_number,home_suburb,home_locality')
+            customers_total = len(customers)
+            homes = {c["phone_number"].lstrip("+"): {"suburb": c["home_suburb"], "locality": c["home_locality"]}
+                     for c in customers if c.get("home_suburb")}
     except Exception as e:
-        if "upload_suburb" in str(e) or "chain" in str(e):
-            return {"migration_needed": True, "suburbs": [], "unassigned": 0, "k_floor": 0}
+        if any(col in str(e) for col in ("upload_suburb", "chain", "home_suburb")):
+            return {"migration_needed": "008" if by == "home" else "007", "by": by,
+                    "suburbs": [], "unassigned": 0, "k_floor": 0}
         raise
-    return compute_wallet_share(receipts, shops)
+    result = compute_wallet_share(receipts, shops, by=by, homes=homes)
+    if by == "home":
+        result["customers_with_area"] = len(homes)
+        result["customers_total"] = customers_total
+    return result
 
 
 @api_router.get("/analytics/popular-shops")
@@ -2297,6 +2347,7 @@ async def whatsapp_webhook(data: dict, background_tasks: BackgroundTasks):
 
     # Handle different message types
     if message_type == "image" and media_id:
+        await db.pending_state_delete("home_area", phone_number)  # moved on: an open area question closes
         # Step 1 of two-step flow: receive image → OCR → ask for location
         await wa.send_text_message(phone_number, "📸 Receipt received! Processing with AI... Please wait.")
         background_tasks.add_task(
@@ -2328,13 +2379,65 @@ async def whatsapp_webhook(data: dict, background_tasks: BackgroundTasks):
             )
 
     elif message_type == "text":
+        command = content.lower().strip()
+        # An open home-area question takes the reply, unless it's a command
+        if command not in TEXT_COMMANDS and await db.pending_state_get("home_area", phone_number):
+            await handle_home_area_answer(phone_number, content, wa)
+            return {"status": "ok"}
+        if command in TEXT_COMMANDS:
+            await db.pending_state_delete("home_area", phone_number)  # answered with a command: question closes
         # Handle text commands
-        await handle_text_command(phone_number, content.lower().strip(), wa)
+        await handle_text_command(phone_number, command, wa)
 
     else:
         await wa.send_text_message(phone_number, "Please send a receipt photo or type HELP for commands.")
     
     return {"status": "ok"}
+
+def slip_fingerprint(extracted: dict, amount, shop_name, items, image_hash, shop_id=None) -> dict:
+    """What duplicate_guard compares: one slip = one entry."""
+    return {
+        "amount": amount, "shop_name": shop_name, "shop_id": shop_id, "items": items or [],
+        "receipt_date": parse_receipt_date((extracted or {}).get("date")),
+        "slip_time": (extracted or {}).get("slip_time"),
+        "transaction_ref": (extracted or {}).get("transaction_ref"),
+        "image_hash": image_hash,
+    }
+
+
+def mark_if_duplicate(receipt_dict: dict, image_bytes: Optional[bytes], extracted: Optional[dict] = None) -> Optional[dict]:
+    """Admin upload paths: fingerprint the slip and, if it was already entered (by anyone),
+    keep this copy out of the draw and send it to review. Returns the match or None."""
+    image_hash = image_dhash(image_bytes) if image_bytes else None
+    slip = slip_fingerprint(extracted or {}, receipt_dict.get("amount"), receipt_dict.get("shop_name"),
+                            receipt_dict.get("items"), image_hash, receipt_dict.get("shop_id"))
+    receipt_dict.update({k: slip[k] for k in ("image_hash", "slip_time", "transaction_ref")})
+    duplicate = duplicate_guard.find_duplicate(db, receipt_dict.get("customer_phone"), slip)
+    if duplicate:
+        receipt_dict.update({
+            "duplicate_of": duplicate.get("receipt_id"), "duplicate_kind": duplicate["kind"],
+            "draw_eligible": False, "fraud_flag": "review", "status": "review",
+            "fraud_reason": f"Same slip already entered ({duplicate['kind']})",
+        })
+    return duplicate
+
+
+async def send_already_have_slip(wa, phone: str, pending: bool = False, original: Optional[dict] = None):
+    """Same customer, same slip: friendly, no penalty, nothing saved."""
+    if pending:
+        msg = ("👍 Got this slip already — just tap the 📍 location button above to finish entering it.")
+    else:
+        when = ""
+        created = (original or {}).get("created_at")
+        if created:
+            try:
+                when = f" on {datetime.fromisoformat(str(created).replace('Z', '+00:00')).strftime('%-d %b')}"
+            except ValueError:
+                pass
+        msg = (f"👍 We already have this slip — you sent it{when}, and each slip counts once. "
+               f"No need to send it again.\n\nGot a new slip? Send a photo of that one.")
+    await wa.send_text_message(phone, msg)
+
 
 async def process_receipt_from_whatsapp(phone_number: str, media_id: str, mime_type: str, customer: dict):
     """Step 1: Download image, run OCR, store result, then ask for location"""
@@ -2349,6 +2452,21 @@ async def process_receipt_from_whatsapp(phone_number: str, media_id: str, mime_t
             return
 
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+
+        # Same customer re-sending the same photo: answer before spending an OCR call
+        image_hash = image_dhash(image_bytes)
+        has_pending = await cache_get_pending_receipt(phone_number) is not None
+        if duplicate_guard.seen_image_recently(phone_number, image_hash) and has_pending:
+            await send_already_have_slip(wa, phone_number, pending=True)
+            return
+        # (seen but not pending = OCR failed or the step expired: let it through)
+        resend = duplicate_guard.find_resend(db, phone_number, image_hash)
+        if resend:
+            duplicate_guard.log_signal(db, "resend", phone_number, {
+                "receipt_id": resend["id"], "customer_phone": phone_number,
+                "kind": duplicate_guard.SAME_IMAGE, "same_customer": True})
+            await send_already_have_slip(wa, phone_number, original=resend)
+            return
 
         # Process with LandingAI OCR
         processor = get_receipt_processor()
@@ -2389,6 +2507,18 @@ async def process_receipt_from_whatsapp(phone_number: str, media_id: str, mime_t
             )
             return
 
+        # One slip enters once: the same slip already sent (by anyone, or still pending)?
+        slip = slip_fingerprint(extracted, amount_val, shop_name, items, image_hash)
+        recent = duplicate_guard.match_recent_slip(phone_number, slip)
+        duplicate = duplicate_guard.find_duplicate(db, phone_number, slip) or recent
+        if duplicate and duplicate["same_customer"] and duplicate.get("pending") and not has_pending:
+            duplicate = None  # their earlier copy expired before the location step: this one counts
+        if duplicate and duplicate["same_customer"]:
+            duplicate_guard.log_signal(db, "resend", phone_number, duplicate)
+            await send_already_have_slip(wa, phone_number, pending=bool(duplicate.get("pending")),
+                                         original={"created_at": duplicate.get("created_at")})
+            return
+
         # Don't geocode yet — defer to Step 2 where we have customer location
         # This avoids matching a random branch for chain stores
 
@@ -2400,6 +2530,8 @@ async def process_receipt_from_whatsapp(phone_number: str, media_id: str, mime_t
             "shop_address": shop_address,
             "amount": amount,
             "items": items,
+            "slip": {k: slip[k] for k in ("image_hash", "slip_time", "transaction_ref")},
+            "duplicate": duplicate,  # another customer's slip: saved, but not entered
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
@@ -2488,6 +2620,11 @@ async def finalise_receipt_with_location(
             )
 
         receipt_status = "processed" if fraud_assessment["fraud_flag"] != "flagged" else "review"
+        duplicate = pending.get("duplicate")
+        if duplicate:
+            receipt_status = "review"
+            fraud_assessment = {**fraud_assessment, "fraud_flag": "review",
+                                "fraud_reason": f"Same slip already entered by another customer ({duplicate['kind']})"}
 
         receipt_date_parsed = parse_receipt_date(extracted.get("date"))
 
@@ -2513,7 +2650,7 @@ async def finalise_receipt_with_location(
             fraud_reason=fraud_assessment["fraud_reason"],
             status=receipt_status,
             receipt_date=datetime.fromisoformat(receipt_date_parsed) if receipt_date_parsed else None,
-            draw_eligible=check_draw_eligibility(receipt_date_parsed) and (amount or 0) > 0  # R0 = total not read
+            draw_eligible=check_draw_eligibility(receipt_date_parsed) and (amount or 0) > 0 and not duplicate  # R0 = total not read
         )
 
         receipt_dict = receipt.model_dump()
@@ -2522,6 +2659,9 @@ async def finalise_receipt_with_location(
         if receipt_dict.get('receipt_date'):
             receipt_dict['receipt_date'] = receipt_dict['receipt_date'].isoformat()
         receipt_dict['grounding'] = extracted.get('grounding', {})
+        receipt_dict.update(pending.get("slip") or {})  # image_hash, slip_time, transaction_ref (migration 009)
+        if duplicate:
+            receipt_dict.update({"duplicate_of": duplicate.get("receipt_id"), "duplicate_kind": duplicate["kind"]})
         logger.info(f"Receipt date: {receipt_date_parsed}, draw_eligible: {receipt_dict['draw_eligible']}")
 
         # Upload image to Supabase Storage
@@ -2535,6 +2675,10 @@ async def finalise_receipt_with_location(
 
         receipt_dict["items"] = sanitize_item_amounts(receipt_dict.get("items"), receipt_dict.get("amount"))
         await db.receipts_insert_one(receipt_dict.copy())
+        if duplicate:
+            duplicate_guard.log_signal(db, "cross_customer_duplicate", phone_number, duplicate,
+                                       receipt_id=receipt.id, latitude=latitude, longitude=longitude,
+                                       details={"shop_name": shop_name, "amount": amount})
 
         # Update customer stats
         await db.customers_update_one(
@@ -2558,10 +2702,12 @@ async def finalise_receipt_with_location(
             len(items),
             fraud_assessment["fraud_flag"],
             portal_url=portal_url,
-            not_in_draw_reason=None if receipt_dict.get("draw_eligible") else ("no_total" if not amount else "not_today"),
+            not_in_draw_reason=None if receipt_dict.get("draw_eligible") else (
+                "duplicate" if duplicate else "no_total" if not amount else "not_today"),
         )
 
         logger.info(f"✅ Receipt finalised for {phone_number}: {shop_display_name}, R{amount}")
+        await maybe_ask_home_area(phone_number, wa)
 
     except Exception as e:
         logger.error(f"❌ Receipt finalisation failed: {e}")
@@ -2569,6 +2715,76 @@ async def finalise_receipt_with_location(
             phone_number,
             "❌ Something went wrong saving your receipt. Please try again."
         )
+
+# ── Optional home area ────────────────────────────────────────────────────────
+# Asked once: right after registration, or (existing customers) after their next
+# receipt. Suburb/township level only; SKIP, AREA to change, REMOVE to delete.
+# Feeds share of wallet by home area (migration 008). Never asked before the
+# columns exist, so it can't nag on every receipt.
+HOME_AREA_QUESTION = (
+    "📍 *One optional question:* which area do you live in? "
+    "(for example Soweto, Khayelitsha or Umlazi)\n\n"
+    "Just the suburb or township — never your address. We use it only for anonymous "
+    "area statistics, and it is never shown to anyone.\n\n"
+    "Reply *SKIP* if you'd rather not say. You can change it any time by sending *AREA*."
+)
+HOME_AREA_SKIP = {"skip", "no", "nope", "no thanks", "pass", "rather not", "nah"}
+HOME_AREA_REMOVE = {"remove", "delete", "clear"}
+TEXT_COMMANDS = {"help", "hi", "hello", "start", "menu", "receipts", "wins", "status", "balance", "report", "area"}
+
+
+async def ask_home_area(phone_number: str, wa, question: str = HOME_AREA_QUESTION):
+    await db.pending_state_upsert("home_area", phone_number, {"asked": True}, ttl_minutes=24 * 60)
+    await db.customers_update_one({"phone_number": phone_number},
+                                  {"$set": {"home_area_asked_at": datetime.now(timezone.utc).isoformat()}})
+    await wa.send_text_message(phone_number, question)
+
+
+async def maybe_ask_home_area(phone_number: str, wa):
+    """Ask once per customer — only when the columns exist and it was never asked."""
+    if not db._column_exists("customers", "home_area_asked_at"):
+        return
+    customer = await db.customers_find_one({"phone_number": phone_number}) \
+        or await db.customers_find_one({"phone_number": f"+{phone_number}"})
+    if customer and not customer.get("home_suburb") and not customer.get("home_area_asked_at"):
+        await ask_home_area(phone_number, wa)
+
+
+async def handle_home_area_answer(phone_number: str, text: str, wa):
+    answer = text.strip()
+    low = answer.lower().strip(" .!")
+    if low in HOME_AREA_SKIP:
+        await db.pending_state_delete("home_area", phone_number)
+        customer = await db.customers_find_one({"phone_number": phone_number})
+        if customer and customer.get("home_suburb"):
+            await wa.send_text_message(phone_number, f"No change — your area stays *{customer['home_suburb']}*.")
+        else:
+            await wa.send_text_message(phone_number, "No problem — skipped. Send *AREA* any time if you change your mind.")
+        return
+    if low in HOME_AREA_REMOVE:
+        await db.pending_state_delete("home_area", phone_number)
+        await db.customers_update_one({"phone_number": phone_number}, {"$set": {"home_suburb": None, "home_locality": None}})
+        await wa.send_text_message(phone_number, "Done — we no longer have an area for you.")
+        return
+    if not 2 <= len(answer) <= 60:
+        await wa.send_text_message(phone_number, "Please type the name of your suburb or township, or reply *SKIP*.")
+        return
+    area = await get_geocoding_service().resolve_area_name(answer)
+    if not area:
+        # Keep the question open: a stray "thanks" must not become someone's area
+        await wa.send_text_message(
+            phone_number,
+            f"I couldn't find *{answer}*. Please type your suburb or township name "
+            f"(for example *Diepkloof* or *Mamelodi East*), or reply *SKIP*."
+        )
+        return
+    await db.customers_update_one({"phone_number": phone_number},
+                                  {"$set": {"home_suburb": area["suburb"], "home_locality": area["locality"]}})
+    await db.pending_state_delete("home_area", phone_number)
+    place = area["suburb"] if area["locality"] in (None, area["suburb"]) else f"{area['suburb']}, {area['locality']}"
+    logger.info(f"Home area saved for …{phone_number[-4:]}: {place}")
+    await wa.send_text_message(phone_number, f"Thanks! Your area is saved as *{place}*. Send *AREA* to change or remove it.")
+
 
 async def handle_registration_step(phone_number: str, text: str, wa):
     """Handle registration conversation steps (first name, surname)"""
@@ -2635,6 +2851,8 @@ async def handle_registration_step(phone_number: str, text: str, wa):
                 f"🏆 One lucky winner daily wins back their spend!\n\n"
                 f"_Send a receipt photo to get started!_"
             )
+            await maybe_ask_home_area(phone_number, wa)
+        # (with a receipt waiting, it is asked after that receipt's confirmation)
 
 
 async def handle_text_command(phone_number: str, command: str, wa):
@@ -2706,6 +2924,17 @@ async def handle_text_command(phone_number: str, command: str, wa):
             await wa.send_text_message(phone_number, msg)
         else:
             await wa.send_text_message(phone_number, "No stats yet. Send your first receipt to get started!")
+
+    elif command == "area":
+        customer = await db.customers_find_one({"phone_number": phone_number})
+        current = (customer or {}).get("home_suburb")
+        if current:
+            question = (f"📍 Your area is saved as *{current}*.\n\n"
+                        f"Type a new suburb or township to change it, *REMOVE* to delete it, or *SKIP* to keep it.")
+        else:
+            question = ("📍 Which area do you live in? Just the suburb or township — never your address.\n\n"
+                        "Reply *SKIP* if you'd rather not say.")
+        await ask_home_area(phone_number, wa, question)
 
     elif command == "report":
         portal_url = get_portal_url(phone_number)

@@ -6,6 +6,7 @@ Currently supports: Supabase (PostgreSQL)
 
 import os
 import logging
+import time
 import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
@@ -44,21 +45,29 @@ class Database:
     # Columns added by migrations that may not have been applied yet. Writes strip
     # them (with a one-time warning) instead of failing the whole insert.
     OPTIONAL_COLUMNS = {
-        "receipts": ("geocode_precision", "upload_suburb", "upload_locality"),
+        "receipts": ("geocode_precision", "upload_suburb", "upload_locality",
+                     "image_hash", "slip_time", "transaction_ref", "duplicate_of", "duplicate_kind"),
+        "customers": ("home_suburb", "home_locality", "home_area_asked_at"),
         "shops": ("place_id", "phone", "chain"),
         "receipt_items": ("brand_type", "brand_owner", "brand_tier",
                           "pack_size", "pack_unit", "gtin", "type_key"),
     }
     _column_cache: Dict[str, bool] = {}
+    _column_missing_at: Dict[str, float] = {}
+    COLUMN_RECHECK_SECONDS = 300  # a "missing" answer is re-probed, so running a migration needs no restart
 
     def _column_exists(self, table: str, column: str) -> bool:
         key = f"{table}.{column}"
+        if self._column_cache.get(key) is False and \
+                time.time() - self._column_missing_at.get(key, 0) > self.COLUMN_RECHECK_SECONDS:
+            del self._column_cache[key]
         if key not in self._column_cache:
             try:
                 self.client.table(table).select(column).limit(1).execute()
                 self._column_cache[key] = True
             except Exception as e:
                 self._column_cache[key] = False
+                self._column_missing_at[key] = time.time()
                 logger.warning(
                     f"⚠️ Column {key} missing — run backend/migrations for it. "
                     f"Writes will drop this field until then. ({str(e)[:120]})"
@@ -111,6 +120,7 @@ class Database:
                     new_val = current_val + delta
                     set_data[key] = int(new_val) if isinstance(delta, int) and isinstance(current_val, int) else new_val
         
+        set_data = self._drop_missing_columns('customers', set_data)
         if set_data:
             query = self.client.table('customers').update(set_data)
             for key, value in filter.items():

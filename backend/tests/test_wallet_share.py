@@ -65,6 +65,19 @@ check("no per-branch customer counts", all("customers" not in x for x in pub["su
 check("no coordinates", "latitude" not in pub["suburbs"][0] and "longitude" not in pub["suburbs"][0])
 check("admin result left untouched", "customers" in res["suburbs"][0]["split"][0])
 
+print("by home area (customer-chosen)")
+homes = {"27000000001": {"suburb": "Soweto", "locality": "Soweto"},
+         "27000000002": {"suburb": "Soweto", "locality": "Soweto"},
+         "27000000003": {"suburb": "Khayelitsha", "locality": "Cape Town"}}
+hres = compute_wallet_share(receipts, SHOPS, k_floor=2, by="home", homes=homes)
+hsub = {s["suburb"]: s for s in hres["suburbs"]}
+check("grouped by home area, not upload suburb", set(hsub) == {"Soweto", "Khayelitsha"})
+check("'+' phone matches its bare home entry", hsub["Khayelitsha"]["spend"] == 100)
+check("receipts of customers without an area are unassigned", hres["unassigned"] == 5)
+check("no coordinates in home mode (upload points aren't homes)", hsub["Soweto"]["latitude"] is None)
+check("k-floor applies per home area", hsub["Soweto"]["thin"] is False and hsub["Khayelitsha"]["thin"] is True)
+check("result says which grouping", hres["by"] == "home" and res["by"] == "upload")
+
 print("round_coord")
 check("3 decimal places (~110 m)", round_coord(-26.123456, 28.987654) == (-26.123, 28.988))
 check("missing coordinate -> None", round_coord(None, 28.0) is None)

@@ -29,6 +29,17 @@ functions:
     min_users: 0
     phase: 1
 
+  duplicateSlip:                  # duplicate_guard.py — one slip enters once
+    bound_to: [receipt]
+    computes: "Same slip already entered? (perceptual image hash / printed transaction ref / line prices + total + time) -> same-customer resend (not saved) or cross-customer copy (not in draw, review); clusters of phones sharing slips"
+    reads: [receipt.image_hash, receipt.slip_time, receipt.transaction_ref, receipt.amount, receipt.receipt_date, receipt.shop, receipt_item.total_price, customer.phone_number, receipt.upload_latitude, receipt.upload_longitude]
+    output_class: P               # fraud_signals rows carry phones + upload points (/fraud/duplicates, admin-only)
+    exposure: internal
+    implemented_by: app           # migration 009; backfill scripts/backfill_duplicates.py
+    invokes: [flagFraud]
+    min_users: 0
+    phase: 1
+
   drawEligibility:
     bound_to: [receipt]
     computes: "Is the receipt eligible for today's draw (OCR date vs upload date)"
@@ -208,7 +219,7 @@ functions:
   suburbWalletShare:
     bound_to: [suburb]
     computes: "Cross-retailer share of wallet per suburb — who is winning the basket here"
-    reads: [receipt.upload_suburb, receipt.upload_locality, shop.name, shop.chain, receipt.amount]
+    reads: [customer.home_suburb, customer.home_locality, receipt.upload_suburb, receipt.upload_locality, shop.name, shop.chain, receipt.amount]  # by=home | by=upload
     output_class: X               # external form = wallet_share.suppress_thin (k-floor 5, no per-branch customer counts, no coords)
     exposure: external            # admin view today: /analytics/wallet-share (Analytics → Suburbs); not released before min_users
     implemented_by: app           # backend/wallet_share.py — migration 007 + scripts/backfill_suburbs.py

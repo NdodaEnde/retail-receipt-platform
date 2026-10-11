@@ -1,9 +1,11 @@
 """
 Share of wallet by suburb — pure aggregation, no I/O (ontology: suburbWalletShare).
 
-Input: receipts carrying upload_suburb (the customer's suburb, a home proxy) and
-shops for names/chains. Output: per suburb, how its residents' observed spend is
-split across branches, plus a chain roll-up.
+Two groupings, both kept:
+  * by="upload" — the suburb each receipt was sent from (receipt.upload_suburb, migration 007)
+  * by="home"   — the home area the customer chose to share (customer.home_suburb, migration 008);
+                  pass homes={bare phone: {"suburb", "locality"}}
+Output: per suburb, how its observed spend is split across branches, plus a chain roll-up.
 
 Honesty rules baked in:
   * unit of split is the *branch* (most shops on the platform are independents;
@@ -29,35 +31,47 @@ def _f(v) -> float:
 
 
 def compute_wallet_share(receipts: Iterable[dict], shops: Iterable[dict],
-                         k_floor: int = K_FLOOR) -> Dict:
+                         k_floor: int = K_FLOOR, by: str = "upload",
+                         homes: Optional[Dict[str, dict]] = None) -> Dict:
     """
-    receipts: dicts with upload_suburb, upload_locality, upload_latitude/longitude,
-              shop_id, shop_name, amount, customer_phone, status
+    receipts: dicts with shop_id, shop_name, amount, customer_phone, status
+              (+ upload_suburb, upload_locality, upload_latitude/longitude for by="upload")
     shops:    dicts with id, name, chain
-    Returns {"suburbs": [...], "unassigned": n, "k_floor": k}
+    homes:    by="home" only — {bare phone: {"suburb": ..., "locality": ...}}
+    Returns {"suburbs": [...], "unassigned": n, "k_floor": k, "by": by}
+      unassigned = receipts that can't be placed: located but no suburb yet (upload),
+                   or from a customer who hasn't shared a home area (home)
     """
     shop_by_id = {s["id"]: s for s in shops if s.get("id")}
+    homes = homes or {}
     buckets: Dict[str, dict] = {}
     unassigned = 0
 
     for r in receipts:
         if r.get("status") == "rejected":
             continue
-        suburb = (r.get("upload_suburb") or "").strip()
-        if not suburb:
-            if r.get("upload_latitude") is not None:
+        if by == "home":
+            home = homes.get((r.get("customer_phone") or "").lstrip("+")) or {}
+            suburb, locality = (home.get("suburb") or "").strip(), home.get("locality")
+            if not suburb:
                 unassigned += 1
-            continue
+                continue
+        else:
+            suburb, locality = (r.get("upload_suburb") or "").strip(), r.get("upload_locality")
+            if not suburb:
+                if r.get("upload_latitude") is not None:
+                    unassigned += 1
+                continue
         amount = _f(r.get("amount"))
         b = buckets.get(suburb)
         if b is None:
             b = buckets[suburb] = {
-                "suburb": suburb, "locality": r.get("upload_locality"),
+                "suburb": suburb, "locality": locality,
                 "lat_sum": 0.0, "lon_sum": 0.0, "points": 0,
                 "customers": set(), "receipts": 0, "spend": 0.0,
                 "shops": defaultdict(lambda: {"receipts": 0, "spend": 0.0, "customers": set()}),
             }
-        if r.get("upload_latitude") is not None and r.get("upload_longitude") is not None:
+        if by == "upload" and r.get("upload_latitude") is not None and r.get("upload_longitude") is not None:
             b["lat_sum"] += _f(r["upload_latitude"]); b["lon_sum"] += _f(r["upload_longitude"]); b["points"] += 1
         phone = (r.get("customer_phone") or "").lstrip("+")
         b["customers"].add(phone)
@@ -104,7 +118,7 @@ def compute_wallet_share(receipts: Iterable[dict], shops: Iterable[dict],
             "split": split, "chains": chain_rows,
         })
     out.sort(key=lambda x: -x["spend"])
-    return {"suburbs": out, "unassigned": unassigned, "k_floor": k_floor}
+    return {"suburbs": out, "unassigned": unassigned, "k_floor": k_floor, "by": by}
 
 
 def suppress_thin(result: Dict) -> Dict:

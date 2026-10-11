@@ -326,6 +326,40 @@ class GeocodingService:
         
         return None
     
+    AREA_TYPES = {"sublocality", "sublocality_level_1", "sublocality_level_2", "neighborhood",
+                  "locality", "colloquial_area", "postal_town"}
+
+    async def resolve_area_name(self, text: str) -> Optional[Dict]:
+        """A suburb/township name a customer typed -> {"suburb", "locality"} as Google
+        names it ("diepkloof" -> Diepkloof, Soweto). None if Google can't place it at
+        suburb/town level (a province or the whole country doesn't count)."""
+        if not self.google_api_key or not text:
+            return None
+        params = {"address": f"{text}, South Africa", "key": self.google_api_key,
+                  "region": "za", "components": "country:ZA"}
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(GOOGLE_GEOCODE_URL, params=params, timeout=10)
+            data = response.json() if response.status_code == 200 else {}
+            for result in data.get("results", []):
+                if not self.AREA_TYPES.intersection(result.get("types", [])):
+                    continue
+                loc = result["geometry"]["location"]
+                if is_sa_centroid(loc["lat"], loc["lng"]):
+                    continue
+                suburb = locality = None
+                for component in result.get("address_components", []):
+                    types = component.get("types", [])
+                    if suburb is None and self.AREA_TYPES.difference({"locality", "postal_town"}).intersection(types):
+                        suburb = component["long_name"]
+                    if locality is None and ("locality" in types or "postal_town" in types):
+                        locality = component["long_name"]
+                if suburb or locality:
+                    return {"suburb": suburb or locality, "locality": locality or suburb}
+        except Exception as e:
+            logger.warning(f"Area lookup failed for {text!r}: {e}")
+        return None
+
     async def reverse_geocode_area(self, lat: float, lon: float) -> Optional[Dict]:
         """Suburb + city of a point, for wallet-share bucketing and search disambiguation.
         Returns {"suburb": "Douglasdale", "locality": "Sandton"} (suburb may equal

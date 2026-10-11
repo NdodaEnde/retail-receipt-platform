@@ -23,6 +23,9 @@ objects:
       - { name: first_name,          type: string,   source: WhatsApp_Cloud, sensitivity: P }
       - { name: surname,             type: string,   source: WhatsApp_Cloud, sensitivity: P }
       - { name: registration_status, type: enum,     source: Supabase,      sensitivity: O }
+      - { name: home_suburb,         type: string,   source: WhatsApp_Cloud, sensitivity: P }  # customer-chosen, optional, Google-normalised (migration 008)
+      - { name: home_locality,       type: string,   source: Google_Maps,   sensitivity: P }  # city/town of home_suburb
+      - { name: home_area_asked_at,  type: datetime, source: Supabase,      sensitivity: O }  # the question is asked once
       - { name: total_receipts,      type: number,   source: Supabase,      sensitivity: O }
       - { name: total_wins,          type: number,   source: Supabase,      sensitivity: O }
       - { name: total_spent,         type: currency, source: Supabase,      sensitivity: F }
@@ -63,6 +66,11 @@ objects:
       - { name: status,         type: enum,     source: Supabase,      sensitivity: O }
       - { name: receipt_date,   type: date,     source: LandingAI_ADE, sensitivity: O }
       - { name: draw_eligible,  type: boolean,  source: function,      sensitivity: O }
+      - { name: image_hash,     type: string,   source: function,      sensitivity: O }  # perceptual hash of the slip photo — migration 009
+      - { name: slip_time,      type: string,   source: LandingAI_ADE, sensitivity: O }  # printed sale time, verified
+      - { name: transaction_ref, type: string,  source: LandingAI_ADE, sensitivity: O }  # printed transaction/till-slip number, verified
+      - { name: duplicate_of,   type: "link->receipt", source: function, sensitivity: O }  # the original this slip copies
+      - { name: duplicate_kind, type: enum,     source: function,      sensitivity: O }  # same_image|same_transaction|same_content|cleared
       - { name: created_at,     type: datetime, source: Supabase,      sensitivity: O }
 
   receipt_item:                   # backend/schema.sql receipt_items

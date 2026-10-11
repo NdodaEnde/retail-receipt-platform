@@ -230,9 +230,13 @@ class WhatsAppCloudAPI:
         not_in_draw_reason: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Send receipt processing confirmation.
-        not_in_draw_reason: "no_total" | "not_today" when the receipt is saved but not entered."""
+        not_in_draw_reason: "no_total" | "not_today" | "duplicate" when the receipt is saved but not entered."""
 
-        if not_in_draw_reason == "no_total":
+        if not_in_draw_reason == "duplicate":
+            # neutral: never says who, when, or that anyone is suspected
+            status_msg = ("🔁 This slip has already been entered, so it can't go into the draw again — "
+                          "every slip enters once. If you think this is a mistake, let us know.")
+        elif not_in_draw_reason == "no_total":
             status_msg = ("⚠️ We couldn't read the total on this slip, so it isn't in today's draw. "
                           "Please send a clearer photo of the whole slip.")
         elif not_in_draw_reason == "not_today":
@@ -272,7 +276,8 @@ class WhatsAppCloudAPI:
             "• WINS - Check your winnings\n"
             "• STATUS - Today's draw info\n"
             "• BALANCE - Your total stats\n"
-            "• REPORT - Your spending report 📊\n\n"
+            "• REPORT - Your spending report 📊\n"
+            "• AREA - Set your home area (optional)\n\n"
             "🏆 One lucky winner daily wins back their spend!\n\n"
             "_Send a receipt photo to get started!_"
         )
