@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 import re
 from extraction_verifier import verify_extraction, sanitize_shop_name
+from duplicate_guard import verify_slip_time, verify_transaction_ref
 import base64
 import tempfile
 import json
@@ -261,6 +262,8 @@ class ReceiptProcessor:
             schema_shop_address = None
             schema_total_amount = None
             schema_postal_code = None
+            schema_slip_time = None
+            schema_transaction_ref = None
             try:
                 items_schema = json.dumps({
                     "type": "object",
@@ -284,7 +287,9 @@ class ReceiptProcessor:
                     "address_lines": {"type": "array", "items": {"type": "string"}, "description": "The shop's address exactly as printed on the receipt, one entry per printed line, in order (suburb, street, mall, city). Usually in the header; some restaurant slips print it in the footer. Do not include phone numbers, VAT numbers, or slogans. Empty if no address is printed."},
                     "phone_number": {"type": "string", "description": "The shop's own telephone number as printed near the address (e.g. '011 899 8634' or '+27 41 392 1400'). Not a customer-care / 0800 / 0860 line, not a fax number. Null if none is printed."},
                     "postal_code": {"type": "string", "description": "South African 4-digit postal code ONLY if it is printed as part of the shop's address (e.g. 'Cape Town 7536', 'Douglasdale 2191', '7848 Cape Town'). Return null if no postcode is printed. NEVER take a number from Store, Cash, Till, Trans, Date, Time, Batch, Auth, Terminal, Ref or cashier rows, phone numbers, VAT numbers, prices, or barcodes."},
-                    "postal_code_source_line": {"type": "string", "description": "The exact printed line the postal_code was read from, verbatim. Null if postal_code is null."}
+                    "postal_code_source_line": {"type": "string", "description": "The exact printed line the postal_code was read from, verbatim. Null if postal_code is null."},
+                    "transaction_time": {"type": "string", "description": "The time of the sale exactly as printed on the slip (e.g. '14:32' or '14:32:05'), usually next to the date. Null if no time is printed."},
+                    "transaction_reference": {"type": "string", "description": "The slip's own transaction / invoice / receipt / till-slip number exactly as printed (e.g. 'Trans 004512', 'Inv No: 88213', 'Slip 0031-2210'). Return only the number. Not a phone, VAT, card, auth or barcode number. Null if none is printed."}
                     }
                 })
 
@@ -319,6 +324,8 @@ class ReceiptProcessor:
                     if extracted_data.get('postal_code'):
                         schema_postal_code = str(extracted_data['postal_code']).strip()
                         logger.info(f"Schema postal_code: {schema_postal_code}")
+                    schema_slip_time = extracted_data.get("transaction_time")
+                    schema_transaction_ref = extracted_data.get("transaction_reference")
                     schema_proposal = {
                         "shop_name": extracted_data.get("shop_name"),
                         "shop_address": extracted_data.get("shop_address"),
@@ -398,6 +405,9 @@ class ReceiptProcessor:
                 "currency": "ZAR",
                 "items": final_items,
                 "date": parsed.get("date"),
+                # duplicate-slip identity: LLM proposes, the printed text verifies
+                "slip_time": verify_slip_time(schema_slip_time, full_text),
+                "transaction_ref": verify_transaction_ref(schema_transaction_ref, full_text),
                 "raw_text": full_text,
                 "grounding": grounding_data,
                 "chunks": chunks,

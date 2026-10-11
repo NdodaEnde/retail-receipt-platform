@@ -15,6 +15,7 @@ import {
   Receipt, Package, Image, FileText, User
 } from "lucide-react";
 import api from "../lib/api";
+import DuplicateSignals from "../components/DuplicateSignals";
 import { toast } from "sonner";
 
 export default function FraudDetection() {
@@ -279,6 +280,11 @@ export default function FraudDetection() {
             </ScrollArea>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Shared slips — duplicate-slip signals (migration 009) */}
+      <div className="max-w-6xl mx-auto mt-6">
+        <DuplicateSignals />
       </div>
 
       {/* Receipt Detail Dialog */}
