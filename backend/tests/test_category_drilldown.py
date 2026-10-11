@@ -38,7 +38,26 @@ print("category fixes")
 check("chewing gum is a sweet, not water", categorize("Water Air Rush Chewing Gum Menthol") == "Snacks & Sweets")
 check("spirit & mixer is Alcohol", categorize("Double Buffels & coke") == "Alcohol")
 check("plain Coke still Beverages", categorize("Coke 440ml") == "Beverages")
-check("mixer pattern -> Spirits", subcategorize("Alcohol", "Double Buffels & coke") == "Spirits & mixed drinks")
+for name, want in [
+    # Oct 2026 map audit — each was mislabelled on real slips
+    ("Double Gin & Ginger Ale", "Alcohol"), ("Klipdrift & Dry Lemon", "Alcohol"),
+    ("Ginger Beer", "Beverages"), ("200ml Dry Lemon", "Beverages"),
+    ("Orange Juice", "Beverages"), ("SIR FRUIT SHOT 100ML", "Beverages"), ("NECTAR FRT MANGO 20% 1.5L", "Beverages"),
+    ("Min Spark Lrg 1lt", "Beverages"), ("Indian Tonic 200ml", "Beverages"), ("POWERADE", "Beverages"),
+    ("Corona", "Alcohol"), ("Inveroche Amber Sgl", "Alcohol"), ("Merlot Btl", "Alcohol"), ("Kleine Zalze Chenin", "Alcohol"),
+    ("Kingklip", "Meat & Poultry"), ("BRISKET- BONE IN", "Meat & Poultry"), ("BROWN PREMIUM BRD 700", "Bread & Bakery"),
+    ("EPI-MAX CREAM 125G", "Toiletries & Health"), ("NIVEA R&B BL OIL&V", "Toiletries & Health"),
+    ("Nachtmann Crystal Wine Glasses 680ml", "Cleaning & Household"), ("FRITOS TOM 120", "Snacks & Sweets"),
+    ("BKD BEANS IN TOM S", "Staples & Grocery"), ("Ultimate Burger Buns", "Bread & Bakery"),
+    ("PNP HAMBURGER BUN 6 ea", "Bread & Bakery"), ("Wagyu Beef Smash Burger", "Dining & Takeaways"),
+    ("EGG Merch - Plastic Shopper", "Non-product"), ("LEVY", "Non-product"), ("less Promo Discount", "Non-product"),
+    ("BOTTLE DEPOSIT", "Non-product"), ("DELIVERY SURCHARGE", "Non-product"),
+    # and what must NOT move
+    ("Butternut Squash", "Fresh Produce"), ("Tomatoes 1kg", "Fresh Produce"), ("Fresh Cream 250ml", "Dairy & Eggs"),
+    ("Sunflower Oil 2L", "Staples & Grocery"), ("Extra Cheddar Cheese HWH Discount: 0.00", "Dairy & Eggs"),
+]:
+    check(f"{name} -> {want}", categorize(name) == want)
+check("mixer pattern -> Spirits",subcategorize("Alcohol", "Double Buffels & coke") == "Spirits & mixed drinks")
 
 print("line spend")
 check("consistent line uses total", line_spend({"quantity": 3, "unit_price": 40, "total_price": 120}) == (120, False))

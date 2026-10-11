@@ -30,9 +30,10 @@ ABBREVIATIONS = {
     "CHKN": "CHICKEN", "CHK": "CHICKEN", "BF": "BEEF",
     "VEG": "VEGETABLE", "TOM": "TOMATO", "POT": "POTATO",
     "CLDRNK": "COLD DRINK", "CDRINK": "COLD DRINK", "CD": "COLD DRINK",
-    "S/LIGHT": "SUNLIGHT", "W/POWDER": "WASHING POWDER",
+    "BKD": "BAKED", "S/LIGHT": "SUNLIGHT", "W/POWDER": "WASHING POWDER",
     "T/PAPER": "TOILET PAPER", "T/PASTE": "TOOTHPASTE",
     "M/MEAL": "MAIZE MEAL", "MMEAL": "MAIZE MEAL",
+    "BRD": "BREAD", "SPARK": "SPARKLING",
 }
 
 # ── Category rules: ordered (first category with a keyword hit wins) ──────────
@@ -43,6 +44,10 @@ CATEGORY_RULES: list[tuple[str, list[str]]] = [
         "beer", "lager", "black label", "castle", "hansa", "carling", "amstel",
         "heineken", "wine", "brandy", "vodka", "whisky", "whiskey", "cider",
         "savanna", "hunters", "klipdrift", "viceroy", "spirits", "gin", "rum",
+        "corona", "windhoek", "stella", "jameson", "inverroche", "inveroche", "smirnoff",
+        "jagermeister", "tequila", "amarula", "bells", "johnnie walker", "captain morgan",
+        "flying fish", "brutal fruit", "bernini", "long island", "merlot", "sauvignon",
+        "shiraz", "chardonnay", "pinotage", "cabernet", "chenin", "prosecco", "champagne",
     ]),
     ("Tobacco", [
         "cigarette", "cigarettes", "stuyvesant", "remington", "dunhill",
@@ -59,13 +64,13 @@ CATEGORY_RULES: list[tuple[str, list[str]]] = [
         "cappuccino", "espresso", "americano", "latte", "macchiato", "mocha",
         "flat white", "milkshake", "smoothie", "tagliata", "calamari", "squid",
         "sushi", "sashimi", "pizza", "burger", "risotto", "schnitzel", "nachos",
-        "tapas", "padano", "broccolini", "tramezzini", "sirloin", "ribeye",
+        "tapas", "padano", "broccolini", "tramezzini", "sirloin", "ribeye", "rib-eye", "rib eye",
     ]),
     ("Meat & Poultry", [
         "chicken", "beef", "mince", "polony", "vienna", "viennas", "russian",
         "russians", "wors", "boerewors", "sausage", "steak", "chop", "chops",
         "pork", "lamb", "mutton", "fish", "hake", "ribs", "liver", "gizzard",
-        "drumstick", "drumsticks", "braai pack", "biltong",
+        "drumstick", "drumsticks", "braai pack", "biltong", "kingklip", "brisket", "oxtail",
     ]),
     ("Dairy & Eggs", [
         "milk", "amasi", "maas", "cheese", "butter", "yoghurt", "yogurt",
@@ -78,7 +83,7 @@ CATEGORY_RULES: list[tuple[str, list[str]]] = [
     ("Fresh Produce", [
         "tomato", "tomatoes", "onion", "onions", "potato", "potatoes", "apple",
         "apples", "banana", "bananas", "orange", "oranges", "spinach", "cabbage",
-        "carrot", "carrots", "lettuce", "avo", "avocado", "butternut", "lemon",
+        "carrot", "carrots", "lettuce", "avo", "avocado", "butternut", "lemon", "lemons", "ginger",
         "naartjie", "fruit", "vegetable", "vegetables",
     ]),
     ("Beverages", [
@@ -86,6 +91,8 @@ CATEGORY_RULES: list[tuple[str, list[str]]] = [
         "sprite", "stoney", "soda", "water", "tea", "teabags", "tea bags",
         "coffee", "rooibos", "energy drink", "oros", "cordial", "mageu",
         "maheu", "iced tea", "still water", "still", "sparkling", "mineral",
+        "tonic", "grapetizer", "grapetiser", "appletiser", "nectar", "fruit shot", "la vie",
+        "powerade", "energade", "red bull", "monster energy", "lucozade",
     ]),
     ("Snacks & Sweets", [
         "chips", "crisps", "nik naks", "niknaks", "simba", "lays", "doritos",
@@ -118,9 +125,22 @@ CATEGORY_RULES: list[tuple[str, list[str]]] = [
 # CATEGORY_RULES would be wrong ("Water Air Rush Chewing Gum" is not water;
 # "Double Buffels & Coke" is a spirit served with a mixer, not a cold drink).
 PRIORITY_RULES: list[tuple[str, re.Pattern]] = [
+    # spirit + mixer first, so the mixer word can't make it a cold drink
+    ("Alcohol", re.compile(r"\b(double|single|tot|dbl|brandy|vodka|whisky|whiskey|gin|rum|klipdrift|"
+                           r"richelieu|buffels|jameson|smirnoff|bells|tequila|cane)\b.*?(&|\band\b|\+)\s*"
+                           r"(coke|cola|sprite|soda|tonic|lemonade|ginger ale|ginger beer|dry lemon|"
+                           r"orange juice|cranberry juice|juice)\b", re.IGNORECASE)),
     ("Snacks & Sweets", re.compile(r"\b(chewing|bubble)\s*gum\b", re.IGNORECASE)),
-    ("Alcohol", re.compile(r"\b(double|single|tot|dbl)\b.*?(&|\band\b|\+)\s*"
-                           r"(coke|cola|sprite|soda|tonic|lemonade|ginger ale|dry lemon)\b", re.IGNORECASE)),
+    # a fruit word in a drink ("Orange Juice", "Sir Fruit Shot") is a drink, not produce
+    ("Beverages", re.compile(r"\b(juice|nectar|fruit\s*shot|cordial|dry lemon|ginger ale|ginger beer)\b", re.IGNORECASE)),
+    # a food word in a skin-care / glassware / snack-brand name
+    ("Toiletries & Health", re.compile(r"\b(epi-?max|aqueous cream|hand cream|body cream|face cream|"
+                                       r"nappy cream|tissue oil|body oil|bio[- ]?oil|baby oil|nivea|dove)\b", re.IGNORECASE)),
+    ("Cleaning & Household", re.compile(r"\b(wine|whisky|champagne|beer|crystal|drinking)\s+glass(es)?\b|"
+                                        r"\b(tumblers?|decanter|corkscrew)\b", re.IGNORECASE)),
+    ("Snacks & Sweets", re.compile(r"\b(fritos|doritos|simba|lays|nik ?naks|willards|kinder|kindr|bueno)\b", re.IGNORECASE)),
+    ("Staples & Grocery", re.compile(r"\b(baked beans|beans in tomato|tomato (sauce|paste|puree|soup))\b", re.IGNORECASE)),
+    ("Bread & Bakery", re.compile(r"\b(ham)?burger\s+(bun|buns|rolls?)\b", re.IGNORECASE)),
 ]
 
 # ── Sub-categories: the drill-down level a brand client asks about first
@@ -214,6 +234,11 @@ NON_ITEM_PATTERNS = [
     re.compile(r"\b(carrier|checkout|plastic|shopping)\s+bag\b", re.IGNORECASE),
     re.compile(r"\b(100%|\d+\s*lt?r?)\s+bag\b", re.IGNORECASE),  # "CLICKS 100% 12LT BAG" = carrier bag
     re.compile(r"\bbag\s+(levy|fee)\b", re.IGNORECASE),
+    re.compile(r"\bplastic\s+shopper\b", re.IGNORECASE),           # "EGG Merch - Plastic Shopper"
+    re.compile(r"^\W*(less\s+)?(promo|product)\s+discount\b", re.IGNORECASE),
+    re.compile(r"\b(bottle|container)\s+deposit\b", re.IGNORECASE),
+    re.compile(r"\b(delivery|service)\s+(surcharge|fee|charge)\b", re.IGNORECASE),
+    re.compile(r"^\s*levy\s*$", re.IGNORECASE),
     re.compile(r"\b(rounding|round\s*off)\b", re.IGNORECASE),
     re.compile(r"^\s*[-=*.]+\s*$"),                                  # separator rows
 ]

@@ -40,6 +40,7 @@ from customer_totals import compute_customer_totals
 from brand_registry import infer_chain
 from wallet_share import compute_wallet_share, round_coord
 from category_drilldown import compute_category_drilldown
+from trip_category import trip_category
 from shop_resolver import resolve_shop, display_name_from_ocr_address
 from database import get_database
 from storage_helper import get_storage
@@ -1474,6 +1475,21 @@ async def get_map_shops_detail(user: dict = Depends(require_admin)):
     } for s in shops if not is_sa_centroid(s.get("latitude"), s.get("longitude"))]}
 
 
+def _items_by_receipt(receipt_ids: list) -> dict:
+    """receipt_id -> its item lines (category + amounts), for trip labels."""
+    out: dict = {}
+    for i in range(0, len(receipt_ids), 200):
+        try:
+            rows = db.client.table('receipt_items').select('receipt_id,category,total_price,quantity,unit_price') \
+                .in_('receipt_id', receipt_ids[i:i + 200]).execute().data or []
+        except Exception as e:
+            logger.warning(f"trip items lookup failed: {str(e)[:100]}")
+            rows = []
+        for row in rows:
+            out.setdefault(row['receipt_id'], []).append(row)
+    return out
+
+
 @api_router.get("/map/receipts")
 async def get_map_receipts(date: Optional[str] = None, user: dict = Depends(require_admin)):
     """
@@ -1486,7 +1502,7 @@ async def get_map_receipts(date: Optional[str] = None, user: dict = Depends(requ
     if date:
         query["created_at"] = {"$gte": f"{date}T00:00:00", "$lte": f"{date}T23:59:59"}
     receipts = await db.receipts_find(query, limit=2000)
-    categories = await db.get_receipt_categories([r["id"] for r in receipts])
+    items_by_receipt = _items_by_receipt([r["id"] for r in receipts])
     trips = []
     for r in receipts:
         trips.append({
@@ -1499,7 +1515,7 @@ async def get_map_receipts(date: Optional[str] = None, user: dict = Depends(requ
             "distance_km": r.get("distance_km"),
             "fraud_flag": r.get("fraud_flag"),
             "precision": r.get("geocode_precision") or "none",
-            "category": categories.get(r["id"], "Other"),
+            "category": trip_category(items_by_receipt.get(r["id"], []), r.get("amount"), r.get("shop_name")),
             "created_at": r.get("created_at"),
         })
     return {"receipts": trips}
